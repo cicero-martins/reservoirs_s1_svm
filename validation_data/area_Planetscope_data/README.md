@@ -41,8 +41,3 @@ To ensure transparency and allow reviewers to inspect the thresholding process, 
 4. Click **"Generate Results"** to view the calculated area and the mask overlay.
 
 ---
-
-## 📖 Citation
-
-If you use this dataset or the associated scripts, please cite:
-> *Martins-Jr, C., et al. (2026). [Insert Full Paper Title Here]. Journal Name/Link.*

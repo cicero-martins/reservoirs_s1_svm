@@ -1,36 +1,48 @@
-NDWI Water Mask Validation (PlanetScope)
-This folder contains the datasets, code, and results used to validate water surface area extraction from PlanetScope imagery. These results serve as the ground-truth comparison for the SAR Watermask timeseries presented in the study.
+# PlanetScope NDWI Water Mask Validation
 
-📁 Folder Structure
-NDWI_Validation_Results.xlsx: Detailed spreadsheet containing:
+This repository contains the dataset and scripts used to validate water surface area extraction from **PlanetScope** imagery (3m resolution). These data serve as the ground-truth reference to evaluate the accuracy of the **SAR-based watermask time series** presented in the main paper.
 
-Fig7_Tab3_Selected: Final validation results (Reference for Table 3 and Figure 7).
+## 📌 Overview
 
-ndwiValidation: List of all manually adjusted thresholds vs. areas calculated via NDWI vs. manual QGIS polygons.
+The methodology follows the adjusted NDWI filtering method described in **Sections 2.5 and 3.4**, with further technical details provided in **Appendix S2** of the Supplementary Material. 
 
-Sheets (0.2 to -0.4): Sensitivity analysis with fixed thresholds used to generate Figure 8.
+The validation process compares high-resolution PlanetScope-derived masks (optimized by manual thresholding) against manually digitized polygons created in QGIS to ensure the highest possible precision for the study sites.
 
-Final Sheets: Data supporting Figures 9 and 10 based on the full PlanetScope dataset.
+---
 
-polygons/: Folder containing the reference datasets (Shapefiles/GeoJSON) manually digitized in QGIS for each validation site.
+## 📁 Dataset Description: `NDWI_Validation_Results.xlsx`
 
-scripts/:
+The main spreadsheet provided in this folder is organized into the following sections:
 
-NDWI_Validation_App.js: Source code for the interactive GEE validation app.
+* **`Fig7_Tab3_Selected`**: Summarizes the final validation results used to build **Table 3** and **Figure 7** of the paper.
+* **`ndwiValidation`**: A comprehensive list of all PlanetScope images used, their respective manually adjusted NDWI thresholds, and the calculated areas compared against the QGIS manual reference masks.
+* **Sensitivity Analysis (`0.2` to `-0.4`)**: A series of sheets illustrating the area results and associated errors obtained when applying fixed NDWI thresholds. These data are summarized in **Figure 8**.
+* **Time Series Data (`Figs 9 and 10`)**: The last three sheets contain the data used for the long-term analysis shown in **Figures 9 and 10**, based on the optimal NDWI chosen for each image in the full PlanetScope dataset.
 
-Bulk_Processing_Planet.js: Script used for processing the full time-series dataset.
+---
 
-🛠 Methodology Overview
-The water masks were generated using an adjusted NDWI filtering method. While automated methods exist, this study employed a manual threshold adjustment for each image to ensure maximum precision against the high-resolution PlanetScope data (3m), as detailed in Sections 2.5 and 3.4 and Appendix S2 of the supplementary material.
+## 🛠️ Folder Contents
 
-Validation Workflow:
-Manual Digitization: Reference polygons were drawn in QGIS for selected dates/sites.
+* **/polygons**: Contains the reference datasets (Shapefiles/GeoJSON) manually drawn in **QGIS**. These represent the "gold standard" used for error calculation.
+* **/scripts**: Includes the Google Earth Engine (GEE) JavaScript code used to process the images and calculate the area statistics.
 
-NDWI Adjustment: For each date, the NDWI threshold was fine-tuned within the Earth Engine environment to match the physical boundaries of the reservoirs.
+---
 
-Area Comparison: The areas derived from the optimized NDWI were compared against the manual polygons to quantify the error margins.
+## 🌐 Interactive GEE Validation App
 
-🌐 Interactive Visualization
-To facilitate the review process, an interactive Google Earth Engine App was developed. This tool allows users to select specific sites and dates, adjust thresholds in real-time, and view the corresponding PlanetScope RGB and NDWI masks used in this validation.
+To ensure transparency and allow reviewers to inspect the thresholding process, an interactive web application was developed. The app allows for real-time visualization of the PlanetScope RGB imagery, the NDWI spectral response, and the resulting water masks.
 
-👉 Access the App here: PlanetScope NDWI Validation Tool
+🔗 **Access the App:** [PlanetScope NDWI Validation Tool](https://ee-ciceromartinsjr.projects.earthengine.app/view/ndwi-validation-planet-images)
+
+### How to use the App:
+1. Select the **Site (AOI)** from the dropdown menu.
+2. Choose a specific **Image Date**.
+3. Adjust the **NDWI Threshold** slider (or use the paper's recommended value).
+4. Click **"Generate Results"** to view the calculated area and the mask overlay.
+
+---
+
+## 📖 Citation
+
+If you use this dataset or the associated scripts, please cite:
+> *Martins-Jr, C., et al. (2026). [Insert Full Paper Title Here]. Journal Name/Link.*

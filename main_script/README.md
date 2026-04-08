@@ -19,6 +19,7 @@ As detailed in **Section 2** of the main manuscript and **Appendix S4**, the scr
 ## 🚀 Live Application
 
 For a quick demonstration of the framework without setting up the environment, access the web-based app here:
+
 🔗 **[Reservoir Monitoring App](https://ee-ciceromartinsjr.projects.earthengine.app/view/customaoi)**
 
 ## 🛠️ Usage Instructions

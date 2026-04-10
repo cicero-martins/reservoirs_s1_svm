@@ -39,13 +39,25 @@ The repository documents a cloud-based workflow for monitoring reservoir surface
 ### Custom AOI
 [![Video tutorial - Custom AOI](https://img.youtube.com/vi/d-azQwtdcA8/hqdefault.jpg)](https://youtu.be/d-azQwtdcA8)
 
-## Repository Structure
+## Repository Contents
 
-- **`main_script/`** — Core JavaScript implementation for Google Earth Engine  
-  - `reservoirs_s1_svm.js` — main application logic  
+- **`main_script/`** — core Google Earth Engine JavaScript implementation
+  - `reservoirs_s1_svm.js` — main application logic
   - `entries.js` — reservoir AOIs and training/sample inputs
-- **`raw_data/`** — dataset descriptions and supplementary information
+  - `README.md` — usage notes for the main GEE script
+
+- **`raw_data/`** — metadata and descriptions of the raw datasets used in the study
+  - `planetScope_IDs.xlsx` — list of PlanetScope scenes used in the validation
+  - `README.md` — description of Sentinel-1 and PlanetScope source data
+
+- **`validation_data/`** — supplementary datasets and materials used for validation and analysis
+  - `area_Planetscope_data/` — PlanetScope NDWI validation data, scripts, and reference polygons
+  - `morphometric_analysis/` — shoreline compactness / morphometric analysis materials
+  - `statistics/` — Matlab code and supporting files for statistical analysis
+  - `volume_AdB/` — storage-volume comparison tables
+
 - **`README.md`** — repository overview
+- **`LICENSE`** — MIT license
 
 ## Documentation
 
@@ -72,7 +84,7 @@ This repository is distributed under the **MIT License**. See the license terms 
 
 ## Citation
 
-If you use this repository, please cite the associated manuscript and/or preprint.
+If you use this repository, please cite the associated preprint.
 
 ```bibtex
 @article{MartinsJr2026,

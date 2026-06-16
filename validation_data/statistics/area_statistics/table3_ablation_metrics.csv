@@ -1,0 +1,13 @@
+Reservoir,Method,N,Planet_mean_ha,Method_mean_ha,Bias_ha,RMSE_ha,KGE
+Rosamarina,SVM VV+VH (app),36,145.5,147.2,1.8,4.5,0.889
+Rosamarina,SVM VV-only,36,144.4,140.7,-3.7,5.7,0.962
+Rosamarina,Otsu VV,30,144.5,159.8,15.3,22.4,0.45
+Pozzillo,SVM VV+VH (app),22,320.1,321.9,1.8,6.2,0.969
+Pozzillo,SVM VV-only,18,347.6,384.9,37.3,65.0,0.661
+Pozzillo,Otsu VV,20,332.5,397.4,64.9,109.2,0.498
+Poma,SVM VV+VH (app),38,223.5,210.7,-12.9,13.7,0.942
+Poma,SVM VV-only,36,221.6,202.5,-19.1,20.5,0.903
+Poma,Otsu VV,35,227.8,239.8,12.0,18.5,0.823
+Ancipa,SVM VV+VH (app),22,69.3,58.5,-10.8,16.7,0.808
+Ancipa,SVM VV-only,19,73.1,57.8,-15.3,20.0,0.775
+Ancipa,Otsu VV,19,75.7,80.4,4.7,35.0,0.236

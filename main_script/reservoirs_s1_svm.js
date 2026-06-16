@@ -807,6 +807,37 @@ var trainingClean = training
   .filter(ee.Filter.notNull(['landcover']));
 
 
+// ---- TRAIN / TEST SPLIT FOR ACCURACY REPORTING ----
+// Stratified 70/30 split using a random column (seed=42 for reproducibility).
+// The main classifierSVM (below) is trained on ALL trainingClean so that the
+// deployed model uses the full dataset. This split is only for diagnostic
+// reporting of held-out accuracy in the paper.
+
+var trainingWithRandom = trainingClean.randomColumn('random', 42);
+var trainSet70 = trainingWithRandom.filter(ee.Filter.lte('random', 0.7));
+var testSet30  = trainingWithRandom.filter(ee.Filter.gt('random', 0.7));
+
+var classifierSVM_splitTest = ee.Classifier.libsvm({
+  kernelType: 'RBF',
+  cost: 1,
+  gamma: 0.01
+}).train({
+  features: trainSet70,
+  classProperty: 'landcover',
+  inputProperties: ['VV', 'VH']
+});
+
+var testErrorMatrix = testSet30.classify(classifierSVM_splitTest)
+  .errorMatrix('landcover', 'classification');
+
+print('=== SVM Accuracy (70/30 held-out split, seed=42) ===');
+print('Train N:', trainSet70.size());
+print('Test  N:', testSet30.size());
+print('Overall Accuracy (test):', testErrorMatrix.accuracy());
+print('Kappa (test):',           testErrorMatrix.kappa());
+print('Confusion matrix (rows=actual, cols=predicted):', testErrorMatrix);
+
+
 // ---- CLASSIFIER TRAINING (SVM — RBF kernel) ----
 
 var classifierSVM = ee.Classifier.libsvm({
@@ -818,6 +849,31 @@ var classifierSVM = ee.Classifier.libsvm({
   classProperty: 'landcover',
   inputProperties: bands
 });
+
+
+// ---- VV-ONLY CLASSIFIER (VH ABLATION STUDY) ----
+// Trained on the same samples as classifierSVM but using only VV polarization.
+// Used to quantify the contribution of VH to classification performance.
+
+var classifierSVM_VVonly = ee.Classifier.libsvm({
+  kernelType: 'RBF',
+  cost: 1,
+  gamma: 0.01
+}).train({
+  features: trainingClean,
+  classProperty: 'landcover',
+  inputProperties: ['VV']
+});
+
+// Accuracy comparison on the 30% held-out test set
+var testErrorMatrix_VVonly = testSet30.classify(classifierSVM_VVonly)
+  .errorMatrix('landcover', 'classification');
+
+print('=== VV-only Classifier Accuracy (same 30% test set) ===');
+print('Overall Accuracy (test):', testErrorMatrix_VVonly.accuracy());
+print('Kappa (test):',           testErrorMatrix_VVonly.kappa());
+print('Confusion matrix:', testErrorMatrix_VVonly);
+
 
 var smoothingRadius = 30;
 
@@ -1017,13 +1073,169 @@ function PrioritizeDescendingAngleBins(collection, aoi, callback) {
   }
 
   angleList.evaluate(function(list) {
-    if (list.length > 1) {
+    if (list && list.length > 1) {
       tryNextBin(ee.List(list), 0);
     } else {
       callback(withAngle.sort('system:time_start'));
     }
   });
 }
+
+
+// ---- OTSU THRESHOLDING BASELINE ----
+// Applies Otsu's method to the VV band of a single S1 image.
+// ee.Algorithms.Otsu() exists only in the Python API; this implementation
+// computes the threshold manually using between-class variance maximisation.
+
+function otsuThreshold(image, aoi) {
+  var histDict = ee.Dictionary(
+    image.select('VV').reduceRegion({
+      reducer: ee.Reducer.histogram(256),
+      geometry: aoi,
+      scale: 10,
+      maxPixels: 1e9,
+      bestEffort: true
+    }).get('VV')
+  );
+
+  var counts = ee.Array(histDict.get('histogram'));
+  var means  = ee.Array(histDict.get('bucketMeans'));
+  var size   = means.length().get([0]);
+  var total  = counts.reduce(ee.Reducer.sum(), [0]).get([0]);
+  var wSum   = means.multiply(counts).reduce(ee.Reducer.sum(), [0]).get([0]);
+
+  // Vectorised Otsu: cumulative sums along the histogram axis (no server-side loop).
+  // Exclude the last bucket so both classes always have non-zero weight.
+  var cumCounts = counts.accum(0).slice(0, 0, size.subtract(1));
+  var cumWSum   = means.multiply(counts).accum(0).slice(0, 0, size.subtract(1));
+
+  var wA    = cumCounts;
+  var wB    = wA.multiply(-1).add(total);
+  var meanA = cumWSum.divide(wA);
+  var meanB = cumWSum.multiply(-1).add(wSum).divide(wB);
+  var bss   = wA.multiply(wB).multiply(meanA.subtract(meanB).pow(2));
+
+  // toList() + indexOf() avoids the ee.Array.argmax().get() type coercion
+  // bug in the GEE JS API.
+  var bssList   = bss.toList();
+  var maxBss    = bss.reduce(ee.Reducer.max(), [0]).get([0]);
+  var bestIdx   = bssList.indexOf(maxBss);
+  var threshold = ee.Number(means.toList().get(bestIdx));
+
+  return image.select('VV').lt(threshold).rename('WaterOtsu');
+}
+
+
+// ---- VV-ONLY CLASSIFICATION FUNCTION ----
+// Mirrors classifyImage() but uses only the VV band and classifierSVM_VVonly.
+
+function classifyImageVVonly(image, aoi) {
+  var clipped  = image.clip(aoi);
+  var filtered = clipped.focal_mean(smoothingRadius, 'circle', 'meters');
+  var classified = filtered.select(['VV']).classify(classifierSVM_VVonly);
+  return image.addBands(classified.rename('Classification_VVonly'))
+              .addBands(classified.eq(1).rename('Water_VVonly'));
+}
+
+
+// ---- AREA EXTRACTION HELPERS ----
+// Returns a Feature with date and area (ha) from a water band of the given image.
+
+function extractArea(image, waterBand, areaProperty, aoi) {
+  var mask = image.select(waterBand).unmask(0).clip(aoi);
+  var areaM2 = mask.multiply(ee.Image.pixelArea())
+    .reduceRegion({reducer: ee.Reducer.sum(), geometry: aoi, scale: 10, maxPixels: 1e9})
+    .get(waterBand);
+  var props = {
+    'system:time_start': image.date().millis(),
+    'data': image.date().format('YYYY-MM-dd')
+  };
+  props[areaProperty] = ee.Number(areaM2).divide(10000);
+  return ee.Feature(null, props);
+}
+
+
+// ---- ABLATION EXPORT FUNCTIONS ----
+// Export area time series for VV+VH SVM, VV-only SVM, and Otsu for a given
+// reservoir and date range. Run each function manually in GEE to generate
+// CSV files for MATLAB comparison (Table 3 in the paper).
+
+function exportAblationTimeSeries(aoi, lakeName, startDate, endDate) {
+  var safeLabel = lakeName.replace(/[^a-zA-Z0-9]/g, '_');
+
+  var collectionRaw = ee.ImageCollection('COPERNICUS/S1_GRD')
+    .filterDate(startDate, endDate)
+    .filterBounds(aoi)
+    .filter(ee.Filter.eq('instrumentMode', 'IW'))
+    .filter(ee.Filter.eq('resolution_meters', 10))
+    .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+    .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'));
+    // Note: .select('VV','VH') is applied AFTER angle filtering so that the
+    // 'angle' band remains available inside PrioritizeDescendingAngleBins.
+
+  // Apply the same incidence-angle bin selection used by the main pipeline,
+  // so the ablation export uses exactly one orbital pass per date and matches
+  // the images used in the interactive app (no duplicate-orbit contamination).
+  PrioritizeDescendingAngleBins(collectionRaw, aoi, function(collection) {
+    collection = collection.select('VV', 'VH');
+
+    // VV+VH SVM
+    var svmTs = collection.map(function(image) {
+      var clipped = image.clip(aoi).focal_mean(smoothingRadius, 'circle', 'meters');
+      var water   = clipped.select(bands).classify(classifierSVM).eq(1).rename('WaterSVM');
+      return extractArea(image.addBands(water), 'WaterSVM', 'areaSVM_ha', aoi);
+    });
+
+    // VV-only SVM
+    var vvTs = collection.map(function(image) {
+      var water = classifyImageVVonly(image, aoi).select('Water_VVonly');
+      return extractArea(image.addBands(water), 'Water_VVonly', 'areaVVonly_ha', aoi);
+    });
+
+    // Otsu VV
+    var otsuTs = collection.map(function(image) {
+      var water = otsuThreshold(image, aoi).rename('WaterOtsu');
+      return extractArea(image.addBands(water), 'WaterOtsu', 'areaOtsu_ha', aoi);
+    });
+
+    Export.table.toDrive({
+      collection: svmTs,
+      description: 'area_SVM_VVpVH_' + safeLabel,
+      fileFormat: 'CSV',
+      selectors: ['data', 'areaSVM_ha']
+    });
+
+    Export.table.toDrive({
+      collection: vvTs,
+      description: 'area_SVM_VVonly_' + safeLabel,
+      fileFormat: 'CSV',
+      selectors: ['data', 'areaVVonly_ha']
+    });
+
+    Export.table.toDrive({
+      collection: otsuTs,
+      description: 'area_Otsu_' + safeLabel,
+      fileFormat: 'CSV',
+      selectors: ['data', 'areaOtsu_ha']
+    });
+
+    print('Export tasks queued for ' + lakeName + ' (' + startDate + ' → ' + endDate + ')');
+  });
+}
+
+// ---- TRIGGER ABLATION EXPORTS FOR 4 VALIDATION RESERVOIRS ----
+// Validation period: May 2024 – May 2025 (coincides with PlanetScope dataset).
+// Uncomment the block below to queue the export tasks in the GEE Tasks panel.
+
+/*
+var ablationStart = '2024-05-01';
+var ablationEnd   = '2025-05-31';
+
+exportAblationTimeSeries(m.AOI['Invaso Rosamarina'], 'Invaso Rosamarina', ablationStart, ablationEnd);
+exportAblationTimeSeries(m.AOI['Invaso Pozzillo'],   'Invaso Pozzillo',   ablationStart, ablationEnd);
+exportAblationTimeSeries(m.AOI['Invaso Poma'],        'Invaso Poma',       ablationStart, ablationEnd);
+exportAblationTimeSeries(m.AOI['Invaso Ancipa'],      'Invaso Ancipa',     ablationStart, ablationEnd);
+*/
 
 
 // ---- TIMELAPSE ----
@@ -1359,6 +1571,150 @@ function atualizarImagem(indice) {
     c.map.addLayer(imagem.select('WaterCleaned').clip(aoi), visParamWater, 'Water');
   });
 }
+
+
+/*******************************************************************************
+ * RESEARCH EXTENSIONS
+ *
+ * Analyses and exports used in the paper but not part of the interactive app.
+ * Results are printed to the GEE console and/or exported to Google Drive via
+ * the Tasks panel.
+ ******************************************************************************/
+
+// ---- A/P RATIO FOR ALL 41 RESERVOIRS ----
+// Computes the Area-to-Perimeter ratio of each reservoir's AOI polygon.
+// The AOI represents the maximum water extent envelope and is used as a proxy
+// for shoreline compactness. Results are printed and exported for MATLAB analysis.
+
+var reservoirMorphometrics = ee.FeatureCollection(
+  Object.keys(m.AOI).map(function(name) {
+    var geom  = m.AOI[name];
+    var areaM2  = geom.area({maxError: 1});
+    var perimM  = geom.perimeter({maxError: 1});
+    var apRatio = areaM2.divide(perimM);
+    return ee.Feature(geom.centroid(1), {
+      'name':           name,
+      'aoi_area_m2':    areaM2,
+      'aoi_perim_m':    perimM,
+      'AP_ratio_m':     apRatio
+    });
+  })
+);
+
+print('=== AOI Morphometrics — all 41 reservoirs ===');
+print(reservoirMorphometrics);
+
+Export.table.toDrive({
+  collection: reservoirMorphometrics,
+  description: 'reservoir_AP_all41',
+  fileFormat: 'CSV',
+  selectors: ['name', 'aoi_area_m2', 'aoi_perim_m', 'AP_ratio_m']
+});
+
+
+// ---- JRC AUTO-TRAINING (SCALABILITY FRAMEWORK) ----
+// Generates training samples automatically from JRC Global Surface Water
+// occurrence data, eliminating the need for manual delineation.
+// Pixels with occurrence >= 95% within the AOI → permanent water (class 1).
+// Pixels with occurrence == 0% in a 500 m buffer zone outside the AOI → land (class 2).
+// This function is the core of the globally scalable workflow: any reservoir
+// with a defined AOI can be classified without manual sample collection.
+
+function autoGenerateTrainingSamples(aoi, nSamplesPerClass, seed) {
+  nSamplesPerClass = nSamplesPerClass || 500;
+  seed = seed || 42;
+
+  var jrcOccurrence = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence');
+
+  // Permanent water pixels inside the AOI (occurrence >= 95%)
+  var waterPixels = jrcOccurrence.gte(95).selfMask().clip(aoi);
+  var waterSamples = waterPixels.sample({
+    region: aoi,
+    scale: 30,
+    numPixels: nSamplesPerClass,
+    seed: seed,
+    geometries: true
+  }).map(function(f) { return f.set('landcover', 1); });
+
+  // Persistent non-water pixels in the 500 m buffer zone (occurrence == 0%)
+  var bufferZone = aoi.buffer(500).difference(aoi);
+  var landPixels = jrcOccurrence.eq(0).selfMask().clip(bufferZone);
+  var landSamples = landPixels.sample({
+    region: bufferZone,
+    scale: 30,
+    numPixels: nSamplesPerClass,
+    seed: seed,
+    geometries: true
+  }).map(function(f) { return f.set('landcover', 2); });
+
+  return waterSamples.merge(landSamples);
+}
+
+
+// Trains an SVM classifier from JRC-derived samples for the given AOI.
+// Returns the classifier and a diagnostic accuracy print on the GEE console.
+// The S1 image used for feature extraction is a 2023 annual mosaic by default.
+
+function trainSVMfromJRC(aoi, label, referenceYear) {
+  referenceYear = referenceYear || 2023;
+  var startDate = referenceYear + '-01-01';
+  var endDate   = (referenceYear + 1) + '-01-01';
+
+  var s1Mosaic = ee.ImageCollection('COPERNICUS/S1_GRD')
+    .filter(ee.Filter.eq('instrumentMode', 'IW'))
+    .filterMetadata('resolution_meters', 'equals', 10)
+    .filterBounds(aoi)
+    .filterDate(startDate, endDate)
+    .select('VV', 'VH')
+    .mosaic()
+    .focal_mean(30, 'circle', 'meters')
+    .clip(aoi);
+
+  var jrcSamples = autoGenerateTrainingSamples(aoi, 500, 42);
+
+  var trainingJRC = s1Mosaic.select(['VV', 'VH']).sampleRegions({
+    collection: jrcSamples,
+    properties: ['landcover'],
+    scale: 30
+  }).filter(ee.Filter.notNull(['landcover', 'VV', 'VH']));
+
+  var splitJRC = trainingJRC.randomColumn('random', 42);
+  var trainJRC = splitJRC.filter(ee.Filter.lte('random', 0.7));
+  var testJRC  = splitJRC.filter(ee.Filter.gt('random', 0.7));
+
+  var classifierJRC = ee.Classifier.libsvm({
+    kernelType: 'RBF',
+    cost: 1,
+    gamma: 0.01
+  }).train({
+    features: trainJRC,
+    classProperty: 'landcover',
+    inputProperties: ['VV', 'VH']
+  });
+
+  var jrcTestMatrix = testJRC.classify(classifierJRC)
+    .errorMatrix('landcover', 'classification');
+
+  print('=== JRC Auto-Training: ' + label + ' ===');
+  print('Water samples (JRC ≥95%):', jrcSamples.filter(ee.Filter.eq('landcover', 1)).size());
+  print('Land  samples (JRC =0%):', jrcSamples.filter(ee.Filter.eq('landcover', 2)).size());
+  print('Test OA (JRC model):', jrcTestMatrix.accuracy());
+  print('Confusion matrix:', jrcTestMatrix);
+
+  return classifierJRC;
+}
+
+// ---- TRIGGER JRC AUTO-TRAINING COMPARISON ----
+// Uncomment to train JRC-based models for the 4 validation reservoirs and
+// compare accuracy with the manually-trained classifierSVM.
+// Also exports the JRC-based area time series to Drive for validation in MATLAB.
+
+/*
+var classifierJRC_Rosamarina = trainSVMfromJRC(m.AOI['Invaso Rosamarina'], 'Rosamarina', 2023);
+var classifierJRC_Pozzillo   = trainSVMfromJRC(m.AOI['Invaso Pozzillo'],   'Pozzillo',   2023);
+var classifierJRC_Poma       = trainSVMfromJRC(m.AOI['Invaso Poma'],       'Poma',       2023);
+var classifierJRC_Ancipa     = trainSVMfromJRC(m.AOI['Invaso Ancipa'],     'Ancipa',     2023);
+*/
 
 
 /*******************************************************************************

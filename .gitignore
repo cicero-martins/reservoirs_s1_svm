@@ -1,0 +1,32 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Large raw data / binaries
+*.zip
+raw_data/HydroLAKES_polys_v10_shp/
+validation_data/DAHITI/
+validation_data/GEEvalidation-extracted/
+validation_data/pilot/
+validation_data/GROWL_Timeseries.zip
+validation_data/GRDL.zip
+validation_data/GEEvalidation2-*.zip
+validation_data/HydroLAKES_pilot24_shp/
+validation_data/HydroLAKES_pilot24.zip
+
+# GEE raw exports (regenerable from exportGlobalPilot.js)
+validation_data/GROWL_SAR_pilot/
+
+# PDFs (too large, stored separately)
+references/*.pdf
+submission/*.pdf
+
+# Figures (regenerable from scripts)
+validation_data/**/*.png
+validation_data/ablation_*.png
+
+# Local IDE
+.vscode/
+*.code-workspace

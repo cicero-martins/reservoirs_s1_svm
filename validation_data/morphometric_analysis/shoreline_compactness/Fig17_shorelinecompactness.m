@@ -33,15 +33,28 @@ markers = {'o','s','^','d'};
 % plotUnifiedMetricRaw('D',  'Fractal Dimension (D)', 'D (-)', ...
 %     metricFiles.D, areaFiles, reservoirNames, colors, markers);
 
-plotUnifiedMetricRaw('AP', 'A/P', 'A/P (m)', ...
+hSeries = plotUnifiedMetricRaw('AP', 'A/P', 'A/P (m)', ...
     metricFiles.AP, areaFiles, reservoirNames, colors, markers);
+print(hSeries, 'AP_vs_area_series', '-dpng', '-r150');
 
 % plotUnifiedMetricRaw('DL', 'DL', 'DL (-)', ...
 %     metricFiles.DL, areaFiles, reservoirNames, colors, markers);
 
+%% ====================== FIGURA: A/P MEDIANA vs KGE ======================
+% KGE (SVM VV+VH vs PlanetScope) de table3_ablation_metrics.csv
+% Ordem: Ancipa, Poma, Pozzillo, Rosamarina
+kge_vals  = [0.808, 0.942, 0.969, 0.889];
+rmse_vals = [16.7,  13.7,   6.2,   4.5 ];
+
+% A/P mediana (calculada das séries 2014-2025)
+ap_medians = [73.6, 173.1, 225.3, 154.3];  % Ancipa, Poma, Pozzillo, Rosamarina
+
+hKGE = plotAPvsKGE(ap_medians, kge_vals, rmse_vals, reservoirNames, colors, markers);
+print(hKGE, 'AP_vs_KGE', '-dpng', '-r150');
+
 %% ====================== FUNÇÕES LOCAIS ======================
-function plotUnifiedMetricRaw(metricKey, metricTitle, yLabel, fileList, areaFiles, rnames, colors, markers)
-  figure('Name', metricKey); hold on; grid on; box on;
+function hFig = plotUnifiedMetricRaw(metricKey, metricTitle, yLabel, fileList, areaFiles, rnames, colors, markers)
+  hFig = figure('Name', metricKey, 'Visible','off'); hold on; grid on; box on;
 
   for i = 1:numel(rnames)
     r = rnames{i};
@@ -77,6 +90,50 @@ function plotUnifiedMetricRaw(metricKey, metricTitle, yLabel, fileList, areaFile
   title(sprintf('All reservoirs — %s vs %% of max area (raw ranges)', metricTitle));
   legend('Location','bestoutside');
   xlim([0 100]);  % X é percentual
+end
+
+function hFig = plotAPvsKGE(ap, kge, rmse, rnames, colors, markers)
+  % Scatter plot: median A/P (x) vs KGE (y) and RMSE (secondary axis)
+  % Re-order by A/P for clean plot
+  [ap_sorted, idx] = sort(ap);
+  kge_sorted  = kge(idx);
+  rmse_sorted = rmse(idx);
+  names_sorted = rnames(idx);
+
+  hFig = figure('Name','AP_vs_KGE','Position',[100 100 700 420],'Visible','off'); hold on; grid on; box on;
+
+  for i = 1:numel(ap_sorted)
+    scatter(ap_sorted(i), kge_sorted(i), 120, ...
+      'Marker', markers{mod(i-1,numel(markers))+1}, ...
+      'MarkerFaceColor', colors(idx(i),:), ...
+      'MarkerEdgeColor', 'k', 'LineWidth', 0.8, ...
+      'DisplayName', names_sorted{i});
+    text(ap_sorted(i)+3, kge_sorted(i)-0.005, ...
+      sprintf('%s\n(RMSE=%.1f ha)', names_sorted{i}, rmse_sorted(i)), ...
+      'FontSize', 8, 'Color', colors(idx(i),:));
+  end
+
+  % Linear regression KGE ~ A/P
+  p = polyfit(ap_sorted, kge_sorted, 1);
+  xx = linspace(min(ap_sorted)-10, max(ap_sorted)+10, 200);
+  yy = polyval(p, xx);
+  plot(xx, yy, 'k--', 'LineWidth', 1.2, 'HandleVisibility','off');
+
+  % R^2
+  kge_hat = polyval(p, ap_sorted);
+  ss_res = sum((kge_sorted - kge_hat).^2);
+  ss_tot = sum((kge_sorted - mean(kge_sorted)).^2);
+  r2 = 1 - ss_res/ss_tot;
+  text(0.05, 0.95, sprintf('Linear fit: KGE = %.4g·A/P + %.4g\nR² = %.3f', ...
+    p(1), p(2), r2), 'Units','normalized', ...
+    'VerticalAlignment','top', 'FontSize', 9, ...
+    'BackgroundColor','white', 'EdgeColor','k');
+
+  xlim([0 270]);  ylim([0.75 1.0]);
+  xlabel('Median A/P ratio (m)');
+  ylabel('KGE — SVM VV+VH vs. PlanetScope');
+  title('Shoreline Compactness vs. SAR Classification Performance');
+  legend('Location','southeast');
 end
 
 function [xPct, y] = loadPairsAreaMetric(areaFile, metricFile)

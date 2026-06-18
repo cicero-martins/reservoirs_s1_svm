@@ -1,81 +1,45 @@
 // ============================================================
-// GLOBAL PILOT: A/P × SAR Quality — 30 reservoirs worldwide
-// Sentinel-1 SVM + JRC auto-training → monthly area time series
+// New regions pilot — end-to-end automatic pipeline
+// South America (BR, AR, CO) + Africa (ZA, SD)
 //
-// AOI methodology (v2 — JRC max_extent):
-//   1. HydroLAKES polygon = search anchor only
-//   2. JRC max_extent polygon = AOI source (largest contiguous
-//      water body within searchBuffer of HydroLAKES centroid)
-//   3. aoi = lakePoly.buffer(100)  — SAR/JRC detection zone
-//   Water samples: JRC occurrence ≥90% inside lakePoly (core)
-//   Land samples:  WorldCover non-water in ring aoi → 2km
+// Same methodology as exportSicilianJRC.js:
+//   AOI = JRC Global Surface Water max_extent polygon
+//         (largest water body within 2km of HydroLAKES centroid)
+//   HydroLAKES = search anchor only
+//   Training = WorldCover auto (land ring 100m–2km from AOI)
+//   Reference = JRC monthly optical area
 //
-// Exports → Google Drive / GROWL_SAR_pilot/:
-//   SAR_area_{name}_{resId}.csv   — SAR biweekly area
-//   JRC_area_{name}_{resId}.csv   — JRC monthly area
+// Upload HydroLAKES_newregions6.zip as GEE asset before running:
+//   Asset path: projects/ee-ciceromartinsjr/assets/HydroLAKES_newregions6
+//
+// Exports (→ Google Drive / GROWL_SAR_pilot/):
+//   SAR_auto_{name}.csv   — SAR with WorldCover auto-training
+//   JRC_area_{name}.csv   — JRC monthly optical area
 // ============================================================
 
 var START = '2014-01-01';
 var END   = '2025-06-01';
 
-// ── Pilot reservoir list: [resId, Hylak_id, name] ────────────
-// resId: GROWL ID for existing reservoirs; 9XXXX for new ones
-var PILOT = [
-  // Asia — India
-  [3345, 15647,    'Manikdoh'           ],
-  [3344, 15553,    'Panam'              ],
-  [3439, 15840,    'Periyar'            ],
-  [3438, 179882,   'Kakki'              ],
-  [3533, 15600,    'Pench_Totladoh'     ],
-  [3402, 15105,    'Thein_Ranjit_Sagar' ],
-  // Europe — Spain / Belgium
-  [2332, 172148,   'San_Esteban_ES'     ],
-  [2760, 1338571,  'Ry_de_Rome_BE'      ],
-  [2376, 172818,   'Borbollon_ES'       ],
-  [2405, 173730,   'Minilla_ES'         ],
-  [2408, 14552,    'Gabriel_y_Galan_ES' ],
-  [2418, 14457,    'Ricobayo_ES'        ],
-  // N. America — USA / Mexico
-  [1240, 8630,     'Pine_River_US'      ],
-  [1164, 9794,     'Benito_Juarez_MX'   ],
-  [1268, 105914,   'Pokegama_US'        ],
-  [1244, 735,      'Winnibigoshish_US'  ],
-  [1233, 738,      'Leech_US'           ],
-  [ 550, 831,      'Elephant_Butte_US'  ],
-  // Oceania — Australia
-  [3938, 184942,   'Maroondah_AU'       ],
-  [3941, 1426822,  'OShannassy_AU'      ],
-  [3936, 184949,   'Silvan_AU'          ],
-  [3911, 184923,   'Upper_Coliban_AU'   ],
-  [4089, 184368,   'Chichester_AU'      ],
-  [3942, 184943,   'Yarra_AU'           ],
-  // S. America — Brazil / Argentina / Colombia
-  [90001, 120969,  'Passauna_BR'        ],
-  [90002, 928,     'Tres_Marias_BR'     ],
-  [90003, 979,     'Cerros_Colorados_AR'],
-  [90004, 116772,  'Calima_CO'          ],
-  // Africa — South Africa / Sudan
-  [90005, 16612,   'Theewaterskloof_ZA' ],
-  [90006, 1543,    'Roseires_SD'        ],
+var hydroLakes = ee.FeatureCollection(
+  'projects/ee-ciceromartinsjr/assets/HydroLAKES_newregions6'
+);
+
+var RESERVOIRS = [
+  // Brazil
+  {name: 'Passauna_BR',           hylak_id: 120969, country: 'Brazil',    region: 'S. America'},
+  {name: 'Tres_Marias_BR',        hylak_id: 928,    country: 'Brazil',    region: 'S. America'},
+  // Argentina
+  {name: 'Cerros_Colorados_AR',   hylak_id: 979,    country: 'Argentina', region: 'S. America'},
+  // Colombia
+  {name: 'Calima_CO',             hylak_id: 116772, country: 'Colombia',  region: 'S. America'},
+  // Africa
+  {name: 'Theewaterskloof_ZA',    hylak_id: 16612,  country: 'S. Africa', region: 'Africa'},
+  {name: 'Roseires_SD',           hylak_id: 1543,   country: 'Sudan',     region: 'Africa'},
 ];
 
-// Search buffer override — large reservoirs need wider radius
-// to capture full JRC max_extent extent
-var SEARCH_BUFFER_OVERRIDE = {
-  928:  5000,   // Tres_Marias_BR  (~800 km²)
-  1543: 5000,   // Roseires_SD     (~225 km²)
-};
-
-// ── HydroLAKES assets (both merged — used as search anchors) ─
-var hydroLakes = ee.FeatureCollection(
-  'projects/ee-ciceromartinsjr/assets/HydroLAKES_pilot24'
-).merge(ee.FeatureCollection(
-  'projects/ee-ciceromartinsjr/assets/HydroLAKES_newregions6'
-));
-
 // ── JRC max_extent polygon ────────────────────────────────────
-// Returns the largest contiguous water body within searchBuffer
-// of the HydroLAKES polygon — NOT the HydroLAKES polygon itself.
+// Largest contiguous water body within searchBuffer of HydroLAKES centroid.
+// Tres_Marias (800 km²) and Roseires (225 km²) need a larger search radius.
 function jrcMaxExtentPoly(hydroPoly, searchBuffer) {
   var searchArea = hydroPoly.buffer(searchBuffer);
   var jrcMax = ee.Image('JRC/GSW1_4/GlobalSurfaceWater')
@@ -92,25 +56,24 @@ function jrcMaxExtentPoly(hydroPoly, searchBuffer) {
 }
 
 // ── Auto-training samples ─────────────────────────────────────
-// lakePoly : JRC max_extent polygon (water samples + A/P source)
-// aoi      : lakePoly.buffer(100) (SAR/JRC detection zone)
+// lakePoly : JRC max_extent polygon (water samples + A/P)
+// aoi      : lakePoly.buffer(100) (detection zone)
+// Land ring: aoi → 2km (unambiguously land)
 function autoTrainingSamples(lakePoly, aoi) {
   var occ = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence');
 
-  // Water: JRC ≥90% occurrence inside the reliable lake core
   var water90 = occ.gte(90).selfMask().sample({
     region: lakePoly, scale: 30, numPixels: 500, seed: 42, geometries: true
   }).map(function(f) { return f.set('landcover', 1); });
-  // Fallback if lake is seasonally dry or small
+
   var water50 = occ.gte(50).selfMask().sample({
     region: lakePoly, scale: 30, numPixels: 500, seed: 42, geometries: true
   }).map(function(f) { return f.set('landcover', 1); });
+
   var waterSamples = ee.FeatureCollection(
     ee.Algorithms.If(water90.size().gt(10), water90, water50)
   );
 
-  // Land: WorldCover non-water in ring between aoi and 2km buffer
-  // (unambiguously land, outside any possible water extent)
   var landRing = lakePoly.buffer(2000).difference(aoi);
   var wc = ee.ImageCollection('ESA/WorldCover/v200').first().select('Map');
   var landMask = wc.neq(80).and(wc.neq(90)).and(wc.neq(95))
@@ -122,12 +85,11 @@ function autoTrainingSamples(lakePoly, aoi) {
   return waterSamples.merge(landSamples);
 }
 
-// ── Best Sentinel-1 orbit ─────────────────────────────────────
+// ── Best orbit ────────────────────────────────────────────────
 function selectBestOrbit(col, aoi, callback) {
   var withAngle = col.map(function(img) {
     var mean = img.select('angle').reduceRegion({
-      reducer: ee.Reducer.mean(), geometry: aoi,
-      scale: 100, maxPixels: 1e6
+      reducer: ee.Reducer.mean(), geometry: aoi, scale: 100, maxPixels: 1e6
     }).get('angle');
     return img.set('mean_angle', mean);
   });
@@ -144,23 +106,25 @@ function selectBestOrbit(col, aoi, callback) {
   )));
 }
 
-// ── Main export function ──────────────────────────────────────
-function exportReservoir(resId, hylakId, name) {
+// ── Export per reservoir ──────────────────────────────────────
+RESERVOIRS.forEach(function(r) {
+  var hydroPoly = hydroLakes
+    .filter(ee.Filter.eq('Hylak_id', r.hylak_id))
+    .first().geometry();
 
-  var hydroPoly    = hydroLakes.filter(ee.Filter.eq('Hylak_id', hylakId))
-                      .first().geometry();
-  var searchBuffer = SEARCH_BUFFER_OVERRIDE[hylakId] || 2000;
+  // Large reservoirs need wider search to capture full JRC extent
+  var searchBuffer = (r.hylak_id === 928 || r.hylak_id === 1543) ? 5000 : 2000;
 
-  // AOI derived from JRC max_extent (not the HydroLAKES polygon)
-  var lakePoly          = jrcMaxExtentPoly(hydroPoly, searchBuffer);
-  var aoi               = lakePoly.buffer(100);
+  var lakePoly = jrcMaxExtentPoly(hydroPoly, searchBuffer);
+  var aoi      = lakePoly.buffer(100);
+
   var lake_area_m2      = lakePoly.area(1);
   var lake_perim_m      = lakePoly.perimeter(1);
   var ap_m              = lake_area_m2.divide(lake_perim_m);
   var aoi_area_m2       = aoi.area(1);
   var hydrolakes_area_m2 = hydroPoly.area(1);
 
-  // ── 1. SAR SVM classification ─────────────────────────────
+  // ── 1. SAR with WorldCover auto-training ─────────────────
   var s1raw = ee.ImageCollection('COPERNICUS/S1_GRD')
     .filterDate(START, END)
     .filterBounds(aoi)
@@ -196,24 +160,24 @@ function exportReservoir(resId, hylakId, name) {
         area_aoi_ha:        aoi_area_m2.divide(10000),
         jrc_max_area_ha:    lake_area_m2.divide(10000),
         hydrolakes_area_ha: hydrolakes_area_m2.divide(10000),
-        perim_lake_m:       lake_perim_m,
         n_water_pts:        training.filter(ee.Filter.eq('landcover', 1)).size(),
         n_land_pts:         training.filter(ee.Filter.eq('landcover', 2)).size(),
-        hylak_id:           hylakId,
-        growl_res_id:       resId,
-        reservoir:          name,
+        hylak_id:           r.hylak_id,
+        reservoir:          r.name,
+        country:            r.country,
+        region:             r.region,
       });
     });
 
     Export.table.toDrive({
       collection:  classified,
-      description: 'SAR_area_' + name + '_' + resId,
+      description: 'SAR_auto_' + r.name,
       folder:      'GROWL_SAR_pilot',
       fileFormat:  'CSV'
     });
   });
 
-  // ── 2. JRC monthly optical area (independent reference) ───
+  // ── 2. JRC monthly optical area ──────────────────────────
   var jrcMonthly = ee.ImageCollection('JRC/GSW1_4/MonthlyHistory')
     .filterDate(START, END)
     .filterBounds(aoi)
@@ -235,26 +199,23 @@ function exportReservoir(resId, hylakId, name) {
         area_aoi_ha:        aoi_area_m2.divide(10000),
         jrc_max_area_ha:    lake_area_m2.divide(10000),
         hydrolakes_area_ha: hydrolakes_area_m2.divide(10000),
-        hylak_id:           hylakId,
-        growl_res_id:       resId,
-        reservoir:          name,
+        hylak_id:           r.hylak_id,
+        reservoir:          r.name,
+        country:            r.country,
+        region:             r.region,
       });
     });
 
   Export.table.toDrive({
     collection:  jrcMonthly,
-    description: 'JRC_area_' + name + '_' + resId,
+    description: 'JRC_area_' + r.name,
     folder:      'GROWL_SAR_pilot',
     fileFormat:  'CSV'
   });
-}
-
-// ── Launch exports ────────────────────────────────────────────
-PILOT.forEach(function(p) {
-  exportReservoir(p[0], p[1], p[2]);
 });
 
-print('Reservatórios: ' + PILOT.length + ' → ' + (PILOT.length * 2) + ' tasks');
-print('Pasta destino: GROWL_SAR_pilot/');
-print('AOI: JRC max_extent (HydroLAKES = âncora de busca)');
-print('Assets: HydroLAKES_pilot24 + HydroLAKES_newregions6 (merged)');
+print('12 tasks → GROWL_SAR_pilot/');
+print('  SAR_auto_{name}.csv  (6 tasks)');
+print('  JRC_area_{name}.csv  (6 tasks)');
+print('AOI: JRC max_extent | HydroLAKES = search anchor only');
+print('Note: Tres_Marias and Roseires use 5km search buffer (large reservoirs)');

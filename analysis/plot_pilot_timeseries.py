@@ -26,8 +26,10 @@ VALID_FRAC   = 0.90
 N_MIN_MONTHS = 4    # minimum per year to compute annual KGE
 
 EXCLUDED = {
-    'Panam','Kakki','Ry_de_Rome_BE','OShannassy_AU','Leech_US','Winnibigoshish_US'
+    'Panam','Kakki','Ry_de_Rome_BE','OShannassy_AU','Leech_US','Winnibigoshish_US',
+    'Upper_Coliban_AU','Minilla_ES',
 }
+SAR_MIN_FRAC = 0.02  # exclude SAR obs < 2% of AOI area (misclassification guard)
 
 # ── KGE ───────────────────────────────────────────────────────────
 def kge(sim, obs):
@@ -67,7 +69,7 @@ for sar_path in sar_files:
     n_land  = int(sar_rows[0].get('n_land_pts', 0)) if sar_rows else 0
     n_water = int(sar_rows[0].get('n_water_pts', 0)) if sar_rows else 0
 
-    # --- SAR: biweekly → monthly mean ---
+    # --- SAR: biweekly → monthly mean (filter near-zero misclassification events) ---
     sar_by_month = {}
     for row in sar_rows:
         date = row.get('date', '')[:10]
@@ -75,7 +77,10 @@ for sar_path in sar_files:
             continue
         month = date[:7]
         try:
-            sar_by_month.setdefault(month, []).append(float(row['area_ha']))
+            area = float(row['area_ha'])
+            if not np.isnan(aoi_ha) and area < SAR_MIN_FRAC * aoi_ha:
+                continue
+            sar_by_month.setdefault(month, []).append(area)
         except (ValueError, KeyError):
             pass
     sar_monthly = {m: np.mean(v) for m, v in sar_by_month.items()}

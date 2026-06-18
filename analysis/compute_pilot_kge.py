@@ -27,6 +27,7 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 N_MIN_MONTHS = 12    # minimum overlapping months for reliable KGE
 VALID_FRAC   = 0.90  # minimum JRC valid-pixel fraction (cloud-free) to include a month
+SAR_MIN_FRAC = 0.02  # exclude SAR obs where classified area < 2% of AOI (misclassification guard)
 
 # Reservoirs excluded from KGE analysis with documented physical reasons
 EXCLUDED = {
@@ -38,6 +39,9 @@ EXCLUDED = {
     # Reservoirs with physical limitations incompatible with SAR-JRC comparison
     'Leech_US':         'minimal regulation; seasonal ice + multi-orbit S1 mixing (n_land=3)',
     'Winnibigoshish_US':'minimal regulation; seasonal ice + systematic SAR underdetection (n_land=2)',
+    # Near-constant optical area — KGE denominator instability (JRC std/median < 5%)
+    'Upper_Coliban_AU': 'near-constant JRC area (186–205 ha, 9% AOI range); early S1 orbit artifacts Oct 2014–Jun 2015 (12 near-zero SAR events)',
+    'Minilla_ES':       'near-constant JRC area (std=2.1 ha, 1.3% of median fill); KGE undefined for near-constant reference series',
 }
 
 # ── KGE ───────────────────────────────────────────────────────────
@@ -126,7 +130,13 @@ for key, sar_path in sorted(sar_map.items()):
 
     # --- SAR: aggregate to monthly mean ---
     sar_rows = load_gee_csv(sar_path)
+    aoi_ha_for_filter = None
+    try:
+        aoi_ha_for_filter = float(sar_rows[0]['area_aoi_ha']) if sar_rows else None
+    except (ValueError, KeyError):
+        pass
     sar_by_month = {}
+    n_sar_filtered = 0
     for row in sar_rows:
         date = row.get('data', row.get('date', ''))[:10]
         if not date or date < '2014-01-01':
@@ -134,9 +144,16 @@ for key, sar_path in sorted(sar_map.items()):
         month = date[:7]
         try:
             area = float(row['area_ha'])
+            # Exclude near-zero observations (< 2% of AOI): likely misclassification
+            # due to insufficient radar coverage, wind roughening, or fog
+            if aoi_ha_for_filter and area < SAR_MIN_FRAC * aoi_ha_for_filter:
+                n_sar_filtered += 1
+                continue
             sar_by_month.setdefault(month, []).append(area)
         except (ValueError, KeyError):
             pass
+    if n_sar_filtered:
+        print(f"  SAR: filtered {n_sar_filtered} near-zero obs (< {SAR_MIN_FRAC*100:.0f}% AOI)")
     sar_monthly = {m: np.mean(v) for m, v in sar_by_month.items()}
     ap_m = None
     if sar_rows:

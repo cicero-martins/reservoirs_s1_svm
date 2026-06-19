@@ -27,6 +27,20 @@ submission/*.pdf
 validation_data/**/*.png
 validation_data/ablation_*.png
 
+# Secrets / credentials (AEGIS CFD Sicilia API tokens — never commit)
+analysis/_aegis_token.json
+analysis/_aegis_elements*.json
+*_token.json
+*.token
+
+# Scratch / probe / diagnostic scripts (underscore-prefixed, throwaway)
+analysis/_probe_*.py
+analysis/_diag_*.py
+analysis/_vol_table.py
+
+# Office lock files
+**/~$*
+
 # Local IDE
 .vscode/
 *.code-workspace

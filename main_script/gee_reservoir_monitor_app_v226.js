@@ -33,7 +33,7 @@ var CFG = {
   // Switch the reservoir catalogue here:
   //   'sicily' = personal validated asset (4+ Sicilian reservoirs, field res_name)
   //   'global' = Awesome GEE Community Catalog HydroLAKES v1.0 (1.43M water bodies)
-  dataset: 'sicily',
+  dataset: 'global',
 
   datasets: {
     sicily: {
@@ -88,7 +88,9 @@ var CFG = {
 
   // SAR filter
   sar_scale_m:   10,   // native S1 resolution — used for area computation
-  clean_scale_m: 30,   // resolution for connected-component vectorization (keep_largest_only:true path)
+  clean_scale_m: 30,   // resolution for connected-component vectorization; 30 m is
+                       // sufficient for cleaning and avoids pixel-count overflows on
+                       // large reservoirs (e.g. Itaipu ~1350 km² = 13.5 B px at 10 m)
   max_pixels:   1e9,
 
   // Connected-component cleaning:
@@ -156,7 +158,6 @@ function jrcMaxExtentPoly(hydroGeom, searchBuffer) {
     bestEffort:     true,
     geometryType:   'polygon',
     eightConnected: true,
-    tileScale:      4,   // splits AOI into smaller tiles → lower peak memory per tile
   });
   // Largest polygon by pixel count = main reservoir body
   return waterVecs.sort('count', false).first().geometry();
@@ -345,25 +346,12 @@ function classifyCollection(s1Proc, classifier, aoi, lakePoly) {
     return img.addBands(filled.where(mask, 1).rename('WaterFilled'));
   });
 
-  // Step 3 — connected-component cleaning → WaterCleaned (used for area series).
-  //
-  // reduceToVectors at clean_scale_m (30 m) produces vector polygons; those
-  // whose centroid falls inside lakePoly are kept (centroid-inside filter).
-  // tileScale: 4 reduces peak memory per GEE computation tile.
-  //
-  // IMPORTANT — display vs. computation split:
-  //   WaterCleaned is correct for the area chart because GEE runs one batch
-  //   computation per image. It must NOT be used as a map display layer
-  //   (addLayer) because GEE re-evaluates reduceToVectors independently for
-  //   each 256×256 map tile → memory overflow on large reservoirs (Itaipu etc.).
-  //   Map display uses WaterFilled.clip(lakePoly) instead (see §18), which is
-  //   functionally equivalent but avoids any neighbourhood vectorization.
+  // Step 3 — connected-component cleaning
   return withFilled.map(function(img) {
-    var mask  = img.select('WaterFilled');
-    var polys = mask.reduceToVectors({
+    var mask   = img.select('WaterFilled');
+    var polys  = mask.reduceToVectors({
       geometryType: 'polygon', reducer: ee.Reducer.countEvery(),
-      scale: CFG.clean_scale_m, maxPixels: CFG.max_pixels,
-      bestEffort: true, tileScale: 4,
+      scale: CFG.clean_scale_m, maxPixels: CFG.max_pixels, bestEffort: true,
     });
 
     var keptPolys;
@@ -374,12 +362,17 @@ function classifyCollection(s1Proc, classifier, aoi, lakePoly) {
         }).sort('_area', false).first()
       ]);
     } else {
+      // Keep all water polygons whose centroid falls inside the JRC max_extent
+      // footprint. More selective than filterBounds (which admits external bodies
+      // touching the lake boundary) while preserving all internal reservoir arms.
       var withFlag = polys.map(function(f) {
         var inside = lakePoly.contains(f.geometry().centroid({maxError: 1}),
                                        ee.ErrorMargin(1));
         return f.set('_inside', inside);
       });
       keptPolys = withFlag.filter(ee.Filter.eq('_inside', 1));
+      // Safety fallback: if no centroid lands inside (extreme low-water state),
+      // fall back to the single largest polygon to avoid an empty mask.
       keptPolys = ee.FeatureCollection(ee.Algorithms.If(
         keptPolys.size().gt(0),
         keptPolys,
@@ -389,8 +382,9 @@ function classifyCollection(s1Proc, classifier, aoi, lakePoly) {
       ));
     }
 
-    var keptMask = ee.Image().paint({featureCollection: keptPolys, color: 1})
-                             .rename('KeptRegionMask');
+    var keptMask = ee.Image().paint({
+      featureCollection: keptPolys, color: 1,
+    }).rename('KeptRegionMask');
     return img.addBands(mask.updateMask(keptMask).rename('WaterCleaned'));
   });
 }
@@ -909,7 +903,7 @@ function loadDateOnMap(dateStr) {
       'SAR VV  ' + dateStr
     );
     mapObj.addLayer(
-      ee.Image(img).select('WaterFilled').updateMask(ee.Image.constant(1).clip(S.lakePoly)),
+      ee.Image(img).select('WaterCleaned').selfMask().clip(G_aoi),
       {palette: ['1565c0'], opacity: 0.85},
       'Water  ' + dateStr
     );
@@ -1012,7 +1006,7 @@ runBtn.onClick(function() {
       'SAR VV (latest)'
     );
     mapObj.addLayer(
-      lastImg.select('WaterFilled').updateMask(ee.Image.constant(1).clip(lakePoly)),
+      lastImg.select('WaterCleaned').selfMask().clip(aoi),
       {palette: ['1565c0'], opacity: 0.85},
       'Water (latest)'
     );
@@ -1143,7 +1137,7 @@ resetBtn.onClick(function() {
   mapObj.layers().reset();
   showInitialPoints();
   if (CFG.dataset === 'sicily') { mapObj.setCenter(14.0, 37.5, 8); }
-  else { mapObj.setCenter(0, 20, 3); }
+  else { mapObj.setCenter(0, 20, 2); }
 });
 
 // ─── 19. A/P BADGE ───────────────────────────────────────────────────────
@@ -1295,8 +1289,8 @@ var mapNameLabel = ui.Label('', {
   position: 'bottom-left', margin: '0', shown: false,
 });
 var mapDateLabel = ui.Label('', {
-  fontSize: '22px', fontWeight: 'bold', color: 'white',
-  backgroundColor: 'rgba(0,0,0,0.55)', padding: '5px 14px',
+  fontSize: '14px', color: 'white',
+  backgroundColor: 'rgba(0,0,0,0.55)', padding: '4px 12px',
   position: 'bottom-right', margin: '0', shown: false,
 });
 mapObj.add(mapNameLabel);

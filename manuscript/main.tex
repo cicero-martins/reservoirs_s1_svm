@@ -1,0 +1,117 @@
+%% Environmental Modelling & Software — elsarticle, author-year (Harvard)
+%% Review mode: double-spaced, line numbers, single column
+\documentclass[review,12pt,authoryear]{elsarticle}
+
+%% --- Encoding & fonts ---
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+
+%% --- Math ---
+\usepackage{amsmath,amssymb}
+
+%% --- Graphics & tables ---
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+
+%% --- Hyperlinks ---
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+
+%% --- Units ---
+\usepackage{siunitx}
+\sisetup{detect-all, group-separator={,}}
+
+%% --- Misc ---
+\usepackage{microtype}
+\usepackage{lineno}       % line numbers (activated by 'review' class option)
+\usepackage{setspace}
+\usepackage[margin=2.5cm]{geometry}
+
+%% --- Bibliography (natbib, Harvard author-year) ---
+\biboptions{authoryear,round,semicolon}
+
+% -----------------------------------------------------------------------
+\begin{document}
+
+\begin{frontmatter}
+
+\title{Monitoring Surface and Storage Dynamics of Water Reservoirs Using
+       Sentinel-1 SAR and Machine Learning in Google Earth Engine}
+
+\author[unipa]{Cicero Martins Jr.\corref{cor1}}
+\ead{cicero.martinsjr@unipa.it}
+
+\author[unipa]{Fulvio Capodici}
+\author[unipa]{Mauro De Marchis}
+\author[unipa]{Giuseppe Ciraolo}
+
+\cortext[cor1]{Corresponding author}
+\affiliation[unipa]{organization={Dipartimento di Ingegneria,
+                    Università degli Studi di Palermo},
+                    city={Palermo},
+                    country={Italy}}
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+This study presents an operational workflow for monitoring water surface
+area and storage dynamics using Sentinel-1 SAR imagery and machine
+learning on Google Earth Engine (GEE), demonstrated across 41 reservoirs
+in Sicily~($n=41$). The preprocessing pipeline includes incidence-angle
+filtering that prioritizes IW3 acquisitions ($\sim$42--46$^{\circ}$),
+reducing angular backscatter variability and improving temporal
+consistency. Water detection is performed using a Support Vector Machine
+(SVM) classifier trained on VV and VH polarizations, which outperformed
+threshold-based methods and other classifiers available under GEE.
+Classified masks were refined through morphological filtering and converted
+into surface-area and volume time series using reservoir-specific
+area--volume curves. Validation against high-resolution PlanetScope NDWI
+masks showed strong agreement ($R^{2}>0.95$; KGE up to 0.96;
+$n=\text{X}$ image pairs). To interpret performance differences, a
+shoreline morphometric analysis based on the area-to-perimeter ratio (A/P)
+was conducted, revealing that reservoirs with smoother, more compact
+shorelines exhibit higher SAR classification accuracy, whereas highly
+irregular systems show larger uncertainties. Comparison with official
+storage records confirmed very good performance for large reservoirs and
+highlighted limitations related to shoreline complexity and outdated
+bathymetric relationships in smaller systems. The workflow provides a
+cloud-based approach for satellite-driven reservoir storage monitoring in
+data-scarce regions.
+\end{abstract}
+
+\begin{keyword}
+Synthetic Aperture Radar (SAR) \sep
+Google Earth Engine \sep
+Support Vector Machine \sep
+Reservoir Monitoring \sep
+Shoreline Morphometry \sep
+Area-to-Perimeter Ratio
+\end{keyword}
+
+\end{frontmatter}
+
+\linenumbers   % activate line numbering for review
+
+% -----------------------------------------------------------------------
+\input{sections/01_introduction}
+\input{sections/02_study_area}
+\input{sections/03_data_methods}
+\input{sections/04_results}
+\input{sections/05_discussion}
+\input{sections/06_conclusions}
+
+% -----------------------------------------------------------------------
+\section*{Acknowledgements}
+% TODO
+
+\section*{Data Availability Statement}
+The GEE scripts and supplementary datasets are available at:
+\url{https://github.com/cicero-martins/reservoirs_s1_svm}.
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{references}
+
+\end{document}

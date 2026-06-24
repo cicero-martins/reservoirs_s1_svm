@@ -1,0 +1,8 @@
+label,n,bias,rmse,r2
+Poma: V->h_monthly vs gauge,44,0.903,1.074,0.957
+Poma: ODS_quota vs gauge,384,-0.047,0.684,0.941
+Rosamarina: V->h_monthly vs gauge,33,-1.65,2.599,0.807
+Rosamarina: ODS_quota vs gauge,168,-0.641,1.881,0.59
+Pozzillo: V->h_monthly vs gauge,44,-1.792,3.42,-0.24
+Ancipa: V->h_monthly vs gauge,9,0.928,4.825,0.644
+Ancipa: ODS_quota vs gauge,384,2.787,3.089,0.611

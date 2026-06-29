@@ -99,6 +99,16 @@ var CFG = {
   //           whose centroids are outside lakePoly) while preserving reservoir arms.
   keep_largest_only: false,
 
+  // FAST area mode — skip per-scene reduceToVectors (the dominant per-image cost,
+  // which scales with the number of S1 scenes and triggers "capacity exceeded" on
+  // long date ranges). Instead derive WaterCleaned by clipping WaterFilled to the
+  // pool polygon (same masking the map display already trusts), with a cheap raster
+  // connected-component despeckle. Lets the app run multi-year ranges interactively.
+  // Trade-off: no centroid-inside vectorisation — but with keep_largest_only:false
+  // the difference is small (spurious blobs inside lakePoly were already counted).
+  fast_area:     false,   // set true to enable the cheap area path
+  min_blob_px:   5,       // FAST despeckle: drop connected water blobs < this many px
+
   // Minimum S1 AOI coverage (%) required per image in orbit fallback.
   // The primary selection requires ≥90%; if no orbit achieves that, images with
   // coverage ≥ min_coverage_pct are used. Lowering helps global reservoirs at
@@ -344,6 +354,19 @@ function classifyCollection(s1Proc, classifier, aoi, lakePoly) {
     var filled = dist.lte(0.5).updateMask(dist.lte(0.5));
     return img.addBands(filled.where(mask, 1).rename('WaterFilled'));
   });
+
+  // Step 3-FAST — raster-only cleaning (no reduceToVectors). Despeckle with a cheap
+  // connected-component count, then clip to the pool polygon. Produces a 'WaterCleaned'
+  // band so computeAreaSeries works unchanged. This is the high-leverage fix for the
+  // "capacity exceeded" limit on long date ranges (vectorisation removed entirely).
+  if (CFG.fast_area) {
+    return withFilled.map(function(img) {
+      var filled     = img.select('WaterFilled');
+      var nConn      = filled.connectedPixelCount(CFG.min_blob_px, true);
+      var despeckled = filled.updateMask(nConn.gte(CFG.min_blob_px));
+      return img.addBands(despeckled.clip(lakePoly).rename('WaterCleaned'));
+    });
+  }
 
   // Step 3 — connected-component cleaning → WaterCleaned (used for area series).
   //

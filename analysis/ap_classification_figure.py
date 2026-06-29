@@ -25,10 +25,10 @@ sys.stdout.reconfigure(encoding='utf-8')
 OUT_DIR = Path('analysis/schwatke_output')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-df = pd.read_csv('analysis/pilot_kge_2019_2020.csv')
+df = pd.read_csv('analysis/pilot_kge_v3.csv')
 df = df.dropna(subset=['ap_m', 'kge']).reset_index(drop=True)
 
-KGE_THRESH = 0.5   # adequacy threshold
+KGE_THRESH = 0.75  # adequacy threshold (smoothed data: 0.5 gives all-adequate, no ROC)
 
 df['adequate'] = df['kge'] >= KGE_THRESH
 df = df.sort_values('ap_m').reset_index(drop=True)
@@ -90,7 +90,7 @@ axes = [fig.add_subplot(gs[0, 0]),   # (a) bars
         fig.add_subplot(gs[1, 0]),   # (c) ROC
         fig.add_subplot(gs[1, 1])]   # (d) boxplot
 fig.suptitle('A/P ratio as a pre-screening metric for SAR reservoir monitoring  '
-             f'(pilot v2, 2019-2020, N={len(df)}, excl. Elwell/Sterkfontein)',
+             f'(pilot v3, 2014–2021, N={len(df)}, KGE threshold={KGE_THRESH})',
              fontsize=12, fontweight='bold')
 
 # =========================================================================
@@ -244,7 +244,7 @@ ax.set_xticks([1, 2]); ax.set_xticklabels(group_labels, fontsize=9)
 ax.set_ylabel('KGE'); ax.set_title('(d) KGE distribution by A/P class')
 ax.legend(fontsize=8); ax.grid(axis='y', alpha=0.3)
 
-out = OUT_DIR / 'AP_classification_2019_2020.png'
+out = OUT_DIR / 'AP_classification_v3.png'
 fig.savefig(out, dpi=150, bbox_inches='tight')
 plt.close(fig)
 print(f'Saved: {out}')

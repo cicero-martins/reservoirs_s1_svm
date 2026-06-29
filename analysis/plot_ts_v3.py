@@ -18,10 +18,58 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.lines import Line2D
 
+
+# ── App-equivalent cleaning pipeline (mirrors original.js) ───────────────────
+def _remove_global(s, threshold=2.0):
+    m, sd = s.mean(), s.std()
+    return s[np.abs(s - m) <= threshold * sd]
+
+def _remove_local(s, window=5, threshold=1.5):
+    arr = s.values.copy()
+    idx = s.index.tolist()
+    keep = []
+    half = window // 2
+    for i in range(len(arr)):
+        lo, hi = max(0, i - half), min(len(arr), i + half + 1)
+        win = arr[lo:hi]
+        m, sd = win.mean(), win.std()
+        if sd == 0 or abs(arr[i] - m) <= threshold * sd:
+            keep.append(idx[i])
+    return s.loc[keep]
+
+def _lowess(dates, values, window_days=20, bandwidth=7):
+    smoothed = []
+    for t0, _ in zip(dates, values):
+        diff_d = np.abs((dates - t0).dt.total_seconds().values / 86400)
+        mask   = diff_d <= window_days
+        w      = np.exp(-(diff_d[mask] / bandwidth) ** 2)
+        smoothed.append(float((values[mask] * w).sum() / w.sum()))
+    return np.array(smoothed)
+
+def clean_and_smooth(df, col='area_ha'):
+    """Mirror of original.js: removeOutliers(2) + 3x local + lowessSmoothing(20,7)."""
+    s = df[col].copy()
+    s = _remove_global(s, 2.0)
+    s = _remove_local(s, 5,  1.5)
+    s = _remove_local(s, 5,  1.5)
+    s = _remove_local(s, 10, 1.5)
+    dates_s  = df.loc[s.index, 'date'].reset_index(drop=True)
+    smoothed = _lowess(dates_s, s.reset_index(drop=True), 20, 7)
+    return pd.DataFrame({'date': dates_s, 'area_ha': smoothed})
+
 SAR_DIR = pathlib.Path('raw_data/GEE_GlobalPilotV2c/GEE_GlobalPilotV2')
 JRC_DIR = pathlib.Path('raw_data/GEE_GlobalPilotV2c/GEE_GlobalPilotV2_JRC')
 KGE_CSV = pathlib.Path('analysis/pilot_kge_v3.csv')
 OUT_PNG = pathlib.Path('analysis/schwatke_output/ts_v3_fullperiod.png')
+
+NO_SMOOTH = {'Hubbard_Creek'}
+
+APP_OVERRIDES = {
+    'Ancipa': (
+        pathlib.Path('C:/Users/Unipa/Documents/GEE/Results/fractaldim/area_ancipa_2014-25.csv'),
+        'date', 'areaLago',
+    ),
+}
 
 VALID_FRAC_MIN = 0.80
 SAR_MIN_FRAC   = 0.02
@@ -29,10 +77,17 @@ DIR_COLOR      = {'ASCENDING': '#1565C0', 'DESCENDING': '#E65100'}
 
 
 def load_sar_raw(name):
-    p = SAR_DIR / f'SAR_area_{name}.csv'
-    if not p.exists():
-        return None
-    df = pd.read_csv(p, parse_dates=['date'])
+    if name in APP_OVERRIDES:
+        path, dcol, acol = APP_OVERRIDES[name]
+        df = pd.read_csv(path, parse_dates=[dcol])
+        df = df.rename(columns={dcol: 'date', acol: 'area_ha'})
+        df['passDirection'] = 'ASCENDING'  # unknown; default colour
+        df = df[df['date'] <= '2021-12-31'].copy()
+    else:
+        p = SAR_DIR / f'SAR_area_{name}.csv'
+        if not p.exists():
+            return None
+        df = pd.read_csv(p, parse_dates=['date'])
     df = df[df['area_ha'] > 0].sort_values('date').reset_index(drop=True)
     if df.empty:
         return None
@@ -54,20 +109,6 @@ def load_jrc(name):
     return df, df_valid
 
 
-def make_pairs(df_sar, df_jrcv):
-    if df_sar is None or df_sar.empty or df_jrcv is None or df_jrcv.empty:
-        return None
-    sar = df_sar.copy()
-    sar['ym'] = sar['date'].dt.to_period('M')
-    sar_m = sar.groupby('ym')['area_ha'].mean().reset_index()
-    sar_m.columns = ['ym', 'sar_ha']
-
-    jrc = df_jrcv.copy()
-    jrc['ym'] = jrc['date'].dt.to_period('M')
-
-    merged = pd.merge(sar_m, jrc[['ym', 'jrc_area_ha']], on='ym', how='inner')
-    merged['date'] = merged['ym'].dt.to_timestamp(how='start') + pd.offsets.Day(15)
-    return merged
 
 
 # ── Load KGE table ────────────────────────────────────────────────────────────
@@ -89,7 +130,6 @@ for i, name in enumerate(names):
 
     df_sar          = load_sar_raw(name)
     df_jrc, df_jrcv = load_jrc(name)
-    pairs           = make_pairs(df_sar, df_jrcv)
 
     # JRC rejected
     if df_jrc is not None and 'valid_frac' in df_jrc.columns:
@@ -112,11 +152,16 @@ for i, name in enumerate(names):
                        s=6, color=DIR_COLOR.get(direction, '#666'),
                        alpha=0.45, linewidths=0, zorder=3)
 
-    # SAR monthly means used in pairing
-    if pairs is not None and not pairs.empty:
-        ax.scatter(pairs['date'], pairs['sar_ha'],
-                   s=40, facecolors='none', edgecolors='black',
-                   linewidths=0.9, zorder=5, marker='s')
+    # SAR cleaned + LOWESS line (mirrors original.js cleanAndSmooth pipeline)
+    if df_sar is not None and not df_sar.empty:
+        df_line = df_sar.reset_index(drop=True)
+        if name not in NO_SMOOTH:
+            c_df = clean_and_smooth(df_line)
+            ax.plot(c_df['date'], c_df['area_ha'],
+                    color='#757575', lw=1.2, alpha=0.85, zorder=4)
+        else:
+            ax.plot(df_line['date'], df_line['area_ha'],
+                    color='#757575', lw=0.7, alpha=0.75, zorder=4)
 
     # Formatting
     label     = name.replace('_', ' ')
@@ -145,8 +190,7 @@ legend_handles = [
            markersize=5, label='SAR ascending'),
     Line2D([0],[0], marker='o', color='w', markerfacecolor='#E65100',
            markersize=5, label='SAR descending'),
-    Line2D([0],[0], marker='s', color='black', markerfacecolor='none',
-           markersize=7, lw=0, label='SAR monthly mean (KGE pair)'),
+    Line2D([0],[0], color='#757575', lw=1.5, label='SAR cleaned + LOWESS'),
 ]
 fig.legend(handles=legend_handles, loc='lower right',
            bbox_to_anchor=(0.99, 0.01), fontsize=7.5, framealpha=0.9, ncol=2)

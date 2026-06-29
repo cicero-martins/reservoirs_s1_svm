@@ -1,0 +1,29 @@
+name,ap_m,ap_m_dynamic,ap_expected,country,climate,n_pairs,kge,r,alpha,beta,mean_sar_ha,mean_jrc_ha
+Grandval,66.1,59.6,HIGH,France,Humid temperate,45,0.5047,0.5901,0.7902,0.8174,521.3,637.8
+Sarrans,74.0,61.4,MED,France,Humid temperate,43,0.056,0.114,1.0036,0.6741,367.1,544.6
+Rappbode,77.7,66.6,LOW,Germany,Humid temperate,42,0.2316,0.3593,0.5762,1.0198,289.4,283.8
+Boegoeberg,82.0,73.0,MED,South Africa,Semi-arid,54,-0.1267,-0.0435,0.5832,0.918,296.5,322.9
+Susqueda,83.9,64.6,LOW,Spain,Mediterranean,52,0.636,0.6416,1.0623,1.0138,428.9,423.0
+Sau,83.9,64.5,LOW,Spain,Mediterranean,52,0.5488,0.5783,1.1597,0.9866,417.4,423.0
+Karapuzha,84.0,43.0,MED,India,Humid tropical,33,0.6531,0.6985,1.112,0.8701,660.6,759.3
+Saint_Cassien,87.4,90.5,LOW,France,Mediterranean,35,0.4707,0.6646,0.5916,1.0293,287.7,279.5
+Boadella,93.2,77.3,MED,Spain,Mediterranean,51,0.6648,0.9176,0.6812,1.0625,247.2,232.6
+Cachi,94.6,49.1,LOW,Costa Rica,Tropical highland,43,0.5088,0.6092,0.8582,0.7383,63.7,86.2
+Yamba,100.7,65.8,LOW,Japan,Humid continental,31,-0.0982,0.1926,0.2558,0.9848,56.9,57.7
+Blyde,102.3,74.5,LOW,South Africa,Humid subtropical,46,0.5672,0.692,0.6979,1.0342,222.7,215.4
+Saguaro,108.9,103.5,MED,USA,Semi-arid,38,0.4528,0.4851,0.8673,0.8707,413.4,474.8
+Panneciere,110.7,90.8,MED,France,Humid temperate,41,0.2571,0.4019,0.5712,1.102,357.1,324.0
+Googong,110.7,87.7,MED,Australia,Humid temperate,48,0.6635,0.8956,0.6805,0.9845,528.4,536.7
+El_Atazar,113.3,63.4,LOW,Spain,Mediterranean,53,0.3468,0.3975,1.2344,0.9068,211.9,233.6
+Castillon,116.1,81.2,LOW,France,Mediterranean,51,-0.2029,0.4131,2.0377,0.8397,344.9,410.8
+East_Canyon,117.9,66.4,HIGH,USA,Semi-arid,35,0.7447,0.7563,0.9998,0.9237,183.9,199.0
+Cecita,124.8,84.5,MED,Italy,Mediterranean highland,55,0.8254,0.8265,1.0151,0.9872,683.6,692.4
+El_Burguillo,126.5,81.3,MED,Spain,Mediterranean,56,0.9112,0.9213,1.0072,0.9596,561.8,585.5
+Salto,129.3,107.6,LOW,Italy,Mediterranean,55,0.3099,0.4107,0.6619,0.8789,529.5,602.5
+Puentes_Viejas,130.6,89.0,MED,Spain,Mediterranean,52,0.5498,0.6325,1.2567,0.9579,825.6,861.8
+Cardinia,155.8,118.4,MED,Australia,Humid temperate,42,0.5165,0.7173,0.6154,1.0767,946.1,878.7
+Bilancino,160.1,157.0,MED,Italy,Mediterranean,46,0.3643,0.4299,0.7582,0.8563,356.9,416.8
+Shaharchay,166.1,117.8,HIGH,Iran,Semi-arid highland,39,0.8963,0.9591,1.0951,1.0059,673.4,669.4
+Pineview,208.1,128.8,HIGH,USA,Semi-arid,33,0.9216,0.9428,0.9652,0.9591,867.3,904.3
+Deer_Creek,239.1,131.1,HIGH,USA,Semi-arid,35,0.879,0.9797,1.0986,0.9329,832.3,892.2
+Rockport,253.1,43.1,HIGH,USA,Semi-arid,39,0.2495,0.3726,1.2722,0.6909,228.4,330.6

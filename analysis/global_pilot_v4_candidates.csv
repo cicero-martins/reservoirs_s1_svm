@@ -1,0 +1,35 @@
+name,label,country,lat,lon,area_ha_approx,ap_expected,climate_zone,notes
+Sau,Pantà de Sau,Spain,41.970,2.385,580,LOW,Mediterranean,Ter gorge; sunken Romanesque tower; highly dendritic
+Susqueda,Pantà de Susqueda,Spain,41.933,2.518,390,LOW,Mediterranean,Ter canyon downstream of Sau; very narrow
+El_Atazar,Embalse de El Atazar,Spain,40.892,-3.637,640,LOW,Mediterranean,Narrow Lozoya gorge; Madrid supply
+Rappbode,Rappbode Reservoir,Germany,51.738,10.913,390,LOW,Humid temperate,Narrow Harz mountain valley
+Castillon,Barrage de Castillon,France,43.893,6.534,640,LOW,Mediterranean,Verdon canyon; moderately dendritic
+Saint_Cassien,Lac de Saint-Cassien,France,43.596,6.724,430,LOW,Mediterranean,Provence; branching arms
+Salto,Lago del Salto,Italy,42.206,13.055,475,LOW,Mediterranean,Narrow Salto gorge; Lazio; partner Turano dropped (same JRC polygon)
+Blyde,Blyderivierspoort Dam,South Africa,-24.535,30.800,240,LOW,Humid subtropical,Blyde River Canyon; very narrow gorge
+Cachi,Cachí Reservoir,Costa Rica,9.810,-83.769,340,LOW,Tropical highland,Narrow Reventazón valley
+Miyagase,Miyagase Dam,Japan,35.557,139.185,325,LOW,Humid subtropical,Nakatsu gorge; Kanagawa; very narrow
+Yamba,Yamba Dam,Japan,36.692,138.828,340,LOW,Humid continental,Agatsuma gorge; Gunma; long narrow valley
+El_Burguillo,Embalse de El Burguillo,Spain,40.367,-4.500,700,MED,Mediterranean,Alberche valley; irregular shape
+Boadella,Pantà de Darnius-Boadella,Spain,42.329,2.831,600,MED,Mediterranean,Muga R.; moderate arms
+Puentes_Viejas,Embalse de Puentes Viejas,Spain,40.983,-3.576,400,MED,Mediterranean,Lozoya chain; moderate
+Guajaraz,Embalse de Guajaraz,Spain,39.675,-4.107,350,MED,Mediterranean,Tagus tributary; moderate shape; GDW 6046 added (try)
+Panneciere,Lac de Pannecière,France,47.200,3.883,480,MED,Humid temperate,Cure R.; Morvan; moderate shape
+Sarrans,Lac de Sarrans,France,44.818,2.763,370,MED,Humid temperate,Truyère tributary; moderate
+Bilancino,Lago di Bilancino,Italy,43.978,11.202,500,MED,Mediterranean,Sieve R.; Mugello; moderate shape
+Cecita,Lago Cecita,Italy,39.350,16.565,420,MED,Mediterranean highland,Sila; Calabria; moderate; coord adjusted; Arvo dropped (same JRC polygon)
+Oued_Makhazine,Barrage Oued el Makhazine,Morocco,35.167,-5.533,660,MED,Mediterranean,Lucus R.; moderate shape; GDW 37324 (verify polygon)
+Karapuzha,Karapuzha Reservoir,India,11.617,76.033,260,MED,Humid tropical,Kerala Western Ghats foothills; moderate
+Saguaro,Saguaro Lake,USA,33.655,-111.531,490,MED,Semi-arid,Salt R. canyon; AZ; Canyon_Lake dropped (same JRC polygon)
+Boegoeberg,Boegoeberg Dam,South Africa,-29.026,22.155,297,MED,Semi-arid,Orange R.; moderate shoreline; GDW 25023 confirmed (2.97 km²)
+Tzaneen,Tzaneen Dam,South Africa,-23.813,30.145,400,MED,Humid subtropical,Letaba R.; moderate shape
+Googong,Googong Reservoir,Australia,-35.440,149.225,480,MED,Humid temperate,ACT; Queanbeyan R.; moderate arms
+Cardinia,Cardinia Reservoir,Australia,-37.935,145.510,944,MED,Humid temperate,VIC; Cardinia Ck; moderately complex; GDW 5517 confirmed (9.44 km²)
+Grandval,Barrage de Grandval,France,45.018,3.093,750,HIGH,Humid temperate,Truyère; compact Massif Central
+Deer_Creek,Deer Creek Reservoir,USA,40.406,-111.529,890,HIGH,Semi-arid,UT; compact Wasatch foothills bowl
+East_Canyon,East Canyon Reservoir,USA,40.930,-111.582,290,HIGH,Semi-arid,UT; compact bowl
+Pineview,Pineview Reservoir,USA,41.273,-111.839,969,HIGH,Semi-arid,UT; compact flat Ogden Valley; GDW 2611 confirmed (9.69 km²)
+Rockport,Rockport Reservoir,USA,40.766,-111.296,480,HIGH,Semi-arid,UT; compact Weber R. bowl
+Antero,Antero Reservoir,USA,38.980,-105.860,880,HIGH,Semi-arid continental,CO; flat South Park; very compact
+Shaharchay,Shaharchay Reservoir,Iran,37.640,45.009,350,HIGH,Semi-arid highland,Urmia basin; compact flat bowl; GDW 6939 (Shahrchay; 24.9 km — verify)
+Welbedacht,Welbedacht Dam,South Africa,-29.870,26.820,200,HIGH,Semi-arid,Caledon R.; small flat bowl

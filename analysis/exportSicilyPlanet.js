@@ -1,53 +1,36 @@
 /**
- * exportGlobalPilotV4.js
+ * exportSicilyPlanet.js
  *
- * Batch GEE export of SAR water-area time series for the global pilot v4 reservoir set.
- * 47 reservoirs (≤1000 ha, man-made only) — trimmed from 60 after GDW lookup scan.
- * Pipeline is identical to exportGlobalPilotV2.js (v226 alignment).
+ * Re-export of SAR water-area for the 4 PlanetScope-validated Sicilian reservoirs
+ * over the PlanetScope window (2024–2025), using the IDENTICAL pipeline as
+ * exportGlobalPilotV4.js (same AOI / orbit selection / Otsu / SVM / post-processing).
  *
- * Output: CSV in Google Drive folder GEE_GlobalPilotV4 (SAR) / GEE_GlobalPilotV4_JRC (JRC).
+ * WHY: the pre-existing validation_data/GEEvalidation-extracted series were produced
+ * by a different (older) extraction — visibly noisier (no clean+smooth, possibly
+ * different AOI/orbit) → NOT comparable to the 28-reservoir global pilot. This script
+ * regenerates Otsu (Tier 1) and SVM dual (Tier 3) for Sicily under the same pipeline so
+ * the PlanetScope-anchored comparison is apples-to-apples with the global ΔKGE.
  *
- * Batching — run one batch per Code Editor session (GEE memory limit ~6 reservoirs/run):
- *   B01: [0,  6]  — Sau, Susqueda, El_Atazar, Siurana, Bleiloch, Rappbode
- *   B02: [6,  12] — Castillon, Saint_Cassien, Salto, Turano, Katse, Mohale
- *   B03: [12, 18] — Blyde, Cachi, Miyagase, Yamba, El_Burguillo, Boadella
- *   B04: [18, 24] — Puentes_Viejas, Guajaraz, Panneciere, Sarrans, Bilancino, Ampollino
- *   B05: [24, 30] — Arvo, Cecita, Oued_Makhazine, Karapuzha, Saguaro, Canyon_Lake
- *   B06: [30, 35] — Boegoeberg, Woodstock, Tzaneen, Googong, Cardinia
- *   B07: [35, 41] — Triouzoune, Grandval, Deer_Creek, East_Canyon, Pineview, Rockport
- *   B08: [41, 45] — Antero, Shaharchay, Welbedacht, Occhito
- *
- * Dropped 15 total (13 from GDW lookup + 2 from JRC area scan):
- *   Area > 1000 ha (GDW confirmed): Plastiras 1973, Almus 2016, Chelmsford 2970,
- *     Riano 1557, Ebro_Embalse 5438, Eleven_Mile 1237, Demirkopru 3587
- *   Area > 1000 ha (JRC scan confirmed): Aguilar 1410, Cruz_del_Eje 1167
- *   Wrong GDW match / bad polygon: Blue_Rock, La_Vina, Nagle
- *   Not in GDW within 25 km: Abdelmoumen, Suat_Ugurlu, Wadi_Dayqah
- *
- * NOTES:
- *   - 9 reservoirs have gdwId filled from lookup (inline comments); 6 reverted to null
- *     after confirming GDW polygon was too small (Siurana, Bleiloch, Katse, Mohale,
- *     Cecita, Triouzoune) — coordinates adjusted to reservoir body center.
- *   - Three Sila plateau lakes (Ampollino, Arvo, Cecita) are 7–15 km apart — verify
- *     the correct polygon was matched after export (check print() output for ap_m).
- *   - Yamba Dam completed 2015: S1 coverage starts 2014, reservoir fills 2015–2020.
- *   - Oued_Makhazine/Shaharchay: GDW centroids are >19 km away — verify polygon match.
+ * Run per CLASSIFIER: 'SVM' → GEE_SicilyPlanet, 'VV_OTSU' → GEE_SicilyPlanet_VVotsu,
+ * 'SVM_ADAPTIVE' (per-scene training) → GEE_SicilyPlanet_SVMadapt.
+ * Only 4 reservoirs → single batch [0,4] fits one Code Editor session.
+ * JRC is OFF: GSW Monthly History ends ~2021, so PlanetScope (not JRC) is the reference.
  */
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 var CFG = {
-  s1_start:               '2014-10-01',
-  s1_end:                 '2021-12-31',
+  s1_start:               '2024-01-01',   // PlanetScope window is 2024-05 → 2025-05
+  s1_end:                 '2025-12-31',
   jrc_occ_thresh:         95,
   jrc_occ_fallback:       80,
-  train_year:             2023,
+  train_year:             2023,           // fixed annual mosaic — same as global pilot
   clean_scale_m:          30,
   max_pixels:             1e9,
   keep_largest_only:      false,
   land_ring_inner_m:      500,
   land_ring_outer_m:      2000,
-  drive_folder:           'GEE_GlobalPilotV4',
-  drive_folder_jrc:       'GEE_GlobalPilotV4_JRC',
+  drive_folder:           'GEE_SicilyPlanet',
+  drive_folder_jrc:       'GEE_SicilyPlanet_JRC',
   composite_window_days:  6,
   coverage_strict_pct:    90,
   min_coverage_pct:       50,
@@ -55,128 +38,42 @@ var CFG = {
 
 var JRC_ONLY = false;
 
-// ── Classifier selection (method-comparison experiment) ───────────────────────
-// 'SVM'          : dual-pol (VV+VH) RBF SVM trained ONCE on a fixed 2023 annual mosaic
-//                  (original method, Tier 3). The 2023 choice was Sicily-legacy (a calm year)
-//                  and has no global justification — see SVM_ADAPTIVE.
-// 'SVM_ADAPTIVE' : dual-pol VV+VH RBF SVM RE-TRAINED PER SCENE — the JRC water/land sample
-//                  POINTS are fixed (multi-decadal masks, universal), but the backscatter is
-//                  sampled from EACH scene, so the decision boundary adapts to that scene's
-//                  radiometry (wind, soil moisture, vegetation). This removes the arbitrary
-//                  2023 baseline and mirrors Otsu's per-scene threshold, making the SVM-vs-Otsu
-//                  comparison a clean test of the DECISION RULE (2-band vs 1-band), not training.
-// 'VV_OTSU'      : single-pol VV per-scene Otsu, SAME full post-processing as SVM (Tier 1).
-//                  KGE/EECU difference vs SVM isolates the *classifier* effect.
-// 'VV_OTSU_FAST' : VV Otsu + pixel-count area inside the pool polygon — NO fill, NO
-//                  vectorisation, NO keep-polygon, NO dynamic A/P (Tier 1-fast). Cuts the
-//                  dominant (vectorisation) cost to isolate the *pipeline architecture* cost.
+// ── Classifier selection (run per mode) ───────────────────────────────────────
+// 'SVM'          : dual-pol VV+VH RBF SVM trained once on the fixed 2023 mosaic (Tier 3).
+// 'SVM_ADAPTIVE' : dual-pol VV+VH SVM RE-TRAINED PER SCENE — fixed JRC water/land sample
+//                  points, but backscatter sampled from each scene → boundary adapts per
+//                  scene like Otsu (removes the arbitrary 2023 baseline). Folder ..._SVMadapt.
+// 'VV_OTSU'      : single-pol VV per-scene Otsu, same post-processing — Tier 1 (..._VVotsu).
 var CLASSIFIER = 'SVM_ADAPTIVE';  // 'SVM' | 'SVM_ADAPTIVE' | 'VV_OTSU' | 'VV_OTSU_FAST'
 
-// Convenience flags derived from CLASSIFIER.
 var USE_OTSU = (CLASSIFIER === 'VV_OTSU' || CLASSIFIER === 'VV_OTSU_FAST');
 var FAST     = (CLASSIFIER === 'VV_OTSU_FAST');
 var ADAPTIVE = (CLASSIFIER === 'SVM_ADAPTIVE');
 var USE_SVM  = (CLASSIFIER === 'SVM' || CLASSIFIER === 'SVM_ADAPTIVE');
 
-var OTSU = {
-  band:          'VV',   // single polarisation thresholded (water = low backscatter)
-  hist_buffer_m: 500,    // land ring around the pool for a bimodal histogram
-  hist_buckets:  256,    // histogram resolution
-};
+var OTSU = { band: 'VV', hist_buffer_m: 500, hist_buckets: 256 };
 
-// JRC reference is classifier-independent — only re-export it on the SVM run.
-// For the VV runs the JRC CSVs already exist; leave EXPORT_JRC false to save compute.
-var EXPORT_JRC = (CLASSIFIER === 'SVM');
+// PlanetScope is the reference here — JRC has no data for 2024-2025. Never export JRC.
+var EXPORT_JRC = false;
 
-// Output folder is suffixed per mode so the runs never overwrite each other.
 var MODE_SUFFIX = (CLASSIFIER === 'VV_OTSU')      ? '_VVotsu'
                 : (CLASSIFIER === 'VV_OTSU_FAST') ? '_VVfast'
                 : (CLASSIFIER === 'SVM_ADAPTIVE') ? '_SVMadapt'
                 : '';
 var SAR_FOLDER  = CFG.drive_folder + MODE_SUFFIX;
 
-// ── Pilot v4 reservoir list ───────────────────────────────────────────────────
+// ── Sicilian reservoir list ───────────────────────────────────────────────────
 // Format: [name, lat, lon, gdw_id, dahiti_id, area_ha_approx, hylak_id]
-// gdw_id = null → coordinate fallback (largest JRC polygon within 10 km)
-// hylak_id = null for all (no Sicily-specific asset needed)
+// gdw_id = null → coordinate fallback (largest JRC polygon within 10 km), same as
+// most global-pilot entries. Coords from exportGlobalPilotV2.js / exportSicilyMasks.js.
 var PILOT_RESERVOIRS = [
-
-  // ── LOW A/P — Dendritic / narrow valley ──────────────────────────────────
-  // Spain
-  ['Sau',           41.970,   2.385,  null, null,  580, null],  // Ter gorge, Catalonia
-  ['Susqueda',      41.933,   2.518,  null, null,  390, null],  // Ter canyon (adj. to Sau — verify polygon)
-  ['El_Atazar',     40.892,  -3.637,  null, null,  640, null],  // Lozoya gorge, Madrid supply
-  ['Siurana',       41.255,   0.880,  null, null,  260, null],  // coord → reservoir body (was 41.197,0.914 = dam toe)
-  // Germany
-  ['Bleiloch',      50.695,  11.720,  null, null,  920, null],  // coord → lake center (was 50.637,11.697 = dam wall)
-  ['Rappbode',      51.738,  10.913,  null, null,  390, null],  // Harz narrow valley
-  // France
-  ['Castillon',     43.893,   6.534,  null, null,  640, null],  // Verdon canyon
-  ['Saint_Cassien', 43.596,   6.724,  null, null,  430, null],  // Provence; branching
-  // Italy
-  ['Salto',         42.206,  13.055,  null, null,  475, null],  // Salto gorge, Lazio
-  ['Turano',        42.215,  12.966,  null, null,  290, null],  // very narrow Turano gorge
-  // DROPPED: Plastiras (GDW 1973 ha > 1000 ha), Almus (GDW 2016 ha), Suat_Ugurlu (not in GDW), Abdelmoumen (not in GDW)
-  // Lesotho
-  ['Katse',        -29.355,  28.570,  null, null,  325, null],  // coord → lake body E of dam (GDW 2069 area=3330ha → wrong polygon)
-  ['Mohale',       -29.505,  28.155,  null, null,  420, null],  // coord → lake center N of dam (GDW 2071 area=2348ha → wrong polygon)
-  // South Africa
-  ['Blyde',        -24.535,  30.800,  null, null,  240, null],  // Blyde River Canyon gorge
-  // Central America
-  ['Cachi',          9.810, -83.769,  null, null,  340, null],  // narrow Reventazón valley, CR
-  // Japan
-  ['Miyagase',      35.557, 139.185,  null, null,  325, null],  // Nakatsu gorge, Kanagawa
-  ['Yamba',         36.692, 138.828,  null, null,  340, null],  // Agatsuma gorge, Gunma (dam 2015)
-
-  // ── MED A/P — Moderately irregular shoreline ──────────────────────────────
-  // Spain
-  ['El_Burguillo',  40.367,  -4.500,  null, null,  700, null],  // Alberche valley
-  ['Boadella',      42.329,   2.831,  null, null,  600, null],  // Muga R.
-  ['Puentes_Viejas',40.983,  -3.576,  null, null,  400, null],  // Lozoya chain
-  ['Guajaraz',      39.675,  -4.107,  6046, null,  350, null],  // GDW 6046 (94 ha — try)
-  // France
-  ['Panneciere',    47.200,   3.883,  null, null,  480, null],  // Cure R., Morvan
-  ['Sarrans',       44.818,   2.763,  null, null,  370, null],  // Truyère tributary
-  // Italy
-  ['Bilancino',     43.978,  11.202,  null, null,  500, null],  // Sieve R., Mugello
-  ['Ampollino',     39.235,  16.553,  null, null,  360, null],  // Sila plateau
-  ['Arvo',          39.300,  16.528,  null, null,  280, null],  // Sila
-  ['Cecita',        39.350,  16.565,  null, null,  420, null],  // coord → lake center (GDW 16286 area=41ha → wrong polygon)
-  // Morocco
-  ['Oued_Makhazine',35.167,  -5.533, 37324, null,  660, null],  // GDW 37324 (62 ha, 19.7 km — uncertain; verify polygon)
-  // India
-  ['Karapuzha',     11.617,  76.033,  null, null,  260, null],  // Kerala Western Ghats
-  // USA
-  ['Saguaro',       33.655,-111.531,  null, null,  490, null],  // Salt R. canyon, AZ
-  ['Canyon_Lake',   33.528,-111.427,  null, null,  240, null],  // Salt R. chain, AZ
-  // South Africa
-  ['Boegoeberg',   -29.026,  22.155, 25023, null,  297, null],  // GDW 25023 ✓ (2.97 km²)
-  ['Woodstock',    -28.920,  29.203,  null, null,  590, null],  // Tugela headwaters
-  ['Tzaneen',      -23.813,  30.145,  null, null,  400, null],  // Letaba R.
-  // DROPPED: Chelmsford (GDW 2970 ha > 1000 ha), Nagle (wrong match 11 km, 1421 ha)
-  // Australia
-  ['Googong',      -35.440, 149.225,  null, null,  480, null],  // ACT, Queanbeyan R.
-  ['Cardinia',     -37.935, 145.510,  5517, null,  944, null],  // GDW 5517 ✓ (9.44 km²)
-
-  // ── HIGH A/P — Compact bowl / plain ───────────────────────────────────────
-  // Spain — DROPPED: Riano (GDW 1557 ha), Ebro_Embalse (GDW 5438 ha), Aguilar (JRC max 1410 ha)
-  // France
-  ['Triouzoune',    45.516,   2.213,  null, null,  320, null],  // coord → lake center (GDW 15793 area=36ha → wrong polygon; was 45.520,2.265)
-  ['Grandval',      45.018,   3.093,  null, null,  750, null],  // Truyère; compact Massif Central
-  // USA — DROPPED: Eleven_Mile (GDW 1237 ha > 1000 ha)
-  ['Deer_Creek',    40.406,-111.529,  null, null,  890, null],  // UT; compact Wasatch foothills
-  ['East_Canyon',   40.930,-111.582,  null, null,  290, null],  // UT; compact bowl
-  ['Pineview',      41.273,-111.839,  2611, null,  969, null],  // GDW 2611 ✓ (9.69 km²)
-  ['Rockport',      40.766,-111.296,  null, null,  480, null],  // UT; compact Weber R.
-  ['Antero',        38.980,-105.860,  null, null,  880, null],  // CO; flat South Park
-  // DROPPED: Wadi_Dayqah (not in GDW), Demirkopru (GDW 3587 ha + 24.6 km wrong), Blue_Rock (wrong dam)
-  // Iran
-  ['Shaharchay',    37.640,  45.009,  6939, null,  350, null],  // GDW 6939 "Shahrchay" (7.43 km², 24.9 km — try)
-  // South Africa — DROPPED: Nagle (wrong match)
-  ['Welbedacht',   -29.870,  26.820,  null, null,  200, null],  // Caledon R.; small flat bowl
-  // Argentina — DROPPED: La_Vina (wrong GDW match), Cruz_del_Eje (JRC max 1167 ha)
-  // Italy
-  ['Occhito',       41.534,  14.913,  4076, null,  746, null],  // GDW 4076 ✓ (7.46 km²)
+  ['Ancipa',     37.887, 14.565, null, null,    330, null],  // Nebrodi; narrow
+  ['Pozzillo',   37.700, 14.530, null, null,    930, null],  // largest Sicilian — coord FIXED:
+  // 37.783,14.635 resolved to ANCIPA's polygon (108 ha, ap_m=90) via the 20 km
+  // fallback (no JRC water within 10 km of that point). 37.700,14.530 resolves to
+  // the true Pozzillo body (JRC max_extent 646 ha, ap_m=240). Verified vs JRC, 30 Jun.
+  ['Poma',       37.994, 13.090, null, 42134,   620, null],
+  ['Rosamarina', 37.944, 13.640, null, 42122,   440, null],
 ];
 
 // ── Datasets ──────────────────────────────────────────────────────────────────
@@ -206,9 +103,8 @@ function getLakePoly(lat, lon, gdwId, hylakId) {
     return jrcMaxExtentPoly(hydroGeom);
   }
 
-  // Coordinate fallback: largest JRC polygon with centroid ≤10 km from point.
-  var pt      = ee.Geometry.Point([lon, lat]);
-  var vecs    = jrcMax.reduceToVectors({
+  var pt   = ee.Geometry.Point([lon, lat]);
+  var vecs = jrcMax.reduceToVectors({
     geometry: pt.buffer(20000), scale: 30, maxPixels: 1e8,
     bestEffort: true, reducer: ee.Reducer.countEvery(),
     geometryType: 'polygon', eightConnected: true, tileScale: 4,
@@ -294,8 +190,7 @@ function fillCoverageGaps(s1Col, windowDays) {
   }));
 }
 
-// ── Otsu threshold (Donchyts/Markert between-class-variance formulation) ──────
-// Returns the bucketMean that maximises between-class variance of a 1-band histogram.
+// ── Otsu threshold (between-class-variance) ───────────────────────────────────
 function otsu(histogram) {
   histogram = ee.Dictionary(histogram);
   var counts  = ee.Array(histogram.get('histogram'));
@@ -318,11 +213,6 @@ function otsu(histogram) {
   return means.sort(ee.Array(bss)).get([-1]);
 }
 
-// Per-scene VV water mask via Otsu. Histogram taken over a land-ringed buffer (bimodal),
-// threshold applied as water = VV < T (smooth water has low backscatter).
-// NOTE: on non-bimodal scenes (pool fills the buffer, or wind raises water backscatter
-// toward land) Otsu returns a degenerate split — that failure is the signal we want to
-// measure, so no clamp is applied. To guard, wrap T with .max(-25).min(-8) if needed.
 function computeOtsuWater(img, lakePoly) {
   var histRegion = lakePoly.buffer(OTSU.hist_buffer_m);
   var hist = img.select(OTSU.band).reduceRegion({
@@ -334,10 +224,8 @@ function computeOtsuWater(img, lakePoly) {
 }
 
 // ── Helper: classify single image and compute water area ──────────────────────
-// samplePoints: JRC-derived water(1)/land(2) sample geometries (null unless USE_SVM).
-//   - SVM (fixed)    : `svm` is pre-trained on the 2023 mosaic; samplePoints unused here.
-//   - SVM_ADAPTIVE   : re-train the SVM on THIS scene by sampling its backscatter at the
-//                      fixed samplePoints → per-scene decision boundary (like Otsu).
+// samplePoints: JRC water(1)/land(2) sample geometries (null unless USE_SVM).
+//   SVM (fixed) uses pre-trained `svm`; SVM_ADAPTIVE re-trains per scene from samplePoints.
 function classifyImage(img, svm, lakePoly, samplePoints) {
   var aoi = lakePoly.buffer(100);
   var water;
@@ -355,8 +243,6 @@ function classifyImage(img, svm, lakePoly, samplePoints) {
     water = img.select(BANDS).classify(svm).eq(1).clip(aoi).rename('Water');
   }
 
-  // ── Tier 1-fast: cheap path — pixel-count area inside the pool polygon, skipping
-  // fill / vectorisation / keep-polygon / dynamic perimeter (the dominant cost). ──
   if (FAST) {
     var areaFast_m2 = water.rename('Water').multiply(ee.Image.pixelArea())
       .reduceRegion({reducer: ee.Reducer.sum(), geometry: lakePoly,
@@ -364,7 +250,7 @@ function classifyImage(img, svm, lakePoly, samplePoints) {
     return img.addBands(water.rename('Water'))
       .set('_area_m2',      areaFast_m2)
       .set('_area_ha',      ee.Number(areaFast_m2).divide(1e4))
-      .set('_ap_m_dynamic', -1);   // sentinel: not computed in fast mode
+      .set('_ap_m_dynamic', -1);
   }
   var mask   = water.unmask(0).clip(aoi);
   var dist   = mask.fastDistanceTransform(30).clip(aoi);
@@ -394,9 +280,6 @@ function classifyImage(img, svm, lakePoly, samplePoints) {
     reducer: ee.Reducer.sum(), geometry: aoi, scale: 10, maxPixels: 1e8, bestEffort: true,
   }).get('WaterCleaned');
 
-  // Dynamic A/P: perimeter of actual water extent at this acquisition date.
-  // At high water, dendritic arms are flooded → complex perimeter → low A/P.
-  // At low water, only trunk remains → simpler shape → higher A/P.
   var mergedGeom = keptPolys.union(1).geometry();
   var dynPerim_m = mergedGeom.perimeter(1);
   var dynAP_m    = ee.Number(area_m2).divide(ee.Number(dynPerim_m).max(1));
@@ -408,10 +291,7 @@ function classifyImage(img, svm, lakePoly, samplePoints) {
 }
 
 // ── Main export loop ───────────────────────────────────────────────────────────
-// Change BATCH_SLICE to the desired batch before running (see header comment).
-// VV_OTSU_FAST cost run: step this through the 8 batches (see header) across
-// sessions — [0,6], [6,12], [12,18], [18,24], [24,30], [30,35], [35,41], [41,45].
-var BATCH_SLICE = JRC_ONLY ? [0, 45] : [0, 6];
+var BATCH_SLICE = [1, 2];   // 4 reservoirs fit one session
 
 PILOT_RESERVOIRS.slice(BATCH_SLICE[0], BATCH_SLICE[1]).forEach(function(res) {
   var rName     = res[0];
@@ -429,50 +309,11 @@ PILOT_RESERVOIRS.slice(BATCH_SLICE[0], BATCH_SLICE[1]).forEach(function(res) {
   var lakePerim_m = lakePoly.perimeter(1);
   var ap_m        = ee.Number(lakeArea_m2).divide(lakePerim_m);
 
-  // ── JRC monthly reference ────────────────────────────────────────────────
-  var JRC_MONTHLY = ee.ImageCollection('JRC/GSW1_4/MonthlyHistory');
-  var aoiTotalArea_m2 = ee.Image(1).rename('total').clip(aoi)
-    .multiply(ee.Image.pixelArea())
-    .reduceRegion({reducer: ee.Reducer.sum(), geometry: aoi,
-                   scale: 30, maxPixels: 1e8, bestEffort: true})
-    .getNumber('total');
-
-  var jrcWater = JRC_MONTHLY
-    .filterDate('2015-01-01', '2021-12-31')
-    .map(function(img) {
-      var wc       = img.select('water');
-      var observed = wc.gte(1).unmask(0).rename('obs');
-      var water    = wc.eq(2).unmask(0).rename('wat');
-      var stats    = observed.addBands(water).multiply(ee.Image.pixelArea())
-        .reduceRegion({reducer: ee.Reducer.sum(), geometry: aoi,
-                       scale: 30, maxPixels: 1e8, bestEffort: true});
-      var validFrac = ee.Number(stats.getNumber('obs')).divide(aoiTotalArea_m2);
-      var jrcAreaHa = ee.Number(stats.getNumber('wat')).divide(1e4);
-      return ee.Feature(null, {
-        'date':        ee.Date(img.get('system:time_start')).format('YYYY-MM-dd'),
-        'jrc_area_ha': jrcAreaHa,
-        'valid_frac':  validFrac,
-      });
-    })
-    .filter(ee.Filter.gt('valid_frac', 0));
-
-  if (EXPORT_JRC) {
-    Export.table.toDrive({
-      collection:     jrcWater,
-      description:    'JRC_area_' + rName,
-      folder:         CFG.drive_folder_jrc,
-      fileNamePrefix: 'JRC_area_' + rName,
-      fileFormat:     'CSV',
-    });
-  }
-
   if (!JRC_ONLY) {
     var svm = null;
     var samplePoints = null;
     if (USE_SVM) {
-    // ── JRC water/land training SAMPLE POINTS (static; used by both SVM modes) ──
-    // Geometries + landcover label only. Backscatter is sampled later: from the fixed
-    // 2023 mosaic (SVM) or from each scene (SVM_ADAPTIVE).
+    // JRC water/land sample POINTS (static; backscatter sampled later — fixed 2023 or per-scene).
     var waterStrict = JRC_OCC.gte(CFG.jrc_occ_thresh).selfMask().sample({
       region: lakePoly, scale: 30, numPixels: 500, seed: 42, geometries: true,
     }).map(function(f) { return f.set('landcover', 1); });
@@ -494,7 +335,6 @@ PILOT_RESERVOIRS.slice(BATCH_SLICE[0], BATCH_SLICE[1]).forEach(function(res) {
     samplePoints = waterSamples.merge(landSamples);
 
     if (CLASSIFIER === 'SVM') {
-      // ── Fixed 2023 mosaic training (Tier 3 original) ─────────────────────
       var s1Composite = S1_GRD
         .filter(ee.Filter.eq('instrumentMode', 'IW'))
         .filter(ee.Filter.eq('resolution_meters', 10))
@@ -510,10 +350,9 @@ PILOT_RESERVOIRS.slice(BATCH_SLICE[0], BATCH_SLICE[1]).forEach(function(res) {
 
       svm = ee.Classifier.libsvm({kernelType: 'RBF', cost: 1, gamma: 0.01})
         .train({features: trainedSamples, classProperty: 'landcover', inputProperties: BANDS});
-    }  // SVM_ADAPTIVE trains per-scene inside classifyImage; VV_OTSU needs no training
+    }  // SVM_ADAPTIVE trains per-scene inside classifyImage
     }  // end if (USE_SVM)
 
-    // ── S1 time series ─────────────────────────────────────────────────────
     var s1Raw = S1_GRD
       .filterBounds(aoi).filterDate(CFG.s1_start, CFG.s1_end)
       .filter(ee.Filter.eq('instrumentMode', 'IW'))
@@ -547,8 +386,8 @@ PILOT_RESERVOIRS.slice(BATCH_SLICE[0], BATCH_SLICE[1]).forEach(function(res) {
         'area_ha':       img.get('_area_ha'),
         'relOrbit':      img.get('relativeOrbitNumber_start'),
         'passDirection': img.get('orbitProperties_pass'),
-        'ap_m':          ap_m,           // static: JRC max_extent polygon
-        'ap_m_dynamic':  img.get('_ap_m_dynamic'),  // dynamic: water polygon at this date
+        'ap_m':          ap_m,
+        'ap_m_dynamic':  img.get('_ap_m_dynamic'),
       });
     }).filter(ee.Filter.gt('area_ha', 0));
 

@@ -7,7 +7,7 @@ Each panel:
   - Dashed red : static A/P reference (from JRC max_extent polygon)
 
 Sorted by static A/P ascending (same order as ts_v4_fullperiod.png).
-Output: analysis/schwatke_output/dyn_ap_v4.png
+Output: analysis/method_comparison_output/dyn_ap_v4.png
 """
 
 import pathlib
@@ -31,7 +31,7 @@ def _lowess(dates, values, window_days=60, bandwidth=20):
 
 SAR_DIR = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4')
 KGE_CSV = pathlib.Path('analysis/pilot_kge_v4.csv')
-OUT_PNG = pathlib.Path('analysis/schwatke_output/dyn_ap_v4.png')
+OUT_PNG = pathlib.Path('analysis/method_comparison_output/dyn_ap_v4.png')
 
 SAR_MIN_FRAC = 0.02
 AREA_MIN     = {'Saint_Cassien': 200}

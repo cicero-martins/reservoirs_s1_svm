@@ -1,0 +1,13 @@
+name,method,n_pairs,KGE,r,RMSE_ha,bias_ha
+Ancipa,Otsu (VV-only),21,0.227,0.914,34.76,2.73
+Ancipa,dual (VV+VH SVM),18,0.472,0.967,32.81,-27.86
+Ancipa,VV-only SVM,22,0.66,0.984,19.76,-14.45
+Pozzillo,Otsu (VV-only),20,0.932,0.997,14.93,-4.88
+Pozzillo,dual (VV+VH SVM),22,0.923,0.999,20.1,-17.21
+Pozzillo,VV-only SVM,21,0.752,0.933,64.74,35.83
+Poma,Otsu (VV-only),37,0.934,0.985,9.29,-7.13
+Poma,dual (VV+VH SVM),38,0.909,0.985,11.91,-10.15
+Poma,VV-only SVM,38,0.514,0.74,43.25,-29.56
+Rosamarina,Otsu (VV-only),34,0.727,0.791,13.05,-3.86
+Rosamarina,dual (VV+VH SVM),35,0.875,0.977,6.69,-5.06
+Rosamarina,VV-only SVM,38,0.957,0.967,6.38,-3.76

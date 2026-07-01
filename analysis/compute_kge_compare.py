@@ -14,7 +14,7 @@ Reads:
 
 Output:
   analysis/pilot_kge_compare.csv
-  analysis/schwatke_output/kge_compare_dual_vs_vv.png   (only if VV data present)
+  analysis/method_comparison_output/kge_compare_dual_vs_vv.png   (only if VV data present)
 
 Runs safely BEFORE the VV_OTSU export exists: dual columns are filled, VV columns
 are NaN, and a clear notice is printed.
@@ -71,7 +71,7 @@ SAR_DUAL_DIR = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4')
 SAR_VV_DIR   = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_VVotsu')
 JRC_DIR      = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_JRC')
 OUT_CSV      = pathlib.Path('analysis/pilot_kge_compare.csv')
-OUT_PNG      = pathlib.Path('analysis/schwatke_output/kge_compare_dual_vs_vv.png')
+OUT_PNG      = pathlib.Path('analysis/method_comparison_output/kge_compare_dual_vs_vv.png')
 
 VALID_FRAC_MIN = 0.80
 SAR_MIN_FRAC   = 0.02

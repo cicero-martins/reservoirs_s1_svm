@@ -5,7 +5,7 @@ Three scatter panels (dynamic A/P vs r, alpha, beta) — same style as
 ap_components_scatter_v4.py but x-axis = mean dynamic A/P (ap_m_dynamic).
 v4 only (N=29; v3 has no dynamic A/P).
 
-Output: analysis/schwatke_output/dynap_components_scatter_v4.png
+Output: analysis/method_comparison_output/dynap_components_scatter_v4.png
 """
 
 import sys, warnings
@@ -22,7 +22,7 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 sys.stdout.reconfigure(encoding='utf-8')
 
-OUT_DIR = Path('analysis/schwatke_output')
+OUT_DIR = Path('analysis/method_comparison_output')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 KGE_THRESH = 0.5

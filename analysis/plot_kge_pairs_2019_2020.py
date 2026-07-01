@@ -12,7 +12,7 @@ Three layers per reservoir:
 KGE value annotated per panel.
 Reservoirs sorted by A/P ascending (left-to-right, top-to-bottom).
 
-Output: analysis/schwatke_output/kge_pairs_2019_2020.png
+Output: analysis/method_comparison_output/kge_pairs_2019_2020.png
 """
 
 import pathlib
@@ -26,7 +26,7 @@ from scipy import stats
 DATA_DIR = pathlib.Path('raw_data/GEE_GlobalPilotV2b')
 APP_DIR  = pathlib.Path('raw_data')
 KGE_CSV  = pathlib.Path('analysis/pilot_kge_2019_2020.csv')
-OUT_PNG  = pathlib.Path('analysis/schwatke_output/kge_pairs_2019_2020.png')
+OUT_PNG  = pathlib.Path('analysis/method_comparison_output/kge_pairs_2019_2020.png')
 
 PERIOD_START   = pd.Timestamp('2019-01-01')
 PERIOD_END     = pd.Timestamp('2020-12-31')

@@ -14,7 +14,7 @@ Reads:
   analysis/pilot_kge_compare.csv          (kge_dual, kge_vv, ap_m)
   raw_data/GEE_GlobalPilotV4b/GEE_Era5Wind/Era5Wind_*.csv  (wind exposure)
 
-Output: analysis/schwatke_output/decision_map.png
+Output: analysis/method_comparison_output/decision_map.png
 
 Skeleton: guards missing VV / wind data.
 """
@@ -28,7 +28,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 CMP_CSV   = pathlib.Path('analysis/pilot_kge_compare.csv')
 WIND_DIR  = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_Era5Wind')
-OUT_PNG   = pathlib.Path('analysis/schwatke_output/decision_map.png')
+OUT_PNG   = pathlib.Path('analysis/method_comparison_output/decision_map.png')
 KGE_THRESH = 0.5
 AP_THRESH  = 118     # Youden-J from the v3+v4 classification figure
 

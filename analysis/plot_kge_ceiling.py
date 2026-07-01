@@ -32,7 +32,7 @@ HIPÓTESES e LIMITAÇÕES:
   3. O SAR perfeito corresponderia a ε_SAR = 0 e β = 1 (sem bias).
 
 Outputs:
-  analysis/schwatke_output/kge_ceiling.png
+  analysis/method_comparison_output/kge_ceiling.png
   Imprime tabela completa com σ_obs, σ_noise, SNR, KGE_max vs KGE_obs.
 """
 
@@ -48,7 +48,7 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 sys.stdout.reconfigure(encoding='utf-8')
 
-OUT_DIR    = Path('analysis/schwatke_output')
+OUT_DIR    = Path('analysis/method_comparison_output')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 KGE_THRESH = 0.5
 D_JRC      = 30.0   # Landsat pixel (m)

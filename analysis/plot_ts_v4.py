@@ -8,7 +8,7 @@ plot_ts_v4.py  -  Time-series figure for pilot v4 (32 reservoirs, 2014-2021).
 
 Dynamic A/P is plotted separately in plot_dyn_ap_v4.py.
 32 reservoirs sorted by static A/P ascending.
-Output: analysis/schwatke_output/ts_v4_fullperiod.png
+Output: analysis/method_comparison_output/ts_v4_fullperiod.png
 """
 
 import pathlib
@@ -60,7 +60,7 @@ def clean_and_smooth(df, col='area_ha'):
 SAR_DIR  = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4')
 JRC_DIR  = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_JRC')
 KGE_CSV  = pathlib.Path('analysis/pilot_kge_v4.csv')
-OUT_PNG  = pathlib.Path('analysis/schwatke_output/ts_v4_fullperiod.png')
+OUT_PNG  = pathlib.Path('analysis/method_comparison_output/ts_v4_fullperiod.png')
 
 VALID_FRAC_MIN = 0.80
 SAR_MIN_FRAC   = 0.02

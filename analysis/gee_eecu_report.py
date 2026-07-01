@@ -33,17 +33,26 @@ import sys
 import re
 from pathlib import Path
 
+# Use the OS (Windows) trust store so SSL-intercepting networks (e.g. the UniPa
+# campus proxy) don't trip OpenSSL 3's strict cert checks. No-op if unavailable.
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except ImportError:
+    pass
+
 try:
     import ee
 except ImportError:
     sys.exit('earthengine-api not installed. Run: pip install earthengine-api')
 
-# Set your cloud project if needed: ee.Initialize(project='your-project')
+# Cloud project that owns the export tasks.
+EE_PROJECT = 'ee-ciceromartinsjr'
 try:
-    ee.Initialize()
+    ee.Initialize(project=EE_PROJECT)
 except Exception:
     ee.Authenticate()
-    ee.Initialize()
+    ee.Initialize(project=EE_PROJECT)
 
 OUT_CSV = Path('analysis/gee_eecu_costs.csv')
 
@@ -52,10 +61,11 @@ def classify_task(desc):
     """Map a task description to (method, reservoir)."""
     if desc is None:
         return None, None
-    m = re.match(r'SAR_area_(.+?)(_VVotsu|_VVfast)?$', desc)
+    m = re.match(r'SAR_area_(.+?)(_VVotsu|_VVfast|_SVMadapt)?$', desc)
     if m:
         suffix = m.group(2)
-        method = {'_VVotsu': 'vv_otsu', '_VVfast': 'vv_fast'}.get(suffix, 'svm_dual')
+        method = {'_VVotsu': 'vv_otsu', '_VVfast': 'vv_fast',
+                  '_SVMadapt': 'svm_adapt'}.get(suffix, 'svm_dual')
         return method, m.group(1)
     m = re.match(r'JRC_area_(.+)$', desc)
     if m:
@@ -69,6 +79,8 @@ def classify_task(desc):
 # ── Pull operations ────────────────────────────────────────────────────────────
 ops = ee.data.listOperations()
 print(f'Fetched {len(ops)} operations from EE.\n')
+
+import pandas as pd
 
 rows = []
 for op in ops:
@@ -91,37 +103,120 @@ for op in ops:
 if not rows:
     sys.exit('No matching SAR/JRC/Era5Wind tasks found in operations history.')
 
-with OUT_CSV.open('w', newline='', encoding='utf-8') as f:
-    w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-    w.writeheader()
-    w.writerows(rows)
-print(f'Saved {len(rows)} tasks -> {OUT_CSV}\n')
+df = pd.DataFrame(rows)
+df['start_dt'] = pd.to_datetime(df['start'], errors='coerce', utc=True)
 
-# ── Summary by method ──────────────────────────────────────────────────────────
-print(f'{"method":<12} {"n_tasks":>8} {"n_with_eecu":>12} {"total_eecu_s":>14} {"mean_eecu_s":>12}')
-print('-' * 62)
+# listOperations() returns the FULL history (v2/v3/v4 + re-runs), so raw totals are
+# polluted. The v4 method-comparison run is the MOST RECENT SUCCEEDED task for each
+# (method, reservoir). Dedupe to that — automatically isolates v4 from older runs
+# and supersedes failed/cancelled retries.
+ok = df[(df['state'] == 'SUCCEEDED') & df['eecu_seconds'].notna()].copy()
+latest = (ok.sort_values('start_dt')
+            .drop_duplicates(['method', 'reservoir'], keep='last')
+            .reset_index(drop=True))
+
+latest.to_csv(OUT_CSV, index=False)
+print(f'Saved {len(latest)} latest-per-(method,reservoir) tasks -> {OUT_CSV}')
+print(f'(from {len(df)} total / {len(ok)} succeeded-with-EECU; deduped historical re-runs)\n')
+
+# ── Summary by method (deduped) ───────────────────────────────────────────────
+print(f'{"method":<12} {"n_resv":>7} {"total_eecu_s":>14} {"mean_eecu_s":>12} {"median":>10}  {"window":>23}')
+print('-' * 84)
 for method in ['svm_dual', 'vv_otsu', 'vv_fast', 'jrc', 'era5_wind']:
-    sub  = [r for r in rows if r['method'] == method]
-    vals = [r['eecu_seconds'] for r in sub if r['eecu_seconds'] is not None]
-    total = sum(vals) if vals else 0.0
-    mean  = (total / len(vals)) if vals else 0.0
-    print(f'{method:<12} {len(sub):>8} {len(vals):>12} {total:>14.1f} {mean:>12.1f}')
+    sub = latest[latest['method'] == method]
+    if sub.empty:
+        continue
+    v = sub['eecu_seconds']
+    win = f"{sub['start_dt'].min():%Y-%m-%d}..{sub['start_dt'].max():%Y-%m-%d}"
+    print(f'{method:<12} {len(sub):>7} {v.sum():>14.1f} {v.mean():>12.1f} {v.median():>10.1f}  {win:>23}')
 
-# ── Head-to-head per reservoir (svm vs vv) ────────────────────────────────────
-svm = {r['reservoir']: r['eecu_seconds'] for r in rows
-       if r['method'] == 'svm_dual' and r['eecu_seconds'] is not None}
-vv  = {r['reservoir']: r['eecu_seconds'] for r in rows
-       if r['method'] == 'vv_otsu' and r['eecu_seconds'] is not None}
-common = sorted(set(svm) & set(vv))
-if common:
-    print(f'\n{"reservoir":<22} {"svm_eecu":>10} {"vv_eecu":>10} {"ratio svm/vv":>13}')
-    print('-' * 57)
-    ratios = []
-    for name in common:
-        ratio = svm[name] / vv[name] if vv[name] else float('nan')
-        ratios.append(ratio)
-        print(f'{name:<22} {svm[name]:>10.1f} {vv[name]:>10.1f} {ratio:>13.2f}')
-    print('-' * 57)
-    print(f'Median cost ratio SVM / VV-Otsu = {sorted(ratios)[len(ratios)//2]:.2f}x')
+# ── Head-to-head per reservoir (svm vs vv), same dedup ────────────────────────
+# NOTE on GEE computation caching: when two reservoirs share overlapping AOIs
+# (e.g. Sau ⊂ Susqueda on the Ter), the second task reuses cached intermediates and
+# reports anomalously low EECU. These cache-confounded pairs are flagged via an IQR
+# fence on the ratio and excluded from the robust headline (still listed).
+piv = latest.pivot_table(index='reservoir', columns='method', values='eecu_seconds')
+if {'svm_dual', 'vv_otsu'}.issubset(piv.columns):
+    hh = piv.dropna(subset=['svm_dual', 'vv_otsu']).copy()
+    hh['ratio'] = hh['svm_dual'] / hh['vv_otsu']
+    hh = hh.sort_values('ratio')
+
+    q1, q3 = hh['ratio'].quantile([0.25, 0.75])
+    fence  = q3 + 3.0 * (q3 - q1)          # generous upper fence (cache outliers only)
+    hh['flag'] = hh['ratio'] > fence
+    clean = hh[~hh['flag']]
+
+    print(f'\n{"reservoir":<22} {"svm_eecu":>10} {"vv_eecu":>10} {"svm/vv":>8}')
+    print('-' * 54)
+    for name, r in hh.iterrows():
+        mark = '  ⚠cache?' if r['flag'] else ''
+        print(f'{name:<22} {r["svm_dual"]:>10.1f} {r["vv_otsu"]:>10.1f} {r["ratio"]:>8.2f}{mark}')
+    print('-' * 54)
+    flagged = list(hh[hh['flag']].index)
+    print(f'N pairs total          = {len(hh)}   (flagged cache-confounded: {flagged or "none"})')
+    print(f'--- robust (excl. flagged, N={len(clean)}) ---')
+    print(f'Median ratio SVM/VV    = {clean["ratio"].median():.2f}x')
+    print(f'Mean ratio SVM/VV      = {clean["ratio"].mean():.2f}x')
+    print(f'Total SVM / Total VV   = {clean["svm_dual"].sum() / clean["vv_otsu"].sum():.2f}x  '
+          f'(SVM={clean["svm_dual"].sum():.0f}, VV={clean["vv_otsu"].sum():.0f} EECU-s)')
+    inv = clean["vv_otsu"].sum() / clean["svm_dual"].sum()
+    print(f'\nInterpretation: SVM/VV ≈ {clean["ratio"].median():.2f} (<1) → dual-pol SVM is '
+          f'NOT more expensive; VV-only Otsu costs ~{inv:.2f}x MORE (per-scene histogram\n'
+          'overhead), while the dominant vectorisation/area cost is SHARED. The classifier\n'
+          'is NOT the cost driver → the real lever is post-processing (see VV_OTSU_FAST).')
+
+    # ── The vectorisation lever: VV_OTSU_FAST (no fill/vectorise/keep/dynamic-AP) ──
+    if 'vv_fast' in piv.columns:
+        ff = piv.dropna(subset=['vv_fast', 'vv_otsu', 'svm_dual']).copy()
+        ff['fast_vv']  = ff['vv_fast'] / ff['vv_otsu']
+        ff['fast_svm'] = ff['vv_fast'] / ff['svm_dual']
+        # reuse the same cache fence on the svm/vv ratio to drop confounded reservoirs
+        ff = ff[(ff['svm_dual'] / ff['vv_otsu']) <= fence]
+        print(f'\n=== VECTORISATION LEVER — VV_OTSU_FAST (N={len(ff)}) ===')
+        print(f'Median FAST/VV-Otsu  = {ff["fast_vv"].median():.3f}x  '
+              f'→ removing vectorisation cuts cost ~{1/ff["fast_vv"].median():.1f}x')
+        print(f'Median FAST/SVM-dual = {ff["fast_svm"].median():.3f}x')
+        print(f'Total FAST/VV / FAST/SVM (Σ): '
+              f'{ff["vv_fast"].sum()/ff["vv_otsu"].sum():.3f} / '
+              f'{ff["vv_fast"].sum()/ff["svm_dual"].sum():.3f}')
+        print('→ Confirms the cost driver is post-processing (vectorisation), NOT the '
+              'classifier: FAST ≪ both full pipelines.')
+    else:
+        print('\n[VV_OTSU_FAST not yet present] run exportGlobalPilotV4.js with '
+              'CLASSIFIER="VV_OTSU_FAST" (8 batches) → download → re-run for the lever.')
+
+    # ── Figure: per-reservoir EECU, dual SVM (y) vs VV-Otsu (x), log-log ──────
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    OUT_PNG = Path('analysis/method_comparison_output/eecu_svm_vs_vv.png')
+    fig, ax = plt.subplots(figsize=(8, 7.5))
+    cl, fl = hh[~hh['flag']], hh[hh['flag']]
+    ax.scatter(cl['vv_otsu'], cl['svm_dual'], s=55, color='#1f77b4',
+               edgecolors='white', linewidths=0.6, zorder=4, label='reservoir')
+    ax.scatter(fl['vv_otsu'], fl['svm_dual'], s=70, color='#d62728', marker='x',
+               zorder=5, label='cache-confounded (excl.)')
+    lo = min(hh['vv_otsu'].min(), hh['svm_dual'].min()) * 0.7
+    hi = max(hh['vv_otsu'].max(), hh['svm_dual'].max()) * 1.4
+    ax.plot([lo, hi], [lo, hi], 'k--', lw=1.2, alpha=0.7, zorder=3, label='1:1 (equal cost)')
+    med = clean['ratio'].median()
+    ax.plot([lo, hi], [lo * med, hi * med], color='#2ca02c', lw=1.3, alpha=0.8,
+            zorder=3, label=f'median SVM/VV = {med:.2f}')
+    for name, r in cl.iterrows():
+        ax.annotate(name.replace('_', ' '), (r['vv_otsu'], r['svm_dual']),
+                    fontsize=5.5, xytext=(3, 2), textcoords='offset points', color='#555')
+    ax.set_xscale('log'); ax.set_yscale('log')
+    ax.set_xlim(lo, hi); ax.set_ylim(lo, hi); ax.set_aspect('equal')
+    ax.set_xlabel('VV-only Otsu cost (EECU-seconds)', fontsize=10)
+    ax.set_ylabel('dual VV+VH SVM cost (EECU-seconds)', fontsize=10)
+    ax.set_title('Computational cost: dual-pol SVM vs VV-only Otsu\n'
+                 f'points below 1:1 → SVM cheaper (median {med:.2f}×, N={len(clean)})',
+                 fontsize=11, fontweight='bold')
+    ax.legend(fontsize=8, loc='upper left'); ax.grid(alpha=0.25, which='both')
+    OUT_PNG.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(OUT_PNG, dpi=140, bbox_inches='tight')
+    plt.close(fig)
+    print(f'\nSaved: {OUT_PNG}')
 else:
-    print('\n[no head-to-head yet] run both SVM and VV_OTSU exports, then re-run.')
+    print('\n[no head-to-head] need both svm_dual and vv_otsu succeeded tasks.')

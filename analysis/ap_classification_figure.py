@@ -22,7 +22,7 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 sys.stdout.reconfigure(encoding='utf-8')
 
-OUT_DIR = Path('analysis/schwatke_output')
+OUT_DIR = Path('analysis/method_comparison_output')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 df = pd.read_csv('analysis/pilot_kge_v3.csv')

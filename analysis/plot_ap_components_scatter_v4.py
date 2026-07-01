@@ -4,7 +4,7 @@ plot_ap_components_scatter_v4.py
 Three scatter panels (A/P vs r, alpha, beta) — same style as AP_classification panel (b).
 Combined v3 (triangles) + v4 (circles), colored by fail mode.
 
-Output: analysis/schwatke_output/ap_components_scatter_v4.png
+Output: analysis/method_comparison_output/ap_components_scatter_v4.png
 """
 
 import sys, warnings
@@ -21,7 +21,7 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 sys.stdout.reconfigure(encoding='utf-8')
 
-OUT_DIR = Path('analysis/schwatke_output')
+OUT_DIR = Path('analysis/method_comparison_output')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 KGE_THRESH = 0.5

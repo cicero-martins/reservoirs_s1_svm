@@ -8,7 +8,7 @@ Three layers per panel:
   • Open black □    — SAR monthly mean co-located with valid JRC (used in KGE)
 
 22 reservoirs sorted by A/P ascending.
-Output: analysis/schwatke_output/ts_v3_fullperiod.png
+Output: analysis/method_comparison_output/ts_v3_fullperiod.png
 """
 
 import pathlib
@@ -60,7 +60,7 @@ def clean_and_smooth(df, col='area_ha'):
 SAR_DIR = pathlib.Path('raw_data/GEE_GlobalPilotV2c/GEE_GlobalPilotV2')
 JRC_DIR = pathlib.Path('raw_data/GEE_GlobalPilotV2c/GEE_GlobalPilotV2_JRC')
 KGE_CSV = pathlib.Path('analysis/pilot_kge_v3.csv')
-OUT_PNG = pathlib.Path('analysis/schwatke_output/ts_v3_fullperiod.png')
+OUT_PNG = pathlib.Path('analysis/method_comparison_output/ts_v3_fullperiod.png')
 
 NO_SMOOTH = {'Hubbard_Creek'}
 

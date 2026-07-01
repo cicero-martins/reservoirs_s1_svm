@@ -11,7 +11,7 @@ Color = fail mode (same as AP_classification figure).
 Hatch = v3; plain = v4.
 Dashed vertical line at the Youden-J optimal A/P threshold.
 
-Output: analysis/schwatke_output/kge_components_v4.png
+Output: analysis/method_comparison_output/kge_components_v4.png
 """
 
 import sys, warnings
@@ -28,7 +28,7 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 sys.stdout.reconfigure(encoding='utf-8')
 
-OUT_DIR = Path('analysis/schwatke_output')
+OUT_DIR = Path('analysis/method_comparison_output')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 KGE_THRESH = 0.5

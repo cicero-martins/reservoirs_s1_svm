@@ -5,8 +5,8 @@ plot_3d_kge_staticap_area.py
 KGE ~ b0 + b1*ap_m + b2*log10(area).  Combined v3 + v4 (N=43).
 
 Outputs:
-  analysis/schwatke_output/3d_kge_staticap_area.html   (plotly, interactive)
-  analysis/schwatke_output/3d_kge_staticap_area.png    (matplotlib, 4 viewpoints)
+  analysis/method_comparison_output/3d_kge_staticap_area.html   (plotly, interactive)
+  analysis/method_comparison_output/3d_kge_staticap_area.png    (matplotlib, 4 viewpoints)
 """
 
 import sys, warnings
@@ -26,7 +26,7 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 sys.stdout.reconfigure(encoding='utf-8')
 
-OUT_DIR    = Path('analysis/schwatke_output')
+OUT_DIR    = Path('analysis/method_comparison_output')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 KGE_THRESH = 0.5
 

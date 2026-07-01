@@ -11,8 +11,8 @@ SAR cleaning mirrors GEE app cleanAndSmooth:
   Gaussian kernel smooth (sigma=7 d, window=±20 d) — displayed as line only
 
 Outputs:
-  analysis/schwatke_output/pilot_v2_ts/ts_{name}.png  — individual (8x3")
-  analysis/schwatke_output/pilot_v2_ts/overview.png   — 5-column grid
+  analysis/method_comparison_output/pilot_v2_ts/ts_{name}.png  — individual (8x3")
+  analysis/method_comparison_output/pilot_v2_ts/overview.png   — 5-column grid
 """
 
 import pathlib
@@ -23,7 +23,7 @@ import matplotlib.dates as mdates
 from matplotlib.lines import Line2D
 
 DATA_DIR = pathlib.Path('raw_data/GEE_GlobalPilotV2b')
-OUT_DIR  = pathlib.Path('analysis/schwatke_output/pilot_v2_ts')
+OUT_DIR  = pathlib.Path('analysis/method_comparison_output/pilot_v2_ts')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 DIR_COLOR      = {'ASCENDING': '#1565C0', 'DESCENDING': '#E65100'}  # blue / orange

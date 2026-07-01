@@ -21,7 +21,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 BASE    = Path('validation_data')
 SAR_DIR = BASE / 'GROWL_SAR_pilot'
-OUT_DIR = Path('analysis/schwatke_output')
+OUT_DIR = Path('analysis/method_comparison_output')
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 VALID_FRAC   = 0.90

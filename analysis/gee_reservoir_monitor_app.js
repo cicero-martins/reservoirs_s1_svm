@@ -87,7 +87,12 @@ var CFG = {
   orbit_angle_tol: 3,
 
   // SAR filter
-  sar_scale_m:   10,   // native S1 resolution — used for area computation
+  sar_scale_m:   10,   // native S1 resolution
+  // Scale for the per-image area reduceRegion. The reduceRegion scale drives how
+  // many pixels flow through the SVM classify + cleaning per image, so coarsening
+  // it from 10 m → 20 m cuts the dominant cost ~4× (pixels scale with 1/scale²).
+  // 20 m is ample for reservoir area (the SAR is focal_mean-smoothed at 30 m anyway).
+  area_scale_m:  20,
   clean_scale_m: 30,   // resolution for connected-component vectorization (keep_largest_only:true path)
   max_pixels:   1e9,
 
@@ -121,9 +126,16 @@ var CFG = {
   // For Sicily (full coverage): 0. For global: 6–12.
   composite_window_days: 6,
 
-  // A/P reliability thresholds (from ROC pilot study, AUC = 0.71, N = 20)
-  ap_high: 333,   // ≥ 333 m → 88% precision at KGE ≥ 0.5
-  ap_med:  200,   // 200–333 m → moderate
+  // Area series is computed in chunks of this many months, evaluated concurrently
+  // and rendered progressively. Smaller = finer progress + more parallelism (more
+  // concurrent requests, faster first result). 3 = quarterly, 12 = yearly.
+  chunk_months: 3,
+
+  // A/P thresholds (this study): drive both classifier selection and the
+  // reliability display. The dual-pol (VV+VH) SVM helps only at low A/P; above
+  // it the single-pol VV Otsu is equal or better on accuracy, and cheaper.
+  ap_low:  120,   // < 120 m  → select dual-pol SVM (complex / dendritic shoreline)
+  ap_high: 250,   // >= 250 m → high reliability; 120–250 m → medium
 
   // Optional: GRDL FeatureCollection asset for global volume curves
   grdl_path: null,
@@ -329,6 +341,44 @@ function fillCoverageGaps(s1Col, windowDays) {
   }));
 }
 
+// ─── 7c. PER-SCENE VV OTSU DETECTOR ──────────────────────────────────────
+// Single-polarisation water detector: a per-scene Otsu threshold on VV taken
+// over a land-ringed buffer (bimodal histogram); water = VV < T. Selected in
+// place of the dual-pol SVM when A/P is not low (see A/P classifier selector).
+var OTSU = {band: 'VV', hist_buffer_m: 500, hist_buckets: 256};
+
+function otsuThreshold(histogram) {
+  histogram   = ee.Dictionary(histogram);
+  var counts  = ee.Array(histogram.get('histogram'));
+  var means   = ee.Array(histogram.get('bucketMeans'));
+  var size    = means.length().get([0]);
+  var total   = counts.reduce(ee.Reducer.sum(), [0]).get([0]);
+  var sum     = means.multiply(counts).reduce(ee.Reducer.sum(), [0]).get([0]);
+  var mean    = sum.divide(total);
+  var indices = ee.List.sequence(1, size);
+  var bss = indices.map(function(i) {
+    var aCounts = counts.slice(0, 0, i);
+    var aCount  = aCounts.reduce(ee.Reducer.sum(), [0]).get([0]);
+    var aMeans  = means.slice(0, 0, i);
+    var aMean   = aMeans.multiply(aCounts).reduce(ee.Reducer.sum(), [0]).get([0]).divide(aCount);
+    var bCount  = total.subtract(aCount);
+    var bMean   = sum.subtract(aCount.multiply(aMean)).divide(bCount);
+    return aCount.multiply(aMean.subtract(mean).pow(2))
+       .add(bCount.multiply(bMean.subtract(mean).pow(2)));
+  });
+  return means.sort(ee.Array(bss)).get([-1]);
+}
+
+function computeOtsuWater(img, lakePoly, aoi) {
+  var histRegion = lakePoly.buffer(OTSU.hist_buffer_m);
+  var hist = img.select(OTSU.band).reduceRegion({
+    reducer:  ee.Reducer.histogram(OTSU.hist_buckets),
+    geometry: histRegion, scale: 30, maxPixels: 1e8, bestEffort: true,
+  }).get(OTSU.band);
+  var threshold = ee.Number(otsuThreshold(hist));
+  return img.select(OTSU.band).lt(threshold).rename('Water').clip(aoi);
+}
+
 // ─── 8. CLASSIFY + CLEAN WATER MASK ─────────────────────────────────────
 // Returns collection with 'Water', 'WaterFilled', 'WaterCleaned' bands added.
 // Gap-fill (fastDistanceTransform) + connected-component cleaning.
@@ -340,11 +390,13 @@ function fillCoverageGaps(s1Col, windowDays) {
 //     flooded roads) whose centroids lie outside the reservoir boundary.
 //   true — single largest polygon only (original app behaviour); safe for compact
 //     reservoirs but physically wrong for irregular / branching shapes.
-function classifyCollection(s1Proc, classifier, aoi, lakePoly) {
-  // Step 1 — SVM classification
+function classifyCollection(s1Proc, classifier, aoi, lakePoly, useDual) {
+  // Step 1 — water detection: dual-pol SVM at low A/P, else single-pol VV Otsu.
   var withWater = s1Proc.map(function(img) {
-    var water = img.select(BANDS).classify(classifier).eq(1).clip(aoi);
-    return img.addBands(water.rename('Water'));
+    var water = useDual
+      ? img.select(BANDS).classify(classifier).eq(1).clip(aoi).rename('Water')
+      : computeOtsuWater(img, lakePoly, aoi);
+    return img.addBands(water);
   });
 
   // Step 2 — morphological gap-fill (close small holes)
@@ -425,7 +477,8 @@ function computeAreaSeries(waterMaskCleaned, aoi) {
     var area_m2 = img.select('WaterCleaned').multiply(ee.Image.pixelArea())
       .reduceRegion({
         reducer: ee.Reducer.sum(), geometry: aoi,
-        scale: CFG.sar_scale_m, maxPixels: CFG.max_pixels, bestEffort: true,
+        scale: CFG.area_scale_m, maxPixels: CFG.max_pixels, bestEffort: true,
+        tileScale: 4,   // same memory guard as JRC — keeps long ranges within limits
       }).get('WaterCleaned');
     return ee.Feature(null, {
       'system:time_start': img.date().millis(),
@@ -493,12 +546,78 @@ function lowessSmoothing(fc, windowDays, bandwidth) {
 }
 
 // Full original chain: 1 global pass + 3 local passes + LOWESS.
+// NOTE: the server-side functions above are kept as a faithful reference (and for
+// any batch use), but the INTERACTIVE app uses the client-side port below
+// (cleanAndSmoothJS). The server version is O(N²) via toList + nested per-point
+// FeatureCollection filters, which (a) hit "user memory limit exceeded" on long
+// ranges and (b) crash with "toList: count must be positive. Got: 0" on an empty
+// series. The JS port runs on the already-fetched raw points — instant for a few
+// hundred points, zero server memory.
 function cleanAndSmooth(areaFC) {
   var ts1 = removeOutliers(areaFC, 2);
   var ts2 = detectAndRemoveLocalOutliers(ts1, 5, 1.5);
   var ts3 = detectAndRemoveLocalOutliers(ts2, 5, 1.5);
   var ts4 = detectAndRemoveLocalOutliers(ts3, 10, 1.5);
   return lowessSmoothing(ts4, 20, 7);
+}
+
+// ── Client-side O(N) port (instant for ≤ a few hundred points) ───────────────
+// Operates on plain rows: [{date:'YYYY-MM-DD', t:<ms>, area_ha:<num>}] sorted by t.
+function _meanSd(vals) {
+  var n = vals.length;
+  if (!n) return {mean: 0, sd: 0};
+  var mean = 0, i;
+  for (i = 0; i < n; i++) mean += vals[i];
+  mean /= n;
+  var v = 0;
+  for (i = 0; i < n; i++) v += (vals[i] - mean) * (vals[i] - mean);
+  return {mean: mean, sd: Math.sqrt(v / n)};   // population SD (matches GEE stdDev)
+}
+
+function removeOutliersJS(rows, threshold) {
+  var ms = _meanSd(rows.map(function(r) { return r.area_ha; }));
+  if (ms.sd === 0) return rows.slice();
+  return rows.filter(function(r) {
+    return Math.abs(r.area_ha - ms.mean) / ms.sd <= threshold;
+  });
+}
+
+function detectLocalOutliersJS(rows, windowSize, threshold) {
+  if (rows.length < 2) return rows.slice();
+  var half = Math.floor(windowSize / 2), keep = [];
+  for (var i = 0; i < rows.length; i++) {
+    var lo = Math.max(0, i - half), hi = Math.min(rows.length, i + half);  // [lo, hi)
+    var ms  = _meanSd(rows.slice(lo, hi).map(function(r) { return r.area_ha; }));
+    var dev = ms.sd > 0 ? Math.abs(rows[i].area_ha - ms.mean) / ms.sd : 0;
+    if (dev <= threshold) keep.push(rows[i]);
+  }
+  return keep;
+}
+
+function lowessJS(rows, windowDays, bandwidth) {
+  var dayMs = 86400000;
+  return rows.map(function(r) {
+    var wSum = 0, wvSum = 0;
+    for (var j = 0; j < rows.length; j++) {
+      var dd = Math.abs(r.t - rows[j].t) / dayMs;
+      if (dd <= windowDays) {
+        var w = Math.exp(-Math.pow(dd / bandwidth, 2));
+        wSum += w; wvSum += rows[j].area_ha * w;
+      }
+    }
+    return {date: r.date, t: r.t, area_ha: r.area_ha,
+            area_ha_smoothed: wSum > 0 ? wvSum / wSum : r.area_ha};
+  });
+}
+
+// Same chain as cleanAndSmooth (server): removeOutliers(2) + 3× local + LOWESS(20d,7).
+function cleanAndSmoothJS(rows) {
+  if (!rows || !rows.length) return [];
+  var s = removeOutliersJS(rows, 2);
+  s = detectLocalOutliersJS(s, 5,  1.5);
+  s = detectLocalOutliersJS(s, 5,  1.5);
+  s = detectLocalOutliersJS(s, 10, 1.5);
+  return lowessJS(s, 20, 7);
 }
 
 // ─── 10. JRC REFERENCE AREA ──────────────────────────────────────────────
@@ -509,6 +628,7 @@ function computeJRCSeries(aoi, start, end) {
       var area_m2 = water.multiply(ee.Image.pixelArea()).reduceRegion({
         reducer: ee.Reducer.sum(), geometry: aoi,
         scale: 30, maxPixels: 1e8, bestEffort: true,
+        tileScale: 4,   // split region into smaller tiles → avoids "user memory limit exceeded"
       }).get('water');
       return ee.Feature(null, {
         'system:time_start': img.date().millis(),
@@ -576,7 +696,7 @@ var panel = ui.Panel({style: {width: '370px', padding: '10px'}});
 panel.add(ui.Label('Reservoir SAR Monitor', {
   fontSize: '17px', fontWeight: 'bold', margin: '0 0 2px 0',
 }));
-panel.add(ui.Label('Global · JRC auto-training · SVM RBF · A/P reliability', {
+panel.add(ui.Label('Global · JRC auto-training · A/P-selected classifier', {
   fontSize: '11px', color: '#555', margin: '0 0 8px 0',
 }));
 
@@ -656,7 +776,7 @@ panel.add(statusLabel);
 
 // ── A/P indicator ──────────────────────────────────────────────
 panel.add(divider());
-panel.add(sectionLabel('A/P reliability indicator'));
+panel.add(sectionLabel('A/P classifier selector'));
 
 var apValueLabel = ui.Label('— m', {
   fontSize: '26px', fontWeight: 'bold', margin: '2px 0',
@@ -672,6 +792,21 @@ var apDescLabel = ui.Label('', {
 panel.add(apValueLabel);
 panel.add(apBadgeLabel);
 panel.add(apDescLabel);
+
+// A/P colour legend (matches the reservoir polygon drawn on the map)
+var apLegend = ui.Panel({
+  layout: ui.Panel.Layout.Flow('horizontal'),
+  style:  {margin: '6px 0 0 0'},
+});
+[['f88f4d', 'Low <120'], ['d64a02', 'Med 120–250'], ['8a2d04', 'High ≥250']]
+  .forEach(function(e) {
+    apLegend.add(ui.Label(' ', {
+      backgroundColor: '#' + e[0], padding: '0 6px', margin: '0 3px 0 0',
+      border: '1px solid #999',
+    }));
+    apLegend.add(ui.Label(e[1], {fontSize: '10px', color: '#555', margin: '0 8px 0 0'}));
+  });
+panel.add(apLegend);
 
 // ── Charts ─────────────────────────────────────────────────────
 panel.add(divider());
@@ -889,8 +1024,8 @@ function onReservoirSelected(id_str) {
       mapObj.centerObject(hydroGeom, 13);
       mapObj.addLayer(
         ee.FeatureCollection([ee.Feature(lakePoly)]).style({
-          color: '00FFFF', fillColor: '006699AA', width: 2,
-        }), {}, name + ' (JRC max extent)'
+          color: apColorHex(ap_m), fillColor: apColorHex(ap_m) + '80', width: 2,
+        }), {}, name + ' · A/P ' + ap_m.toFixed(0) + ' m'
       );
       mapObj.addLayer(
         JRC_GSW.select('occurrence').clip(aoi.buffer(500)),
@@ -923,8 +1058,8 @@ function loadDateOnMap(dateStr) {
     mapObj.layers().reset();
     mapObj.addLayer(
       ee.FeatureCollection([ee.Feature(S.lakePoly)]).style({
-        color: '00FFFF', fillColor: '00000000', width: 2,
-      }), {}, G_name + ' boundary'
+        color: apColorHex(S.ap_m), fillColor: '00000000', width: 2,
+      }), {}, G_name + ' boundary (A/P)'
     );
     mapObj.addLayer(
       ee.Image(img).select('VV').clip(G_aoi),
@@ -953,6 +1088,7 @@ runBtn.onClick(function() {
 
   runBtn.setDisabled(true);
   chartPanel.clear();
+  showLoader('Preparing…  (orbit selection + training)');
   statusLabel.setValue('Getting S1 images for ' + name + '…');
 
   // ── Raw S1 collection ────────────────────────────────────────
@@ -991,29 +1127,41 @@ runBtn.onClick(function() {
       .focal_mean(30, 'circle', 'meters')
       .clip(trainClip);
 
-    // ── Training samples ─────────────────────────────────────
-    var trainingFC = autoTrainingSamples(lakePoly, aoi);
+    // ── A/P-based classifier selection ───────────────────────
+    // Dual-pol SVM only where the shoreline is complex (low A/P); the cheaper
+    // single-pol VV Otsu is used elsewhere (equal accuracy above A/P ~120 m).
+    var useDual    = (S.ap_m != null && S.ap_m < CFG.ap_low);
+    var methodName = useDual ? 'dual-pol SVM (VV+VH)' : 'single-pol VV Otsu';
 
-    // ── Train SVM ────────────────────────────────────────────
-    var classifier = trainSVM(trainingFC, s1Composite);
+    // ── Training samples + SVM (only needed for the dual-pol branch) ──
+    var trainingFC = autoTrainingSamples(lakePoly, aoi);
+    var classifier = useDual ? trainSVM(trainingFC, s1Composite) : null;
 
     // ── Preprocess + classify + clean ────────────────────────
-    statusLabel.setValue('Classifying ' + name + '…');
+    statusLabel.setValue('A/P = ' + (S.ap_m != null ? S.ap_m.toFixed(0) : '?') +
+                         ' m → ' + methodName + '; classifying ' + name + '…');
     var s1Proc = s1Filtered.map(function(img) { return preprocessS1(img, aoi); });
     // For partial-coverage images (global reservoirs at S1 swath edges), mosaic
     // with images from within ±composite_window_days to fill coverage gaps.
     s1Proc = fillCoverageGaps(s1Proc, CFG.composite_window_days);
-    var waterMaskCleaned = classifyCollection(s1Proc, classifier, aoi, lakePoly);
+    var waterMaskCleaned = classifyCollection(s1Proc, classifier, aoi, lakePoly, useDual);
 
     // Store globally for chart-click callbacks
     G_waterMaskCleaned = waterMaskCleaned;
     G_aoi              = aoi;
     G_name             = name;
 
-    // ── Area + JRC series ────────────────────────────────────
-    var areaFC    = computeAreaSeries(waterMaskCleaned, aoi);
-    var areaClean = cleanAndSmooth(areaFC);  // outlier removal (4 passes) + LOWESS
-    var jrcFC     = computeJRCSeries(aoi, start, end);
+    // ── JRC reference series (SAR area is computed in yearly chunks below) ──
+    var jrcFC = computeJRCSeries(aoi, start, end);
+
+    // Fixed chart order via placeholder panels (async callbacks fill them):
+    //   SAR area (top) · JRC reference (middle) · Volume (bottom).
+    var sarPanel = ui.Panel();
+    var jrcPanel = ui.Panel();
+    var volPanel = ui.Panel();
+    chartPanel.add(sarPanel);
+    chartPanel.add(jrcPanel);
+    chartPanel.add(volPanel);
 
     // ── Map: show most recent image ──────────────────────────
     var lastImg = waterMaskCleaned.sort('system:time_start', false).first();
@@ -1026,8 +1174,8 @@ runBtn.onClick(function() {
     mapObj.layers().reset();
     mapObj.addLayer(
       ee.FeatureCollection([ee.Feature(lakePoly)]).style({
-        color: '00FFFF', fillColor: '00000000', width: 2,
-      }), {}, name + ' boundary'
+        color: apColorHex(S.ap_m), fillColor: '00000000', width: 2,
+      }), {}, name + ' boundary (A/P)'
     );
     mapObj.addLayer(
       lastImg.select('VV').clip(aoi),
@@ -1040,32 +1188,10 @@ runBtn.onClick(function() {
       'Water (latest)'
     );
 
-    // ── SAR area chart — raw + LOWESS, click updates map ─────
-    var sarChart = ui.Chart.feature.byFeature(
-        areaClean.sort('date'), 'date', ['area_ha', 'area_ha_smoothed'])
-      .setChartType('LineChart').setOptions({
-        title: name + '  —  SAR water area (SVM auto-training)' +
-               '\n(click a point to load that date on map)',
-        hAxis: {title: 'Date', format: 'YYYY-MM-dd', gridlines: {count: -1}},
-        vAxis: {title: 'Area (ha)', minValue: 0},
-        series: {
-          0: {color: '90caf9', lineWidth: 1,   pointSize: 3, labelInLegend: 'Raw area'},
-          1: {color: 'd32f2f', lineWidth: 2.5, pointSize: 0, labelInLegend: 'LOWESS smoothed'},
-        },
-        legend: {position: 'top', maxLines: 2},
-        height: 280,
-        chartArea: {left: 60, right: 10, top: 60, bottom: 60},
-      });
-    sarChart.onClick(function(xValue) {
-      if (!xValue) return;
-      loadDateOnMap(xValue);
-    });
-    chartPanel.add(sarChart);
-
     // ── JRC reference chart (guard: GSW Monthly ends ~2021) ──
     jrcFC.size().evaluate(function(nJrc) {
       if (!nJrc) {
-        chartPanel.add(ui.Label(
+        jrcPanel.add(ui.Label(
           'JRC optical reference unavailable for this period ' +
           '(GSW Monthly History ends ~2021).',
           {color: '#888', fontSize: '11px', margin: '4px 0'}
@@ -1083,66 +1209,181 @@ runBtn.onClick(function() {
           height: 210,
           chartArea: {left: 60, right: 10, top: 40, bottom: 60},
         });
-      chartPanel.add(jrcChart);
+      jrcPanel.add(jrcChart);
     });
 
-    // ── Volume chart (polynomial, Sicilian reservoirs) ───────
-    var hasVolCoeff = false;
-    for (var key in VOLUME_POLY) {
-      if (name.indexOf(key) !== -1) { hasVolCoeff = true; break; }
+    // ── SAR area + Volume — chunked (CFG.chunk_months), concurrent, progressive ──
+    // The area series is the dominant cost (one SVM classify + reduceRegion per
+    // image). Chunking the date range lets GEE parallelise the work AND lets the
+    // chart fill in as each chunk returns. The chart opens immediately spanning
+    // the FULL period (grey while loading) via a fixed date-axis viewWindow, and
+    // turns white when complete. Cleaning + LOWESS run client-side (cleanAndSmoothJS).
+    function _isoDate(d) { return d.toISOString().slice(0, 10); }
+    function _addMonths(d, m) {
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + m, d.getUTCDate()));
     }
-    if (hasVolCoeff) {
-      // Volume is derived from the LOWESS-smoothed area (original uses
-      // areaLago_smoothed), so the volume curve is not driven by noise spikes.
-      areaClean.sort('date').evaluate(function(fc) {
-        if (!fc || !fc.features) return;
-        var volFeats = fc.features.map(function(f) {
-          var a   = (f.properties.area_ha_smoothed != null)
-                      ? f.properties.area_ha_smoothed
-                      : (f.properties.area_ha || 0);
+    var startD   = new Date(start + 'T00:00:00Z');
+    var endView  = new Date(end + 'T00:00:00Z');
+    var endExcl  = new Date(endView.getTime() + 86400000);   // end day inclusive
+    var chunks   = [];
+    var cur      = startD;
+    while (cur < endExcl) {
+      var nxt = _addMonths(cur, CFG.chunk_months || 3);
+      if (nxt > endExcl) nxt = endExcl;
+      chunks.push([_isoDate(cur), _isoDate(nxt)]);   // half-open [cs, ce)
+      cur = nxt;
+    }
+
+    var allRaw = [];
+    var nDone  = 0;
+    var nTotal = chunks.length;
+
+    // Numeric (ms) x-axis: continuous (so viewWindow can fix the full period) and
+    // it survives GEE's chart serialisation, unlike a Date-typed column (which gets
+    // stringified → "axis #0 cannot be of type string"). Date labels come from
+    // custom ticks instead of an axis format.
+    var startMs = startD.getTime();
+    var endMs   = endView.getTime();
+
+    function fmtYM(ms) {
+      var d = new Date(ms);
+      return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2);
+    }
+    function fmtDate(ms) {
+      var d = new Date(ms);
+      return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2) +
+             '-' + ('0' + d.getUTCDate()).slice(-2);
+    }
+    function makeTicks(minMs, maxMs, n) {
+      var ticks = [];
+      for (var k = 0; k <= n; k++) {
+        var v = Math.round(minMs + (maxMs - minMs) * k / n);
+        ticks.push({v: v, f: fmtYM(v)});
+      }
+      return ticks;
+    }
+    var X_TICKS = makeTicks(startMs, endMs, Math.min(8, Math.max(3, nTotal)));
+
+    function clickToDate(x) {
+      if (x == null) return;
+      var ms = (x instanceof Date) ? x.getTime() : x;
+      loadDateOnMap(new Date(ms).toISOString().slice(0, 10));
+    }
+
+    function renderArea(isFinal) {
+      var rows = allRaw.filter(function(r) { return r.area_ha != null && r.t != null; })
+                       .sort(function(a, b) { return a.t - b.t; });
+      var cleaned = rows.length ? cleanAndSmoothJS(rows) : [];
+
+      // No points yet → show a label, not an empty chart (an all-null DataTable
+      // makes gviz throw transiently before data arrives).
+      if (!cleaned.length) {
+        sarPanel.clear();
+        sarPanel.add(ui.Label(
+          isFinal ? 'No SAR water area for this period.'
+                  : 'Computing area series…  [0/' + nTotal + ' periods]',
+          {color: '#888', fontSize: '12px', margin: '8px 4px'}));
+        if (isFinal) volPanel.clear();
+        return;
+      }
+
+      // x cells use {v: ms, f: 'YYYY-MM-DD'}: v keeps the axis numeric/continuous
+      // (so viewWindow works and it survives serialisation); f is what the tooltip
+      // shows (otherwise the raw ms timestamp appears). Axis labels come from X_TICKS.
+      // Boundary nulls (start/end ms) fix the axis span even with few points.
+      var dt = [['Time', 'Raw area', 'LOWESS smoothed'],
+                [{v: startMs, f: fmtDate(startMs)}, null, null]];
+      cleaned.forEach(function(r) {
+        dt.push([{v: r.t, f: fmtDate(r.t)}, r.area_ha, r.area_ha_smoothed]);
+      });
+      dt.push([{v: endMs, f: fmtDate(endMs)}, null, null]);
+
+      var sarChart = ui.Chart(dt, 'LineChart', {
+        title: name + '  —  SAR water area (SVM auto-training)' +
+               (isFinal ? '\n(click a point to load that date on map)'
+                        : '   [' + nDone + '/' + nTotal + ' periods…]'),
+        hAxis: {title: 'Date', viewWindow: {min: startMs, max: endMs}, ticks: X_TICKS},
+        vAxis: {title: 'Area (ha)', minValue: 0},
+        series: {0: {color: '90caf9', lineWidth: 1, pointSize: 3},
+                 1: {color: 'd32f2f', lineWidth: 2.5, pointSize: 0}},
+        legend: {position: 'top', maxLines: 2},
+        height: 280,
+        chartArea: {left: 60, right: 10, top: 60, bottom: 60},
+        backgroundColor: {fill: isFinal ? '#ffffff' : '#f0f0f0'},   // grey while loading
+        interpolateNulls: false,
+      });
+      sarChart.onClick(clickToDate);
+      sarPanel.clear();
+      sarPanel.add(sarChart);
+
+      if (!isFinal) return;
+
+      // Volume only on the final (complete) smoothed series.
+      var hasVolCoeff = false;
+      for (var key in VOLUME_POLY) {
+        if (name.indexOf(key) !== -1) { hasVolCoeff = true; break; }
+      }
+      volPanel.clear();
+      if (hasVolCoeff) {
+        var volDT = [['Time', 'Volume (Mm³)'], [{v: startMs, f: fmtDate(startMs)}, null]];
+        cleaned.forEach(function(r) {
+          var a   = (r.area_ha_smoothed != null) ? r.area_ha_smoothed : r.area_ha;
           var vol = volumeFromArea(a, name);
-          return ee.Feature(null, {
-            'date': f.properties.date,
-            'volume_Mm3': vol !== null ? Math.max(vol, 0) : null,
-          });
+          if (vol !== null) volDT.push([{v: r.t, f: fmtDate(r.t)}, Math.max(vol, 0)]);
         });
-        var volFC    = ee.FeatureCollection(volFeats).filter(ee.Filter.notNull(['volume_Mm3']));
-        var volChart = ui.Chart.feature.byFeature(volFC, 'date', ['volume_Mm3'])
-          .setChartType('LineChart').setOptions({
+        volDT.push([{v: endMs, f: fmtDate(endMs)}, null]);
+        if (volDT.length > 3) {
+          var volChart = ui.Chart(volDT, 'LineChart', {
             title: name + '  —  Volume (Mm³) from AEV polynomial' +
                    '\n(click a point to load that date on map)',
-            hAxis: {title: 'Date', format: 'YYYY-MM-dd', gridlines: {count: -1}},
+            hAxis: {title: 'Date', viewWindow: {min: startMs, max: endMs}, ticks: X_TICKS},
             vAxis: {title: 'Volume (Mm³)', minValue: 0},
             series: {0: {color: '2e7d32', lineWidth: 2, pointSize: 3}},
             legend: {position: 'none'},
             height: 210,
             chartArea: {left: 60, right: 10, top: 50, bottom: 60},
+            interpolateNulls: false,
           });
-        volChart.onClick(function(xValue) {
-          if (!xValue) return;
-          loadDateOnMap(xValue);
-        });
-        chartPanel.add(volChart);
-      });
-    } else if (CFG.grdl_path) {
-      chartPanel.add(ui.Label(
-        'Volume: looking up GRDL asset…', {color: '#888', fontSize: '11px', margin: '4px 0'}
-      ));
-    } else {
-      chartPanel.add(ui.Label(
-        'Volume: set CFG.grdl_path to a GRDL GEE asset to enable global volume.',
-        {color: '#888', fontSize: '11px', margin: '4px 0'}
-      ));
+          volChart.onClick(clickToDate);
+          volPanel.add(volChart);
+        }
+      } else if (CFG.grdl_path) {
+        volPanel.add(ui.Label('Volume: looking up GRDL asset…',
+          {color: '#888', fontSize: '11px', margin: '4px 0'}));
+      } else {
+        volPanel.add(ui.Label(
+          'Volume: set CFG.grdl_path to a GRDL GEE asset to enable global volume.',
+          {color: '#888', fontSize: '11px', margin: '4px 0'}));
+      }
     }
 
-    // ── Status ───────────────────────────────────────────────
-    s1Proc.size().evaluate(function(n) {
-      statusLabel.setValue(
-        '✓ Done  —  ' + name + '  •  ' + (n || '?') + ' S1 images  •  ' +
-        start.slice(0, 4) + '–' + end.slice(0, 4) +
-        '  •  A/P = ' + (S.ap_m != null ? S.ap_m.toFixed(0) : '?') + ' m'
-      );
-      runBtn.setDisabled(false);
+    // Seed the empty, full-period (grey) chart immediately; advance the loader.
+    renderArea(false);
+    showLoader('Computing area series…  0/' + nTotal);
+    statusLabel.setValue('Computing area series… 0/' + nTotal + ' periods');
+
+    chunks.forEach(function(rng) {
+      var chunkFC = computeAreaSeries(waterMaskCleaned.filterDate(rng[0], rng[1]), aoi);
+      chunkFC.evaluate(function(fcEval, err) {
+        nDone++;
+        if (!err && fcEval && fcEval.features) {
+          fcEval.features.forEach(function(f) {
+            allRaw.push({date:    f.properties.date,
+                         t:       f.properties['system:time_start'],
+                         area_ha: f.properties.area_ha});
+          });
+        }
+        var isFinal = (nDone === nTotal);
+        renderArea(isFinal);
+        updateLoader(nDone / nTotal, 'Computing area series…  ' + nDone + '/' + nTotal);
+        statusLabel.setValue(isFinal
+          ? '✓ Done — ' + name + '  •  ' + allRaw.length + ' SAR points  •  ' +
+            start.slice(0, 4) + '–' + end.slice(0, 4) +
+            '  •  A/P = ' + (S.ap_m != null ? S.ap_m.toFixed(0) : '?') + ' m'
+          : 'Computing area series… ' + nDone + '/' + nTotal +
+            ' periods (' + allRaw.length + ' pts so far)');
+        if (isFinal) { hideLoader(); runBtn.setDisabled(false); }
+      });
     });
   });
 });
@@ -1170,35 +1411,41 @@ resetBtn.onClick(function() {
 });
 
 // ─── 19. A/P BADGE ───────────────────────────────────────────────────────
+// Sequential A/P colour (matches the study-area figure): light -> dark = low -> high A/P.
+function apColorHex(ap) {
+  if (ap == null || isNaN(+ap)) return '9e9e9e';
+  return (ap < CFG.ap_low) ? 'f88f4d' : (ap < CFG.ap_high) ? 'd64a02' : '8a2d04';
+}
+
 function updateBadge(ap_m) {
   if (ap_m == null || isNaN(+ap_m)) return;
   apValueLabel.setValue((+ap_m).toFixed(0) + ' m');
   if (ap_m >= CFG.ap_high) {
-    apBadgeLabel.setValue('● High reliability  (A/P ≥ ' + CFG.ap_high + ' m)');
+    apBadgeLabel.setValue('● High reliability  (A/P ≥ ' + CFG.ap_high + ' m)  ·  VV Otsu');
     apBadgeLabel.style().set({
       backgroundColor: '#c8e6c9', color: '#1b5e20', border: '1px solid #a5d6a7',
     });
     apDescLabel.setValue(
-      '88% of reservoirs at this A/P achieved KGE ≥ 0.5 (global pilot, N=20, AUC=0.71). ' +
-      'Compact / simple shoreline → low mixed-pixel contamination at SAR scale.'
+      'Compact shoreline: few mixed pixels at SAR scale. The single-pol VV Otsu ' +
+      'is selected (equal accuracy to dual-pol here, at lower cost).'
     );
-  } else if (ap_m >= CFG.ap_med) {
-    apBadgeLabel.setValue('◐ Moderate reliability  (' + CFG.ap_med + '–' + CFG.ap_high + ' m)');
+  } else if (ap_m >= CFG.ap_low) {
+    apBadgeLabel.setValue('◐ Medium reliability  (' + CFG.ap_low + '–' + CFG.ap_high + ' m)  ·  VV Otsu');
     apBadgeLabel.style().set({
       backgroundColor: '#fff9c4', color: '#e65100', border: '1px solid #ffe082',
     });
     apDescLabel.setValue(
-      'Mixed classification results expected at this shoreline complexity. ' +
-      'Validate results against JRC / optical imagery before use.'
+      'Moderate shoreline complexity. The single-pol VV Otsu is selected; dual-pol ' +
+      'gives no consistent gain above A/P ~120 m. Cross-check against JRC if in doubt.'
     );
   } else {
-    apBadgeLabel.setValue('○ Low reliability  (A/P < ' + CFG.ap_med + ' m)');
+    apBadgeLabel.setValue('○ Low A/P  (< ' + CFG.ap_low + ' m)  ·  dual-pol SVM');
     apBadgeLabel.style().set({
       backgroundColor: '#ffcdd2', color: '#b71c1c', border: '1px solid #ef9a9a',
     });
     apDescLabel.setValue(
-      'Highly irregular or dendritic shoreline. SAR classification likely unreliable ' +
-      '(many mixed shore pixels). Cross-validate carefully with optical data.'
+      'Narrow / dendritic shoreline with many mixed pixels. The dual-pol (VV+VH) ' +
+      'SVM is selected to recover water that a single-band threshold misses.'
     );
   }
 }
@@ -1324,3 +1571,34 @@ var mapDateLabel = ui.Label('', {
 });
 mapObj.add(mapNameLabel);
 mapObj.add(mapDateLabel);
+
+// ─── 24. MAP LOADING BAR (determinate progress) ──────────────────────────
+// GEE ui has no timer/spinner, so this is a DETERMINATE bar driven by chunk
+// completion (nDone/nTotal) — it advances each time a chunk returns. Shown over
+// the map while the area series computes; hidden when complete.
+var LOADER_W = 320;
+var loaderFill = ui.Panel([], null,
+  {backgroundColor: '#1565c0', height: '12px', width: '0px', margin: '0'});
+var loaderTrack = ui.Panel([loaderFill], null,
+  {backgroundColor: '#cfd8dc', width: LOADER_W + 'px', height: '12px',
+   margin: '6px 0 0 0', border: '1px solid #90a4ae'});
+var loaderText = ui.Label('', {fontSize: '12px', fontWeight: 'bold',
+                               color: '#1565c0', margin: '0', textAlign: 'center'});
+var loaderBox = ui.Panel([loaderText, loaderTrack], ui.Panel.Layout.Flow('vertical'),
+  {position: 'top-center', padding: '10px 16px', shown: false,
+   backgroundColor: 'rgba(255,255,255,0.95)', border: '1px solid #b0bec5'});
+mapObj.add(loaderBox);
+
+function showLoader(text) {
+  loaderText.setValue(text || 'Loading…');
+  loaderFill.style().set('width', '8px');   // small sliver = "started"
+  loaderBox.style().set('shown', true);
+}
+function updateLoader(frac, text) {
+  var w = Math.round(LOADER_W * Math.max(0, Math.min(1, frac)));
+  loaderFill.style().set('width', w + 'px');
+  if (text) loaderText.setValue(text);
+}
+function hideLoader() {
+  loaderBox.style().set('shown', false);
+}

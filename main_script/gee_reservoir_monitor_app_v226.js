@@ -113,9 +113,11 @@ var CFG = {
   // For Sicily (full coverage): 0. For global: 6–12.
   composite_window_days: 6,
 
-  // A/P reliability thresholds (from ROC pilot study, AUC = 0.71, N = 20)
-  ap_high: 333,   // ≥ 333 m → 88% precision at KGE ≥ 0.5
-  ap_med:  200,   // 200–333 m → moderate
+  // A/P thresholds (this study): drive both classifier selection and the
+  // reliability display. The dual-pol (VV+VH) SVM helps only at low A/P; above
+  // it the single-pol VV Otsu is equal or better on accuracy, and cheaper.
+  ap_low:  120,   // < 120 m  → select dual-pol SVM (complex / dendritic shoreline)
+  ap_high: 250,   // >= 250 m → high reliability; 120–250 m → medium
 
   // Optional: GRDL FeatureCollection asset for global volume curves
   grdl_path: null,
@@ -320,6 +322,44 @@ function fillCoverageGaps(s1Col, windowDays) {
   }));
 }
 
+// ─── 7c. PER-SCENE VV OTSU DETECTOR ──────────────────────────────────────
+// Single-polarisation water detector: a per-scene Otsu threshold on VV taken
+// over a land-ringed buffer (bimodal histogram); water = VV < T. Selected in
+// place of the dual-pol SVM when A/P is not low (see A/P classifier selector).
+var OTSU = {band: 'VV', hist_buffer_m: 500, hist_buckets: 256};
+
+function otsuThreshold(histogram) {
+  histogram   = ee.Dictionary(histogram);
+  var counts  = ee.Array(histogram.get('histogram'));
+  var means   = ee.Array(histogram.get('bucketMeans'));
+  var size    = means.length().get([0]);
+  var total   = counts.reduce(ee.Reducer.sum(), [0]).get([0]);
+  var sum     = means.multiply(counts).reduce(ee.Reducer.sum(), [0]).get([0]);
+  var mean    = sum.divide(total);
+  var indices = ee.List.sequence(1, size);
+  var bss = indices.map(function(i) {
+    var aCounts = counts.slice(0, 0, i);
+    var aCount  = aCounts.reduce(ee.Reducer.sum(), [0]).get([0]);
+    var aMeans  = means.slice(0, 0, i);
+    var aMean   = aMeans.multiply(aCounts).reduce(ee.Reducer.sum(), [0]).get([0]).divide(aCount);
+    var bCount  = total.subtract(aCount);
+    var bMean   = sum.subtract(aCount.multiply(aMean)).divide(bCount);
+    return aCount.multiply(aMean.subtract(mean).pow(2))
+       .add(bCount.multiply(bMean.subtract(mean).pow(2)));
+  });
+  return means.sort(ee.Array(bss)).get([-1]);
+}
+
+function computeOtsuWater(img, lakePoly, aoi) {
+  var histRegion = lakePoly.buffer(OTSU.hist_buffer_m);
+  var hist = img.select(OTSU.band).reduceRegion({
+    reducer:  ee.Reducer.histogram(OTSU.hist_buckets),
+    geometry: histRegion, scale: 30, maxPixels: 1e8, bestEffort: true,
+  }).get(OTSU.band);
+  var threshold = ee.Number(otsuThreshold(hist));
+  return img.select(OTSU.band).lt(threshold).rename('Water').clip(aoi);
+}
+
 // ─── 8. CLASSIFY + CLEAN WATER MASK ─────────────────────────────────────
 // Returns collection with 'Water', 'WaterFilled', 'WaterCleaned' bands added.
 // Gap-fill (fastDistanceTransform) + connected-component cleaning.
@@ -331,11 +371,13 @@ function fillCoverageGaps(s1Col, windowDays) {
 //     flooded roads) whose centroids lie outside the reservoir boundary.
 //   true — single largest polygon only (original app behaviour); safe for compact
 //     reservoirs but physically wrong for irregular / branching shapes.
-function classifyCollection(s1Proc, classifier, aoi, lakePoly) {
-  // Step 1 — SVM classification
+function classifyCollection(s1Proc, classifier, aoi, lakePoly, useDual) {
+  // Step 1 — water detection: dual-pol SVM at low A/P, else single-pol VV Otsu.
   var withWater = s1Proc.map(function(img) {
-    var water = img.select(BANDS).classify(classifier).eq(1).clip(aoi);
-    return img.addBands(water.rename('Water'));
+    var water = useDual
+      ? img.select(BANDS).classify(classifier).eq(1).clip(aoi).rename('Water')
+      : computeOtsuWater(img, lakePoly, aoi);
+    return img.addBands(water);
   });
 
   // Step 2 — morphological gap-fill (close small holes)
@@ -547,7 +589,7 @@ var panel = ui.Panel({style: {width: '370px', padding: '10px'}});
 panel.add(ui.Label('Reservoir SAR Monitor', {
   fontSize: '17px', fontWeight: 'bold', margin: '0 0 2px 0',
 }));
-panel.add(ui.Label('Global · JRC auto-training · SVM RBF · A/P reliability', {
+panel.add(ui.Label('Global · JRC auto-training · A/P-selected classifier', {
   fontSize: '11px', color: '#555', margin: '0 0 8px 0',
 }));
 
@@ -627,7 +669,7 @@ panel.add(statusLabel);
 
 // ── A/P indicator ──────────────────────────────────────────────
 panel.add(divider());
-panel.add(sectionLabel('A/P reliability indicator'));
+panel.add(sectionLabel('A/P classifier selector'));
 
 var apValueLabel = ui.Label('— m', {
   fontSize: '26px', fontWeight: 'bold', margin: '2px 0',
@@ -962,19 +1004,24 @@ runBtn.onClick(function() {
       .focal_mean(30, 'circle', 'meters')
       .clip(trainClip);
 
-    // ── Training samples ─────────────────────────────────────
-    var trainingFC = autoTrainingSamples(lakePoly, aoi);
+    // ── A/P-based classifier selection ───────────────────────
+    // Dual-pol SVM only where the shoreline is complex (low A/P); the cheaper
+    // single-pol VV Otsu is used elsewhere (equal accuracy above A/P ~120 m).
+    var useDual    = (S.ap_m != null && S.ap_m < CFG.ap_low);
+    var methodName = useDual ? 'dual-pol SVM (VV+VH)' : 'single-pol VV Otsu';
 
-    // ── Train SVM ────────────────────────────────────────────
-    var classifier = trainSVM(trainingFC, s1Composite);
+    // ── Training samples + SVM (only needed for the dual-pol branch) ──
+    var trainingFC = autoTrainingSamples(lakePoly, aoi);
+    var classifier = useDual ? trainSVM(trainingFC, s1Composite) : null;
 
     // ── Preprocess + classify + clean ────────────────────────
-    statusLabel.setValue('Classifying ' + name + '…');
+    statusLabel.setValue('A/P = ' + (S.ap_m != null ? S.ap_m.toFixed(0) : '?') +
+                         ' m → ' + methodName + '; classifying ' + name + '…');
     var s1Proc = s1Filtered.map(function(img) { return preprocessS1(img, aoi); });
     // For partial-coverage images (global reservoirs at S1 swath edges), mosaic
     // with images from within ±composite_window_days to fill coverage gaps.
     s1Proc = fillCoverageGaps(s1Proc, CFG.composite_window_days);
-    var waterMaskCleaned = classifyCollection(s1Proc, classifier, aoi, lakePoly);
+    var waterMaskCleaned = classifyCollection(s1Proc, classifier, aoi, lakePoly, useDual);
 
     // Store globally for chart-click callbacks
     G_waterMaskCleaned = waterMaskCleaned;
@@ -1145,31 +1192,31 @@ function updateBadge(ap_m) {
   if (ap_m == null || isNaN(+ap_m)) return;
   apValueLabel.setValue((+ap_m).toFixed(0) + ' m');
   if (ap_m >= CFG.ap_high) {
-    apBadgeLabel.setValue('● High reliability  (A/P ≥ ' + CFG.ap_high + ' m)');
+    apBadgeLabel.setValue('● High reliability  (A/P ≥ ' + CFG.ap_high + ' m)  ·  VV Otsu');
     apBadgeLabel.style().set({
       backgroundColor: '#c8e6c9', color: '#1b5e20', border: '1px solid #a5d6a7',
     });
     apDescLabel.setValue(
-      '88% of reservoirs at this A/P achieved KGE ≥ 0.5 (global pilot, N=20, AUC=0.71). ' +
-      'Compact / simple shoreline → low mixed-pixel contamination at SAR scale.'
+      'Compact shoreline: few mixed pixels at SAR scale. The single-pol VV Otsu ' +
+      'is selected (equal accuracy to dual-pol here, at lower cost).'
     );
-  } else if (ap_m >= CFG.ap_med) {
-    apBadgeLabel.setValue('◐ Moderate reliability  (' + CFG.ap_med + '–' + CFG.ap_high + ' m)');
+  } else if (ap_m >= CFG.ap_low) {
+    apBadgeLabel.setValue('◐ Medium reliability  (' + CFG.ap_low + '–' + CFG.ap_high + ' m)  ·  VV Otsu');
     apBadgeLabel.style().set({
       backgroundColor: '#fff9c4', color: '#e65100', border: '1px solid #ffe082',
     });
     apDescLabel.setValue(
-      'Mixed classification results expected at this shoreline complexity. ' +
-      'Validate results against JRC / optical imagery before use.'
+      'Moderate shoreline complexity. The single-pol VV Otsu is selected; dual-pol ' +
+      'gives no consistent gain above A/P ~120 m. Cross-check against JRC if in doubt.'
     );
   } else {
-    apBadgeLabel.setValue('○ Low reliability  (A/P < ' + CFG.ap_med + ' m)');
+    apBadgeLabel.setValue('○ Low A/P  (< ' + CFG.ap_low + ' m)  ·  dual-pol SVM');
     apBadgeLabel.style().set({
       backgroundColor: '#ffcdd2', color: '#b71c1c', border: '1px solid #ef9a9a',
     });
     apDescLabel.setValue(
-      'Highly irregular or dendritic shoreline. SAR classification likely unreliable ' +
-      '(many mixed shore pixels). Cross-validate carefully with optical data.'
+      'Narrow / dendritic shoreline with many mixed pixels. The dual-pol (VV+VH) ' +
+      'SVM is selected to recover water that a single-band threshold misses.'
     );
   }
 }

@@ -1,4 +1,84 @@
 \section{Discussion}
 \label{sec:discussion}
 
-% TODO
+\subsection{Adaptivity, not polarisation, decides accuracy}
+
+The four-detector comparison changes how the single- versus dual-polarisation
+question should be posed. When both detectors adapt to each scene, the
+dual-polarisation SVM and the single-band Otsu threshold are, on the median,
+indistinguishable across the global pilot, and the dual-polarisation advantage
+appears only at low A/P (Section~\ref{sec:res_fourway}). The fixed-training
+dual SVM, by contrast, ranks below the single-band threshold, because it
+cannot follow the scene-to-scene changes in backscatter that a per-scene
+threshold absorbs by construction. The operational lesson is that the choice
+worth making is not how many polarisations to use, but whether the decision
+rule is re-estimated for each acquisition. This also settles the objection that
+a fixed training year is arbitrary: retraining per scene removes the dependence
+on any baseline year and, on the pilot, is at worst neutral and on the median a
+small gain (Sections~\ref{sec:res_fourway} and~\ref{sec:res_sicily}).
+
+A second consequence concerns cost, and here the picture is more nuanced than
+the usual ``dual-pol is expensive'' assumption. Polarisation count itself is
+cheap: a dual SVM trained once is cheaper than the single-band Otsu, whose
+per-scene histogram dominates its cost. What is expensive is adaptivity.
+Re-training the dual SVM on every scene, which is what makes it accurate, also
+makes it the costliest method, somewhat above the VV Otsu
+(Section~\ref{sec:res_cost}). Cost and accuracy therefore trade off, and because
+the dual advantage is confined to low A/P, the two can be reconciled by using
+the per-scene dual SVM only where it pays and the cheaper per-scene VV Otsu
+elsewhere. This is the same A/P-based selection rule that the accuracy results
+imply, now justified on cost as well.
+
+\subsection{A/P as an a-priori screening tool}
+
+Because A/P is computed from a water-body polygon that is already available in
+global databases (GRanD, GRDL, or the JRC extent), it can be evaluated in
+advance of processing. Its value is that it predicts the geometric ceiling
+on accuracy: high-A/P reservoirs are tracked reliably, whereas low-A/P
+reservoirs are only permitted, not guaranteed, to fail
+(Section~\ref{sec:res_ap}). This supports two practical uses. First, screening:
+a water manager can rank a portfolio of reservoirs by expected SAR reliability
+and direct field effort or complementary altimetry to the low-A/P systems.
+Second, classifier selection: because the dual-polarisation advantage
+concentrates at low A/P, the extra polarisation is worth adding only for the
+compact-shoreline minority, and a single-band threshold is adequate elsewhere.
+Both uses turn a descriptive geometric index into an operational decision rule.
+The screening is also inexpensive to deploy, since the training samples and the
+reservoir boundary are drawn automatically from global water and land-cover
+masks, which removes the manual delineation that would otherwise limit transfer
+to new regions.
+
+\subsection{Geometric and radiometric limits are distinct}
+
+A/P bounds accuracy from geometry alone and is blind to radiometric failures,
+and the pooled data make this explicit. The two high-A/P reservoirs with low
+skill (Rockport and Boegoeberg) fail for reasons A/P cannot see, namely ice
+cover and extreme drawdown (Section~\ref{sec:res_ap}). Wind, the failure mode
+most often invoked for SAR water mapping, does not organise along geometry and
+does not explain the between-method differences: the expected Bragg signature
+is absent across the pilot, and A/P remains the only significant predictor of
+the accuracy gap (Section~\ref{sec:res_wind}). We read this as evidence that
+the geometric and radiometric axes are genuinely separate. A/P is a clean and
+transferable predictor of the geometric limit, whereas the radiometric residual
+is real but site- and date-specific and is not removed by the choice of
+polarisation. Addressing it would require a different lever, such as a dynamic
+threshold on the cross-polarised or ratio channel rather than on VV.
+
+\subsection{Limitations}
+
+Several limitations bound these conclusions. The study addresses surface area
+only. Converting area to storage volume requires area--elevation--volume
+information that for many reservoirs is outdated, and we leave that conversion,
+together with the updating of those curves, to future work. The global tier is
+referenced against the 30~m JRC product, which is an inter-product comparison
+rather than ground truth; we mitigate this with the four Sicilian reservoirs
+validated against 3~m PlanetScope near-truth, which reproduce the global
+findings, but a broader near-truth validation would strengthen them. The A/P
+classes used for display (low, medium, high) are a reading aid rather than a
+formal taxonomy, and the underlying relationship is continuous. Finally, the
+static A/P used for screening describes the full pool; at very low water the
+effective shoreline complexity changes, which the dynamic A/P captures but the
+a-priori index does not.
+
+% PROVISIONAL: the global four-way comparison is currently N=28; the 10
+% complementary reservoirs are being processed and will bring it to 38.

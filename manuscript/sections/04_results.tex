@@ -1,4 +1,161 @@
 \section{Results}
 \label{sec:results}
 
-% TODO
+% PROVISIONAL: the global four-way comparison (Sec. 4.2) is currently N=28; the
+% 10 complementary reservoirs are being processed and will raise it to N=38.
+% Numbers flagged [N=28] update on their arrival; the A/P curve (Sec. 4.1) is
+% already N=42 (28 v4 + 14 v3, dual vs JRC). Figures are pulled live from
+% analysis/method_comparison_output/ via \graphicspath.
+
+\subsection{A/P predicts SAR monitorability a priori}
+\label{sec:res_ap}
+
+Across the pooled sample (42 reservoir--reference series: the global pilot plus
+the four Sicilian reservoirs, all scored against their optical reference), the
+static area-to-perimeter ratio is a strong predictor of surface-area skill:
+Spearman $\rho(\text{A/P},\text{KGE}) = 0.57$ ($p = 10^{-4}$;
+Figure~\ref{fig:ap_curve}). The relationship behaves as a \emph{ceiling}
+rather than a simple trend. High-A/P reservoirs ($\geq$250~m) are reliably
+tracked (median KGE 0.88, and three-quarters reach KGE~$\geq$~0.5),
+whereas low-A/P reservoirs ($<$120~m) show both a lower median (0.49) and a
+much wider spread (down to negative KGE), with only half reaching
+KGE~$\geq$~0.5. This is the signature expected if A/P sets the geometric
+ceiling on monitorability: compact shorelines leave little room for
+mixed-pixel error, so skill is high and stable, while elongated, dendritic
+shorelines merely \emph{permit} large errors that a second, radiometric axis
+(Section~\ref{sec:res_wind}) then determines. Two high-A/P outliers with low
+KGE (Rockport, Boegoeberg) are consistent with this reading: their geometry is
+favourable, but ice cover and extreme drawdown, respectively, drive their
+errors, failures that A/P cannot see.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.9\linewidth]{ap_kge_curve_pooled}
+  \caption{Surface-area skill (KGE of the dual-polarisation SVM against the
+  optical reference) versus static A/P for the pooled sample ($n=42$).
+  A/P sets a monitorability ceiling: high-A/P reservoirs are reliably tracked,
+  low-A/P reservoirs are permitted, but not guaranteed, large errors.}
+  \label{fig:ap_curve}
+\end{figure}
+
+\subsection{Adaptivity, not polarisation count, is the decisive lever}
+\label{sec:res_fourway}
+
+Comparing the four detectors under the identical pipeline overturns the
+intuitive ``dual-pol beats single-pol'' expectation. Ranked by median KGE
+across the global pilot [N=28], the order is
+\emph{per-scene SVM} (0.64) $>$ \emph{per-scene VV Otsu} (0.56) $>$
+\emph{VV Otsu without vectorisation} (0.52) $>$ \emph{fixed-training dual SVM}
+(0.50) (Figure~\ref{fig:fourway}). The dual-polarisation learner with a fixed
+2023 baseline ranks \emph{last} (below the single-polarisation threshold)
+because the VV Otsu adapts to every scene by construction while the fixed SVM
+does not. The decisive axis is therefore per-scene adaptivity, not the number
+of polarisations.
+
+Two like-for-like contrasts isolate the two axes. \emph{(i) Adaptivity},
+holding polarisation fixed at dual: retraining the SVM per scene beats the
+fixed 2023 baseline by a median $\Delta$KGE of $+0.066$ (16 win, 6 tie, 6 lose
+of 28), so the arbitrary baseline year is at worst neutral and on median a
+gain, which disposes of the ``why 2023?'' objection. \emph{(ii)
+Polarisation}, holding adaptivity fixed (per-scene SVM vs per-scene Otsu):
+overall the two are statistically indistinguishable (median $\Delta$KGE
+$+0.01$), \emph{but the dual-pol advantage is significantly concentrated at low
+A/P}: Spearman$(\text{A/P},\,\text{KGE}_{\text{dual}}-\text{KGE}_{\text{VV}}) =
+-0.41$ ($p = 0.03$), with a low-A/P median gain of $+0.03$ collapsing to $0.00$
+at high A/P. VH earns its keep only where mixed-pixel, low-water conditions
+defeat a single-band threshold; elsewhere the extra polarisation is redundant.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{kge_4way}
+  \caption{Four-detector KGE across the global pilot [N=28, updating to 38].
+  Per-scene adaptivity (Otsu; adaptive SVM) outranks the fixed-training dual
+  SVM; the dual-pol edge over VV concentrates at low A/P.}
+  \label{fig:fourway}
+\end{figure}
+
+\subsection{Independent confirmation against PlanetScope near-truth}
+\label{sec:res_sicily}
+
+Validated against 3~m PlanetScope near-truth (which breaks the 30~m
+JRC inter-product circularity), the four Sicilian reservoirs reproduce every
+global finding (Figure~\ref{fig:sicily}). Mean KGE ranks per-scene SVM (0.80)
+$\approx$ fixed dual (0.80) $>$ Otsu (0.71) $>$ no-vectorisation (0.65). The
+adaptive and fixed dual SVMs tie against truth (mean $\Delta$KGE $+0.004$),
+again showing the baseline year is harmless. Most tellingly, the dual-pol gain
+over Otsu is largest at the lowest-A/P reservoir, Ancipa ($\Delta$KGE $+0.33$;
+Otsu $0.23 \rightarrow$ adaptive $0.55$): there the single-band Otsu
+\emph{floors} near 60~ha while the true surface falls to $\sim$5~ha, and the
+per-scene dual SVM follows the drawdown down, direct visual evidence that
+VH rescues the mixed-pixel, low-water regime that A/P flags as hardest.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{sicily_planet_validation}
+  \caption{Surface-area time series of the four detectors against PlanetScope
+  3~m near-truth for the Sicilian reservoirs. At low-A/P Ancipa the VV Otsu
+  floors at low water while the per-scene dual SVM tracks the drawdown.}
+  \label{fig:sicily}
+\end{figure}
+
+\subsection{Computational cost trades off against accuracy along A/P}
+\label{sec:res_cost}
+
+An audit of Earth Engine compute usage (EECU-seconds per task, paired by
+reservoir, cache-confounded pairs removed) shows that cost is driven by
+per-scene retraining, not by the number of polarisations
+(Figure~\ref{fig:eecu}). Polarisation count alone is cheap: a dual SVM trained
+once on a fixed year costs a median $0.69\times$ the single-band VV Otsu, whose
+per-scene 256-bin histogram and threshold search outweigh a fixed classifier.
+Making the dual classifier accurate, however, requires re-training it on every
+scene, and this per-scene dual SVM is the most expensive method, at
+$1.21\times$ the VV Otsu and $1.64\times$ the fixed-training dual. The full cost
+ordering, fixed dual ($0.69\times$) $<$ fast ($0.77\times$) $<$ VV Otsu
+($1.00\times$) $<$ per-scene dual ($1.21\times$), is close to the inverse of the
+accuracy ordering (Section~\ref{sec:res_fourway}). The single-band ``fast'' path
+(no vectorisation) is the cheapest option that still keeps a classifier, but its
+$\sim$25\% saving over VV Otsu is not free: it degrades accuracy by a median
+$\Delta$KGE of $-0.07$ globally and $-0.05$ against PlanetScope
+(Sections~\ref{sec:res_fourway} and~\ref{sec:res_sicily}). Because the per-scene
+dual SVM is at once the most accurate and the most expensive, and its accuracy
+advantage is confined to low A/P (Section~\ref{sec:res_fourway}), the
+cost-optimal choice depends on A/P: the per-scene dual SVM earns its premium
+only where shorelines are complex, while the per-scene VV Otsu delivers equal
+accuracy at lower cost elsewhere.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{eecu_svm_vs_vv}
+  \caption{Per-reservoir Earth Engine compute cost of the fixed-training dual
+  SVM versus VV Otsu (log--log). Most points fall below the 1:1 line, so
+  polarisation count alone is not the cost driver; the per-scene retraining that
+  makes the dual classifier accurate, by contrast, makes it the most expensive
+  method (Section~\ref{sec:res_cost}).}
+  \label{fig:eecu}
+\end{figure}
+
+\subsection{Wind: the radiometric axis does not covary with geometry}
+\label{sec:res_wind}
+
+Finally, we test whether wind (the main radiometric failure mode) can be
+folded into the geometric picture, and find it cannot. The Bragg hypothesis
+predicts that wind roughening makes VV over-estimate land (under-detect water)
+relative to dual-pol; across the pilot this correlation has the predicted
+negative sign in \emph{none} of the reservoirs, and where significant it runs
+the opposite way (Figure~\ref{fig:wind}). Nor does wind explain the
+between-method accuracy gap: $r(\text{wind}_{p90}, \Delta\text{KGE})$ is not
+significant, and the only significant predictor of $\Delta$KGE remains A/P
+(Section~\ref{sec:res_fourway}). The wind and A/P axes are, as argued in
+Section~\ref{sec:introduction}, genuinely orthogonal: A/P is a clean,
+computable-a-priori predictor of the geometric ceiling, whereas the
+radiometric residual (wind, ice, vegetation) is real but does not organise
+along geometry and is not captured by choosing one polarisation over another.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.9\linewidth]{delta_kge_vs_wind}
+  \caption{Between-method skill difference versus wind exposure. Wind does not
+  predict $\Delta$KGE; the geometric predictor A/P does. The radiometric axis
+  is orthogonal to geometry.}
+  \label{fig:wind}
+\end{figure}

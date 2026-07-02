@@ -1,5 +1,236 @@
 \section{Data and Methods}
 \label{sec:methods}
 
-% TODO — convert from docx and reorganise to match Figure 2 workflow sequence
-% (addresses R2.D1: Sections 2.2–2.5 alignment with workflow steps)
+\subsection{Workflow overview}
+\label{sec:methods_overview}
+
+The workflow is implemented entirely in Google Earth Engine (GEE) and
+proceeds in five stages (Figure~\ref{fig:workflow}): (i)~Sentinel-1
+acquisition and preprocessing, including an incidence-angle-based orbit
+selection; (ii)~automated selection of training samples from global water and
+land-cover masks, which removes any manual delineation and makes the workflow
+transferable; (iii)~per-acquisition water detection by one of two
+\emph{scene-adaptive} classifiers (a single-polarisation Otsu threshold or
+a dual-polarisation Support Vector Machine, SVM), both followed by an
+\emph{identical} post-processing chain; (iv)~conversion of the cleaned masks
+into surface-area time series and computation of shoreline morphometry
+(the area-to-perimeter ratio, A/P); and (v)~validation against reference data
+and an audit of computational cost. Keeping every stage identical except the
+decision rule is what allows the comparison to isolate the effect of the
+classifier itself rather than of the surrounding pipeline.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  stage/.style={rectangle, rounded corners, draw=black!55, fill=black!5,
+                text width=76mm, align=center, inner sep=5pt, minimum height=9mm},
+  io/.style={stage, fill=black!9},
+  clf/.style={rectangle, rounded corners, draw=orange!75!black, fill=orange!12,
+              text width=34mm, align=center, inner sep=4pt, minimum height=13mm},
+  aux/.style={rectangle, rounded corners, draw=black!45, fill=black!3,
+              text width=34mm, align=center, inner sep=4pt, minimum height=13mm},
+  arr/.style={-{Latex[length=2.2mm]}, draw=black!65, semithick},
+]
+\node[io]    (s1)   at (0,0)      {\textbf{Sentinel-1 GRD}\\IW, 10\,m, VV+VH (2014--2021)};
+\node[stage] (pre)  at (0,-1.75)  {\textbf{Preprocessing}\\incidence-angle orbit selection ($\geq$90\% coverage)\\focal-mean speckle filter};
+\node[clf]   (otsu) at (-2.7,-4.0){\textbf{VV Otsu}\\per-scene threshold\\\emph{single-pol}};
+\node[clf]   (svm)  at (2.7,-4.0) {\textbf{Dual-pol SVM}\\per-scene retrain\\\emph{VV+VH}};
+\node[aux]   (train)at (7.4,-4.0) {\textbf{Automated training}\\JRC water occ.\ $\geq$95\%\\WorldCover land};
+\node[stage] (post) at (0,-6.25)  {\textbf{Identical post-processing}\\gap-fill $\to$ vectorise $\to$ keep in-reservoir polygon};
+\node[stage] (area) at (0,-8.0)   {\textbf{Surface-area series + morphometry}\\static \& dynamic A/P $\cdot$ LOWESS temporal smoothing};
+\node[io]    (val)  at (0,-9.75)  {\textbf{Validation \& cost}\\JRC (38) $\cdot$ PlanetScope 3\,m (4) $\cdot$ EECU audit};
+
+\draw[arr] (s1) -- (pre);
+\draw[arr] (pre.south) -- (otsu.north);
+\draw[arr] (pre.south) -- (svm.north);
+\draw[arr, dashed] (train.west) -- (svm.east);
+\draw[arr] (otsu.south) -- (post.north);
+\draw[arr] (svm.south) -- (post.north);
+\draw[arr] (post) -- (area);
+\draw[arr] (area) -- (val);
+\end{tikzpicture}
+\caption{The GEE workflow. A single Sentinel-1 pipeline feeds two
+\emph{scene-adaptive} water detectors: a single-polarisation VV Otsu
+threshold and a dual-polarisation SVM re-trained per scene (the latter using
+training samples drawn automatically from global water and land-cover masks,
+dashed). Both masks pass through an \emph{identical} post-processing chain.
+Keeping every step common except the decision rule lets the comparison isolate
+the classifier. Surface areas and the A/P morphometry feed the validation and
+cost audit.}
+\label{fig:workflow}
+\end{figure}
+
+\subsection{Sentinel-1 data and preprocessing}
+\label{sec:methods_s1}
+
+We use the Sentinel-1 C-band Ground Range Detected (GRD) collection in
+Interferometric Wide (IW) swath mode at 10~m resolution, with dual
+polarisation (VV and VH) \citep{Torres2012}. GEE delivers this product with
+thermal-noise removal, radiometric calibration, and terrain correction
+already applied. The analysis window spans 1~October~2014 to
+31~December~2021, bounded by the availability of the JRC Monthly Water History
+used as the global reference (Section~\ref{sec:val_global}). Speckle is
+reduced with a 30~m circular focal-mean filter.
+
+Because reservoirs at the edge of the Sentinel-1 swath can be imaged by
+several relative orbits with markedly different viewing geometries, we select,
+per reservoir, the orbit with the highest mean incidence angle (typically
+sub-swath IW3, $\sim$42--46$^{\circ}$) among orbits that satisfy two gates:
+at least 20 available scenes and at least one scene covering $\geq$90\% of the
+AOI. Higher (far-range) incidence angles yield a more specular (hence
+darker) water return and therefore a larger water/land backscatter
+contrast that is more robust to wind roughening \citep{Giustarini2013}.
+Prioritising incidence angle rather than pixel count is a deliberate choice:
+for swath-edge reservoirs the two criteria select different orbits, and the
+angle-based choice produces markedly more stable series. Within the chosen
+orbit, per-scene coverage gaps are filled by compositing acquisitions within a
+6~day window.
+
+\subsection{Automated, transferable training}
+\label{sec:methods_training}
+
+To eliminate the manual sample delineation that limits transferability, both
+the SVM training samples and the reservoir boundary are derived automatically
+from global datasets. The water body itself is the largest polygon of the JRC
+maximum-water-extent layer \citep{Pekel2016} within a search radius of the
+reservoir location (or of its GRanD/GRDL footprint where a database
+identifier is available; \citealp{Lehner2011, Hao2024}). Water training
+points are sampled where JRC water \emph{occurrence} is $\geq$95\% (relaxed to
+$\geq$80\% where the strict class yields too few points); land training points
+are sampled from a 500--2000~m ring around the water body, restricted to
+pixels that are non-water in ESA WorldCover \citep{Zanaga2021} and have zero
+JRC occurrence. Up to 500 points per class are drawn with a fixed random seed.
+Critically, this step fixes only the \emph{locations and labels} of the
+samples from multi-decadal, sensor-independent masks; the backscatter values
+attached to them are sampled later, which is what enables the scene-adaptive
+training below.
+
+\subsection{Two scene-adaptive water detectors}
+\label{sec:methods_detectors}
+
+The paper contrasts a single-polarisation threshold with a dual-polarisation
+learner, applied under an identical pipeline so that any difference reflects
+the \emph{decision rule} (one band vs.\ two) rather than differences in
+training regime. Both detectors adapt to each scene's radiometry, which is
+essential for a fair comparison: a threshold or boundary fixed once and reused
+across all dates cannot absorb the scene-to-scene shifts in backscatter caused
+by wind, moisture, and viewing geometry.
+
+\subsubsection{Single-polarisation VV Otsu threshold}
+\label{sec:methods_otsu}
+
+For each acquisition, a water threshold is computed on the VV band by Otsu's
+between-class-variance maximisation \citep{Otsu1979} applied to the histogram
+(256 bins) of backscatter over a 500~m land-ringed buffer around the water
+body, which renders the histogram bimodal. Pixels with
+$\text{VV} < T_{\text{Otsu}}$ are labelled water, since smooth water has low
+backscatter. The threshold is therefore recomputed for every scene and
+follows the radiometry of that date.
+
+\subsubsection{Dual-polarisation SVM re-trained per scene}
+\label{sec:methods_svm}
+
+The dual-polarisation detector is an RBF-kernel SVM
+(\texttt{ee.Classifier.libsvm}; \citealp{ChangLin2011}) using VV and VH as
+features, with cost $C=1$ and kernel width $\gamma=0.01$. In the scene-adaptive
+configuration used for the main comparison, the backscatter of the fixed JRC
+training points (Section~\ref{sec:methods_training}) is sampled from
+\emph{each scene} and the SVM is re-trained on that scene, producing a
+decision boundary that tracks the scene's radiometry exactly as Otsu's
+per-scene threshold does. This removes any dependence on an arbitrary baseline
+year and makes the SVM-vs-Otsu contrast a clean test of the two-band versus
+one-band decision rule.
+
+% TODO: once SVM_ADAPTIVE run lands, confirm whether the fixed-2023 SVM variant
+% is reported (as an ablation showing the fixed baseline is unfair) or omitted.
+A variant that trains the SVM once on a fixed annual (2023) composite is
+retained only for the computational-cost audit
+(Section~\ref{sec:methods_cost}), where training frequency is irrelevant to the
+per-scene inference cost.
+
+\subsection{Post-processing and surface-area time series}
+\label{sec:methods_postproc}
+
+Every per-scene water mask is refined by the same sequence: morphological gap
+filling via a distance transform, vectorisation of the water pixels, and
+retention of the polygon(s) whose centroid falls inside the reservoir boundary
+(falling back to the single largest polygon when none qualifies). This
+suppresses isolated misclassified patches while preserving disconnected pools
+within the reservoir. Surface area is the pixel-area sum of the retained mask
+at 10~m. Because water backscatter is sensitive to wind roughness, the
+resulting series is temporally filtered with a moving-window outlier removal
+followed by LOWESS smoothing, exploiting the $\sim$6--12~day effective revisit
+of the selected orbit; this smoothing is applied outside GEE so that the
+accuracy metrics judge the raw classification quality.
+
+\subsection{Shoreline morphometry: the A/P ratio}
+\label{sec:methods_ap}
+
+For each reservoir we compute a \emph{static} A/P from the JRC
+maximum-extent polygon (area divided by perimeter, in metres) and, for each
+acquisition, a \emph{dynamic} A/P from the perimeter of the actual water
+extent on that date. As introduced in Section~\ref{sec:introduction}, A/P sets
+the geometric ceiling on monitorability: for a ground resolution $r$, the
+fraction of ambiguous boundary pixels is approximately $r/(A/P)$, so
+low-A/P (narrow, dendritic) reservoirs carry proportionally more mixed pixels
+and are expected to be harder to delineate regardless of sensor or classifier.
+A/P is thus tested as an \emph{a-priori} predictor: it is computable from
+global databases ahead of any image analysis.
+
+\subsection{Validation}
+\label{sec:methods_validation}
+
+Skill is measured with the Kling--Gupta Efficiency
+\citep[KGE;][]{Gupta2009}, which decomposes into correlation ($r$),
+variability ratio ($\alpha$), and bias ratio ($\beta$), reported alongside the
+composite score. The comparison between detectors is summarised by
+$\Delta\text{KGE} = \text{KGE}_{\text{dual}} - \text{KGE}_{\text{VV}}$ on the
+months common to both.
+
+\subsubsection{Global tier: JRC surface-water reference (38 reservoirs)}
+\label{sec:val_global}
+
+For the 38 pilot reservoirs, SAR-derived monthly surface areas are compared
+against the JRC Monthly Water History (2015--2021), which provides a globally
+consistent optical reference at 30~m. Only months with valid JRC observations
+over the AOI are retained. This tier establishes breadth across climate and
+geometry, at the cost of a 30~m inter-product comparison.
+
+\subsubsection{Sicilian near-truth: PlanetScope NDWI (4 reservoirs)}
+\label{sec:val_sicily}
+
+To break the 30~m inter-product circularity, the four Sicilian reservoirs are
+validated against near-truth water masks derived from PlanetScope SuperDove
+imagery ($\sim$3~m; \citealp{PlanetTeam2017}) over May~2024--May~2025. Cloud-
+free scenes are converted to water masks with a scene-specific NDWI threshold,
+produced independently of the SAR workflow. Each PlanetScope observation is
+matched one-to-one to the nearest SAR acquisition within $\pm$6~days (no
+monthly averaging), and KGE is computed on the paired series.
+
+% TODO: state final N of PlanetScope scenes / matched pairs per reservoir once
+% the SVM_ADAPTIVE Sicily run is downloaded.
+
+\subsection{Computational cost audit}
+\label{sec:methods_cost}
+
+To test the common assumption that the dual-polarisation learner is more
+expensive than a single-band threshold, we audit the Earth Engine Compute Unit
+(EECU) usage of each export task via \texttt{batchEecuUsageSeconds}
+(\texttt{ee.data.listOperations}), pairing the two methods per reservoir and
+comparing their cost ratio. To isolate the true cost lever, a third
+configuration removes the post-processing (vectorisation, keep-polygon, and
+dynamic-perimeter steps) and computes area by direct pixel counting inside the
+reservoir polygon.
+
+\subsection{Wind as an orthogonal radiometric axis}
+\label{sec:methods_wind}
+
+A/P captures a purely \emph{geometric} limit and is blind to
+\emph{radiometric} failures such as wind-driven surface roughening, which
+raises VV backscatter and can cause water to be omitted. To test whether wind
+explains the between-method differences, we extract 10~m wind speed from the
+hourly ERA5 reanalysis \citep{Hersbach2020} at each Sentinel-1 overpass time
+(the hourly product is required because Sentinel-1 overpasses fall near the
+diurnal wind extremes) and relate it to both the between-method area
+divergence and $\Delta\text{KGE}$.

@@ -23,8 +23,8 @@ near-real-time data, but converting levels into volumes requires
 area--elevation--volume (AEV) relationships. In many systems, these still
 rely on design-phase bathymetric surveys (1950s--1960s), which may not
 reflect current conditions due to sedimentation and morphological change
-\citep{BrunoEtAl2003}. Satellite radar altimetry --- as provided, for
-example, by the DAHITI database \citep{Schwatke2015} --- offers a
+\citep{BrunoEtAl2003}. Satellite radar altimetry, as provided for
+example by the DAHITI database \citep{Schwatke2015}, offers a
 complementary and globally consistent source of water-level time series,
 now covering several thousand lakes and reservoirs worldwide. Combined
 with global reservoir attribute databases such as GRanD
@@ -32,13 +32,15 @@ with global reservoir attribute databases such as GRanD
 relationships for over 7,000 water bodies, and in-situ and altimetry-based
 records compiled in GROWL \citep{Zhang2026}, these platforms have
 substantially expanded the observational basis for large-scale hydrological
-assessments. It is important to note, however, that converting any
-remotely sensed water-level or surface-area signal into a storage estimate
-still requires AEV information --- whether derived from in-situ surveys,
-bathymetric modelling, or the design-phase documentation that many
-reservoirs rely on. The present study is no exception: the storage time
-series presented here are also derived from historical AEV relationships,
-and the associated uncertainty is explicitly acknowledged as a limitation.
+assessments. Converting any of these signals into a storage volume, however,
+still requires AEV information (whether from in-situ surveys, bathymetric
+modelling, or design-phase documentation), which for many reservoirs is
+outdated and is itself a major source of uncertainty. Storage volume is thus
+reachable by two routes, from water level or from water-surface area, but both
+are gated by the same AEV step. We place the present study on the surface-area
+route and, within it, on the quantity the SAR classifier measures directly; the
+AEV conversion to volume, and the updating of those curves, is left to future
+work as the strategic next step.
 
 Alongside altimetry, Synthetic Aperture Radar (SAR) imagery offers a
 complementary approach to reservoir monitoring based on the direct
@@ -73,10 +75,13 @@ mixed pixels introduce systematic errors whose severity depends on the
 ratio of shoreline length to water body area \citep{CazalsEtAl2021}.
 Shadowing and layover effects in topographically complex settings further
 complicate delineation near steep reservoir margins \citep{Martinis2015}.
-These phenomena are well-established individually; yet a key operational
-question remains unanswered: \emph{which geometric property of a
-reservoir most efficiently predicts its SAR classification skill, and can
-it be estimated before any SAR processing is performed?}
+These phenomena are well-established individually; yet two linked operational
+questions remain unanswered: \emph{which geometric property of a reservoir
+best predicts its SAR classification skill, knowable in advance of any SAR
+processing, and can that same property tell us which
+classifier a reservoir actually needs, separating the cases a simple
+single-polarisation threshold already handles from the few that justify a
+more complex dual-polarisation learner?}
 
 We propose that the answer lies in the \textbf{area-to-perimeter ratio
 (A/P; units: m)}, a length-scale index that captures the compactness of
@@ -86,42 +91,51 @@ the boundary strip of width $r$ enclosing the perimeter $P$ contains
 approximately $P \cdot r$ square metres of ambiguous pixels (neither
 purely water nor purely land). As a fraction of total water area $A$,
 this amounts to $P \cdot r / A = r / (A/P)$, a quantity that grows as
-$A/P$ decreases --- i.e.\ as the shoreline becomes more irregular or
+$A/P$ decreases, that is, as the shoreline becomes more irregular or
 elongated relative to the enclosed area. This geometric argument is
 corroborated by \citet{CazalsEtAl2021}, who quantified a systematic
 perimeter-inward erosion of $\sim$20~m in Sentinel-1-derived water masks
-at the pixel level. Beyond the mixed-pixel mechanism, elongated reservoirs
-(low A/P) also present longer wind-fetch distances along their main axis,
-which promotes wave development and elevated backscatter that can
-trigger omission errors \citep{McQuillan2025}. Compact reservoirs (high
-A/P), by contrast, expose shorter fetch lengths, simpler shoreline
-geometries, and fewer radar shadow or layover zones. Together, these
-mechanisms predict that A/P is a reliable a-priori indicator of SAR
-classification performance --- one that, to our knowledge, has not been
-systematically tested across a multi-reservoir dataset.
+at the pixel level. This mixed-pixel argument is purely geometric: it depends
+only on shoreline length and pixel size, and is therefore sensor- and
+algorithm-agnostic. It predicts that A/P is a reliable a-priori indicator of
+the \emph{geometric} ceiling on SAR classification performance, one that,
+to our knowledge, has not been systematically tested across a multi-reservoir
+dataset. Radiometric failures form a second, orthogonal axis to which A/P is
+blind: wind-driven roughening in particular raises open-water backscatter and
+can trigger omission errors, and has been proposed to scale with wind fetch
+and hence with reservoir elongation \citep{McQuillan2025}. Whether this
+radiometric axis genuinely co-varies with geometry or acts independently is an
+empirical question we test directly rather than assume.
 
-This paper addresses that gap. Using a GEE-based workflow combining
-Sentinel-1 imagery and Support Vector Machine (SVM) classification across
-41 reservoirs in Sicily, we: (i)~quantify the statistical relationship
-between A/P and SAR classification accuracy; (ii)~validate the resulting
-surface-area and storage time series against high-resolution PlanetScope
-imagery and official storage records; and (iii)~demonstrate that, when
-training samples are drawn automatically from the JRC Global Surface Water
-dataset \citep{Pekel2016}, the same workflow can be transferred to
-reservoirs in diverse climatic regions worldwide, with performance within
-0.05--0.07 KGE of the manually supervised baseline. The A/P ratio emerges
-from this analysis as a practical screening tool: computable from global
-databases such as GRanD or GROWL before any SAR processing, it allows
-practitioners to anticipate where the workflow will perform well and where
-additional caution or complementary altimetry data are warranted.
+This paper addresses that gap with a fully automated, cloud-based GEE
+workflow applied to two complementary reservoir samples: a global pilot of
+38 reservoirs spanning five continents and a wide range of shoreline
+geometry, referenced against the JRC Global Surface Water dataset
+\citep{Pekel2016}, and four Sicilian reservoirs validated against
+high-resolution PlanetScope imagery as near-truth. We: (i)~quantify the
+statistical relationship between A/P and SAR surface-area accuracy across the
+global pilot; (ii)~establish, through a like-for-like comparison of a
+single-polarisation (VV) per-scene threshold and a dual-polarisation (VV+VH)
+per-scene SVM run under an identical pipeline, that per-scene adaptivity
+rather than polarisation count is the decisive factor, with dual-polarisation
+complexity justified only at low A/P; and
+(iii)~audit the computational cost of each classifier, overturning the common
+assumption that the dual-polarisation learner is the more expensive option.
+Because training samples are drawn automatically from global water masks, the
+workflow carries no manual delineation and transfers directly across climatic
+regions. The A/P ratio emerges as a practical screening tool: computable from
+global databases such as GRanD or GROWL before any SAR image is processed, it
+lets practitioners anticipate both where the workflow will perform well and
+which classifier a given reservoir actually requires.
 
 The remainder of the paper is organised as follows.
-Section~\ref{sec:study_area} describes the study area and the 41 Sicilian
-reservoirs. Section~\ref{sec:methods} details the SAR preprocessing, SVM
-classification, morphometric analysis, and validation strategy.
-Section~\ref{sec:results} presents the classification results, the
-A/P--performance relationship, and the global transferability assessment.
-Section~\ref{sec:discussion} discusses implications for operational
-monitoring, the limitations of the approach --- including the dependence
-on historical AEV relationships --- and avenues for future work.
+Section~\ref{sec:study_area} describes the two-tier reservoir sample.
+Section~\ref{sec:methods} details the SAR preprocessing, the automated
+training, the two scene-adaptive classifiers, the morphometric analysis, and
+the validation and cost-audit strategy. Section~\ref{sec:results} presents the
+A/P--performance relationship, the single- versus dual-polarisation
+comparison, the computational-cost audit, and the wind analysis.
+Section~\ref{sec:discussion} discusses implications for operational monitoring,
+the geometric-versus-radiometric limits of the approach, and avenues for
+future work, including the conversion of surface area to storage volume.
 Section~\ref{sec:conclusions} summarises the main conclusions.

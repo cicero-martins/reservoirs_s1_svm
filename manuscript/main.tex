@@ -12,6 +12,8 @@
 
 %% --- Graphics & tables ---
 \usepackage{graphicx}
+% figures live in manuscript/figures/ (curated) and analysis output (draft/live)
+\graphicspath{{figures/}{../analysis/method_comparison_output/}}
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{longtable}
@@ -24,6 +26,10 @@
 %% --- Units ---
 \usepackage{siunitx}
 \sisetup{detect-all, group-separator={,}}
+
+%% --- Diagrams ---
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, fit, backgrounds}
 
 %% --- Misc ---
 \usepackage{microtype}
@@ -39,8 +45,9 @@
 
 \begin{frontmatter}
 
-\title{Monitoring Surface and Storage Dynamics of Water Reservoirs Using
-       Sentinel-1 SAR and Machine Learning in Google Earth Engine}
+\title{Monitoring Reservoir Surface Area with Sentinel-1 SAR in Google
+       Earth Engine: the Area-to-Perimeter Ratio as an A-Priori Predictor of
+       Water-Classifier Skill and Choice}
 
 \author[unipa]{Cicero Martins Jr.\corref{cor1}}
 \ead{cicero.martinsjr@unipa.it}
@@ -57,29 +64,32 @@
 
 % -----------------------------------------------------------------------
 \begin{abstract}
-This study presents an operational workflow for monitoring water surface
-area and storage dynamics using Sentinel-1 SAR imagery and machine
-learning on Google Earth Engine (GEE), demonstrated across 41 reservoirs
-in Sicily~($n=41$). The preprocessing pipeline includes incidence-angle
-filtering that prioritizes IW3 acquisitions ($\sim$42--46$^{\circ}$),
-reducing angular backscatter variability and improving temporal
-consistency. Water detection is performed using a Support Vector Machine
-(SVM) classifier trained on VV and VH polarizations, which outperformed
-threshold-based methods and other classifiers available under GEE.
-Classified masks were refined through morphological filtering and converted
-into surface-area and volume time series using reservoir-specific
-area--volume curves. Validation against high-resolution PlanetScope NDWI
-masks showed strong agreement ($R^{2}>0.95$; KGE up to 0.96;
-$n=\text{X}$ image pairs). To interpret performance differences, a
-shoreline morphometric analysis based on the area-to-perimeter ratio (A/P)
-was conducted, revealing that reservoirs with smoother, more compact
-shorelines exhibit higher SAR classification accuracy, whereas highly
-irregular systems show larger uncertainties. Comparison with official
-storage records confirmed very good performance for large reservoirs and
-highlighted limitations related to shoreline complexity and outdated
-bathymetric relationships in smaller systems. The workflow provides a
-cloud-based approach for satellite-driven reservoir storage monitoring in
-data-scarce regions.
+% NOTE: the four-way global comparison is currently N=28 (10 complementary
+% reservoirs pending). Stable numbers: A/P rho=0.57; between-method rho=-0.41;
+% EECU fixed-dual 0.69x, per-scene dual 1.21x VV-Otsu. See project memory.
+The area-to-perimeter ratio (A/P) of a reservoir shoreline, computable in
+advance from global databases, predicts both the accuracy of Sentinel-1
+surface-area monitoring and the water classifier a reservoir requires. We test
+this in a single cloud-based Google Earth Engine pipeline that compares two
+per-scene-adaptive detectors: a single-polarisation VV Otsu threshold and a
+dual-polarisation (VV+VH) support vector machine (SVM) re-trained for each
+acquisition, with training samples drawn automatically from the JRC Global
+Surface Water dataset. The comparison covers 38 reservoirs on five continents,
+referenced to JRC surface water, and four Sicilian reservoirs validated against
+3~m PlanetScope near-truth. A/P predicts surface-area skill (Spearman
+$\rho = 0.57$), setting a geometric ceiling that is high for compact reservoirs
+and low and variable for narrow, dendritic ones. Per-scene adaptivity, not the
+number of polarisations, drives accuracy: a fixed-training dual SVM is the least
+accurate, whereas the two per-scene detectors tie on the median, the
+dual-polarisation advantage appearing only at low A/P ($\rho = -0.41$). Cost
+follows the same axis, so the accurate per-scene dual SVM is the most expensive
+method, about $1.2\times$ the VV threshold. A/P therefore selects the cheapest
+sufficient classifier, reserving the dual SVM for complex shorelines. We release
+the workflow as an interactive Google Earth Engine application that auto-trains
+from JRC and applies this A/P-based selection over more than 35,000 global
+reservoirs (Global Dam Watch). It provides a reliable, low-cost, and transferable
+basis for the surface-area input to reservoir storage monitoring in data-scarce
+regions.
 \end{abstract}
 
 \begin{keyword}

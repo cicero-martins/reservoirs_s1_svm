@@ -1,4 +1,80 @@
-\section{Study Area}
+\section{Study Area and Reservoir Sample}
 \label{sec:study_area}
 
-% TODO — convert from docx
+The experimental design rests on two complementary reservoir samples, chosen
+to separate the two questions this paper addresses. The first,
+whether the area-to-perimeter ratio (A/P) predicts SAR classification skill
+and governs the choice between a single- and a dual-polarisation detector,
+requires \emph{breadth}: many reservoirs spanning a wide range of shoreline
+geometry and climate. The second, how the resulting surface-area series
+compare against near-truth reference data, requires \emph{depth}: a few
+reservoirs with independent, high-resolution validation. We therefore combine
+a global pilot of 38 reservoirs referenced against the JRC Global Surface
+Water dataset \citep{Pekel2016} with four Sicilian reservoirs validated
+against high-resolution PlanetScope imagery.
+
+\subsection{Global pilot: 38 reservoirs across five continents}
+\label{sec:study_global}
+
+The global pilot comprises 38 reservoirs distributed across fourteen
+countries and five continents (Europe, Africa, Asia, the Americas, and
+Oceania), spanning a broad range of K\"oppen--Geiger climate types from
+tropical to humid-continental (Figure~\ref{fig:map_global}; per-reservoir
+country, climate, area, and A/P in Table~\ref{tab:pilot}). Surface areas
+range from roughly 2.4 to 50~\si{\kilo\metre\squared} (about 240--5000~ha).
+The reservoirs sit in contrasting biomes and, with them, contrasting wind
+regimes (the radiometric factor examined in
+Section~\ref{sec:methods_wind}), so SAR performance is probed well beyond a
+single climatic setting.
+
+Across the sample, static shoreline compactness (the A/P of the JRC
+maximum-water-extent polygon, computable a priori)
+ranges from 66 to 461~m. At the low-A/P end are narrow, dendritic gorge
+reservoirs impounded in steep valleys (e.g.\ Sau and Susqueda on the Ter,
+Rappbode, Grandval), whose long, convoluted shorelines maximise the
+mixed-pixel fraction; at the high-A/P end are compact, bowl- or plain-shaped
+impoundments with short, smooth shorelines (e.g.\ Harlan County, Umbuluzi,
+Erfenis, Hubbard Creek). Figure~\ref{fig:map_global} colours each reservoir
+by A/P, showing that this geometric gradient is sampled across all regions
+rather than confined to one. Candidate reservoirs and their area--storage
+attributes were drawn from the Global Reservoir and Dam databases
+\citep[GRanD, GRDL;][]{Lehner2011, Hao2024}, and their water-body polygons
+from the JRC layer \citep{Pekel2016}.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/study_area_map}
+  \caption{Global pilot reservoirs ($n=38$) coloured by static shoreline
+  area-to-perimeter ratio (A/P): low ($<$120~m), medium (120--250~m), and
+  high ($\geq$250~m). Per-reservoir country, climate zone, area, and A/P are
+  listed in Table~\ref{tab:pilot}. Basemap: Natural Earth.}
+  \label{fig:map_global}
+\end{figure*}
+
+\input{sections/table_pilot}
+
+\subsection{Sicilian near-truth reservoirs}
+\label{sec:study_sicily}
+
+Four Sicilian reservoirs (Ancipa, Pozzillo, Poma, and Rosamarina)
+provide an independent, high-resolution validation anchor that breaks the
+inter-product circularity of comparing one 30~m product (JRC, derived from
+optical Landsat) against a 10~m SAR product. Sicily, the largest island in
+the Mediterranean ($\sim$25{,}441~\si{\kilo\metre\squared}), has a
+predominantly Mediterranean climate (Csa in the K\"oppen--Geiger system) with
+hot, dry summers and mild, wet winters, and a marked orographic gradient
+between semi-arid coastal plains and the wetter Madonie and Nebrodi mountain
+ranges \citep{Costantini2013}. Natural lakes are rare, so artificial
+reservoirs form the backbone of the island's water supply; over the past
+decade they have repeatedly reached critically low levels during the dry
+season \citep{ISPRA2023}, making them a demanding and policy-relevant test
+bed.
+
+The four reference reservoirs span contrasting morphometries: Pozzillo, the
+largest, is a broad, relatively shallow basin; Poma and Rosamarina are
+intermediate; and Ancipa is a small, steep-sided, valley-confined reservoir
+in the Nebrodi range whose narrow, predominantly east--west-oriented body
+represents the low-A/P, hardest-to-monitor end of the range. For each, cloud-
+free PlanetScope SuperDove imagery ($\sim$3~m) acquired between May~2024 and
+May~2025 yields near-truth NDWI water masks used to validate the
+Sentinel-1--derived surface areas (Section~\ref{sec:methods}).

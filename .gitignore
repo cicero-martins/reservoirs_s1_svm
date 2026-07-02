@@ -44,3 +44,23 @@ analysis/_vol_table.py
 # Local IDE
 .vscode/
 *.code-workspace
+
+# LaTeX build artifacts (regenerable from .tex)
+manuscript/*.aux
+manuscript/*.bbl
+manuscript/*.blg
+manuscript/*.fdb_latexmk
+manuscript/*.fls
+manuscript/*.log
+manuscript/*.out
+manuscript/*.spl
+manuscript/*.synctex.gz
+manuscript/main.pdf
+
+# GEE raw exports (regenerable from the export scripts; large)
+raw_data/GEE_*/
+raw_data/GDW2024/
+raw_data/ee-chart_*.csv
+
+# Throwaway diagnostic logs
+analysis/_*_log.txt

@@ -1,4 +1,28 @@
 \section{Conclusions}
 \label{sec:conclusions}
 
-% TODO
+Using a fully automated Google Earth Engine workflow applied to 38 reservoirs
+on five continents, together with four Sicilian reservoirs validated against
+3~m PlanetScope imagery, we tested the area-to-perimeter ratio as an a-priori
+predictor of SAR surface-area accuracy and used it to reconsider the choice of
+water classifier. Three conclusions follow. First, A/P predicts the geometric
+ceiling on monitorability and can be computed from global databases before any
+image is processed, which makes it a practical tool for screening where SAR
+monitoring will succeed. Second, the decisive methodological factor is
+per-scene adaptivity, not the number of polarisations: a per-scene single-band
+threshold matches a per-scene dual-polarisation SVM on average, and the
+dual-polarisation advantage is confined to low-A/P reservoirs. Third, cost
+follows per-scene adaptivity rather than polarisation: the accurate per-scene
+dual SVM is the most expensive method, so it should be reserved for the low-A/P
+reservoirs where its advantage appears, with the cheaper single-band threshold
+used elsewhere. A/P thus guides not only where SAR monitoring will succeed but
+also which classifier is worth its cost. The wind analysis shows that
+radiometric failures form a separate axis that A/P does not capture and that the
+choice of polarisation does not fix.
+
+Future work should extend the framework from surface area to storage volume,
+supported by updated area--elevation--volume relationships, and should address
+the radiometric axis directly, for example through a dynamic threshold on the
+cross-polarised or ratio channel. Combined with the automated, transferable
+training used here, these steps would move the workflow towards operational
+reservoir monitoring in data-scarce regions.

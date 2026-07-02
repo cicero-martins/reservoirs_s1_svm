@@ -1,13 +1,17 @@
 name,method,n_pairs,KGE,r,RMSE_ha,bias_ha
 Ancipa,Otsu (VV-only),21,0.227,0.914,34.76,2.73
-Ancipa,dual (VV+VH SVM),18,0.472,0.967,32.81,-27.86
-Ancipa,VV-only SVM,22,0.66,0.984,19.76,-14.45
+Ancipa,dual (SVM fixed),18,0.472,0.967,32.81,-27.86
+Ancipa,adapt (SVM per-scene),22,0.553,0.985,26.59,-22.19
+Ancipa,fast (Otsu no-vec),23,0.129,0.764,39.26,10.32
 Pozzillo,Otsu (VV-only),20,0.932,0.997,14.93,-4.88
-Pozzillo,dual (VV+VH SVM),22,0.923,0.999,20.1,-17.21
-Pozzillo,VV-only SVM,21,0.752,0.933,64.74,35.83
+Pozzillo,dual (SVM fixed),22,0.923,0.999,20.1,-17.21
+Pozzillo,adapt (SVM per-scene),22,0.95,0.999,17.04,-15.18
+Pozzillo,fast (Otsu no-vec),21,0.701,0.821,90.45,44.43
 Poma,Otsu (VV-only),37,0.934,0.985,9.29,-7.13
-Poma,dual (VV+VH SVM),38,0.909,0.985,11.91,-10.15
-Poma,VV-only SVM,38,0.514,0.74,43.25,-29.56
+Poma,dual (SVM fixed),38,0.909,0.985,11.91,-10.15
+Poma,adapt (SVM per-scene),37,0.885,0.988,12.84,-11.42
+Poma,fast (Otsu no-vec),37,0.947,0.949,11.19,3.16
 Rosamarina,Otsu (VV-only),34,0.727,0.791,13.05,-3.86
-Rosamarina,dual (VV+VH SVM),35,0.875,0.977,6.69,-5.06
-Rosamarina,VV-only SVM,38,0.957,0.967,6.38,-3.76
+Rosamarina,dual (SVM fixed),35,0.875,0.977,6.69,-5.06
+Rosamarina,adapt (SVM per-scene),37,0.809,0.962,6.64,-2.14
+Rosamarina,fast (Otsu no-vec),30,0.831,0.939,7.26,-2.0

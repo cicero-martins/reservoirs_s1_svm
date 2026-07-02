@@ -2,24 +2,30 @@
 compare_sicily_planet.py
 
 Sicily method comparison anchored to PlanetScope 3 m (near-truth), NOT JRC 30 m —
-this breaks the inter-product circularity of the 28-reservoir global pilot.
+this breaks the inter-product circularity of the 28-reservoir global pilot, and
+mirrors the global four-way comparison (compute_kge_4way.py) against real truth.
 
-For each of the 4 PlanetScope-validated Sicilian reservoirs, three SAR water-area
-series (already exported, 2024-05–2025-05) are matched to the nearest PlanetScope
-acquisition (±TOL_DAYS) and scored against it:
-  Otsu      = VV-only per-scene Otsu        (Tier 1)   area_Otsu_Invaso_*.csv
-  dual      = VV+VH SVM                      (Tier 3)   area_SVM_VVpVH_Invaso_*.csv
-  vv_svm    = VV-only SVM                    (extra)    area_SVM_VVonly_Invaso_*.csv
+For each of the 4 PlanetScope-validated Sicilian reservoirs, four canonical SAR
+water-area series (all exported through the SAME pipeline, 2024-01..2025-05) are
+matched to the nearest PlanetScope acquisition (±TOL_DAYS) and scored against it:
+  Otsu   = VV-only per-scene Otsu                 GEE_SicilyPlanet_VVotsu
+  dual   = VV+VH SVM, FIXED 2023 training          GEE_SicilyPlanet
+  adapt  = VV+VH SVM, PER-SCENE retraining         GEE_SicilyPlanet_SVMadapt
+  fast   = VV-only Otsu, NO vectorisation          GEE_SicilyPlanet_VVfast
+
+Two questions (same as the global 4-way, but vs near-truth instead of JRC):
+  Q1  adapt vs dual — does per-scene retraining help/hurt against truth?
+  Q2  fast  vs Otsu — does dropping vectorisation (the cost lever) degrade area?
 
 Reference (ground truth):
   validation_data/statistics/area_statistics/{name}Planet.csv   (cols: data, area[ha])
 
 Metrics per method per reservoir: KGE, Pearson r, RMSE (ha), bias (mean sim−obs).
-ΔKGE = KGE_dual − KGE_otsu mirrors compute_kge_compare.py but vs PlanetScope.
 
 Output:
   analysis/sicily_planet_compare.csv
   analysis/method_comparison_output/sicily_planet_validation.png
+  analysis/method_comparison_output/sicily_planet_scatter.png
 """
 
 import pathlib
@@ -30,31 +36,29 @@ from scipy import stats
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-SAR_DIR    = pathlib.Path('validation_data/GEEvalidation-extracted')   # legacy (raw, off-pipeline)
-CANON_DUAL = pathlib.Path('raw_data/GEE_SicilyPlanet')                 # canonical SVM (if exported)
-CANON_VV   = pathlib.Path('raw_data/GEE_SicilyPlanet_VVotsu')          # canonical Otsu (if exported)
 PLANET_DIR = pathlib.Path('validation_data/statistics/area_statistics')
 OUT_CSV    = pathlib.Path('analysis/sicily_planet_compare.csv')
 OUT_PNG    = pathlib.Path('analysis/method_comparison_output/sicily_planet_validation.png')
 
-TOL_DAYS = 6   # match each SAR scene to nearest PlanetScope obs within ±this
+TOL_DAYS = 6   # match each PlanetScope truth obs to nearest SAR scene within ±this
 
 RESERVOIRS = ['Ancipa', 'Pozzillo', 'Poma', 'Rosamarina']
-# label : (legacy filename token, legacy area column)
+
+# label : canonical export folder (all pipeline-consistent, cols date, area_ha)
 METHODS = {
-    'Otsu (VV-only)':   ('Otsu',      'areaOtsu_ha'),
-    'dual (VV+VH SVM)': ('SVM_VVpVH', 'areaSVM_ha'),
-    'VV-only SVM':      ('SVM_VVonly', 'areaVVonly_ha'),
+    'Otsu (VV-only)':      pathlib.Path('raw_data/GEE_SicilyPlanet_VVotsu'),
+    'dual (SVM fixed)':    pathlib.Path('raw_data/GEE_SicilyPlanet'),
+    'adapt (SVM per-scene)': pathlib.Path('raw_data/GEE_SicilyPlanet_SVMadapt'),
+    'fast (Otsu no-vec)':  pathlib.Path('raw_data/GEE_SicilyPlanet_VVfast'),
 }
-MCOL = {'Otsu (VV-only)': '#2ca02c', 'dual (VV+VH SVM)': '#1f77b4', 'VV-only SVM': '#9467bd'}
+MCOL = {'Otsu (VV-only)': '#2ca02c', 'dual (SVM fixed)': '#1f77b4',
+        'adapt (SVM per-scene)': '#ff7f0e', 'fast (Otsu no-vec)': '#9467bd'}
+# dashed for the two "lever/baseline" variants so the two headline methods read clearly
+MLS  = {'Otsu (VV-only)': '-', 'dual (SVM fixed)': '--',
+        'adapt (SVM per-scene)': '-', 'fast (Otsu no-vec)': '--'}
 
-# Prefer the canonical re-export (same pipeline as the 28-reservoir global pilot)
-# when present; it is clean+smoothed to match the global ΔKGE. Otherwise fall back
-# to the legacy GEEvalidation series (raw, off-pipeline) with a loud notice.
-USE_CANON = CANON_DUAL.exists() and any(CANON_DUAL.glob('SAR_area_*.csv'))
 
-
-# ── clean+smooth (identical to compute_kge_compare.py) — applied to canonical SAR ─
+# ── clean+smooth (identical to compute_kge_4way.py) ───────────────────────────
 def _remove_global(s, threshold=2.0):
     m, sd = s.mean(), s.std()
     return s[np.abs(s - m) <= threshold * sd]
@@ -123,7 +127,7 @@ def load_planet(name):
     return d[['date', 'area']].rename(columns={'area': 'planet'})
 
 
-def _load_canon(folder, name):
+def load_sar(name, folder):
     """Canonical export (global-pipeline format): cols date, area_ha → clean+smooth."""
     p = folder / f'SAR_area_{name}.csv'
     if not p.exists():
@@ -135,29 +139,8 @@ def _load_canon(folder, name):
     d = d[d['area_ha'] > 0][['date', 'area_ha']].rename(columns={'area_ha': 'sar'})
     d = d.sort_values('date').reset_index(drop=True)
     if len(d) < 5:
-        return d
+        return d if not d.empty else None
     return clean_and_smooth(d)
-
-
-def load_sar(name, label, token, col):
-    """Prefer canonical re-export for the two experiment methods (dual, Otsu);
-    VV-only SVM exists only in the legacy set. Legacy series are returned raw."""
-    if USE_CANON:
-        if label == 'dual (VV+VH SVM)':
-            c = _load_canon(CANON_DUAL, name)
-            if c is not None and not c.empty:
-                return c
-        elif label == 'Otsu (VV-only)':
-            c = _load_canon(CANON_VV, name)
-            if c is not None and not c.empty:
-                return c
-    p = SAR_DIR / f'area_{token}_Invaso_{name}.csv'
-    if not p.exists():
-        return None
-    d = pd.read_csv(p)
-    d['date'] = pd.to_datetime(d['data'], errors='coerce')
-    d = d.dropna(subset=['date']).sort_values('date')
-    return d[['date', col]].rename(columns={col: 'sar'})
 
 
 def match_nearest(sar, planet, tol_days):
@@ -174,14 +157,9 @@ def match_nearest(sar, planet, tol_days):
     return m
 
 
-if USE_CANON:
-    print('[source] CANONICAL re-export (raw_data/GEE_SicilyPlanet*) — clean+smoothed, '
-          'pipeline-consistent with the 28-reservoir global pilot.\n')
-else:
-    print('[source] ⚠ LEGACY validation_data/GEEvalidation-extracted — RAW, off-pipeline '
-          '(not clean+smoothed; different AOI/orbit likely). Run exportSicilyPlanet.js '
-          '(SVM + VV_OTSU), download to raw_data/GEE_SicilyPlanet*, then re-run for '
-          'pipeline-consistent numbers.\n')
+missing = [lab for lab, d in METHODS.items() if not (d.exists() and any(d.glob('SAR_area_*.csv')))]
+if missing:
+    print(f'[notice] missing canonical folders for: {missing} — those methods skipped.\n')
 
 rows = []
 matched = {}   # (name, method) -> merged df for plotting
@@ -190,8 +168,8 @@ for name in RESERVOIRS:
     if planet is None or planet.empty:
         print(f'[skip] no PlanetScope for {name}')
         continue
-    for label, (token, col) in METHODS.items():
-        sar = load_sar(name, label, token, col)
+    for label, folder in METHODS.items():
+        sar = load_sar(name, folder)
         if sar is None or sar.empty:
             continue
         m = match_nearest(sar, planet, TOL_DAYS)
@@ -209,23 +187,27 @@ res = pd.DataFrame(rows)
 res.to_csv(OUT_CSV, index=False)
 print(f'Saved {len(res)} rows -> {OUT_CSV}\n')
 
-# ── per-reservoir ΔKGE (dual − Otsu) vs PlanetScope ───────────────────────────
+# ── KGE table + the two headline deltas ───────────────────────────────────────
 piv = res.pivot_table(index='name', columns='method', values='KGE')
-if 'dual (VV+VH SVM)' in piv and 'Otsu (VV-only)' in piv:
-    piv['ΔKGE(dual−Otsu)'] = piv['dual (VV+VH SVM)'] - piv['Otsu (VV-only)']
+if {'adapt (SVM per-scene)', 'dual (SVM fixed)'}.issubset(piv.columns):
+    piv['ΔKGE Q1 (adapt−dual)'] = piv['adapt (SVM per-scene)'] - piv['dual (SVM fixed)']
+if {'fast (Otsu no-vec)', 'Otsu (VV-only)'}.issubset(piv.columns):
+    piv['ΔKGE Q2 (fast−Otsu)'] = piv['fast (Otsu no-vec)'] - piv['Otsu (VV-only)']
+if {'adapt (SVM per-scene)', 'Otsu (VV-only)'}.issubset(piv.columns):
+    piv['adapt−Otsu'] = piv['adapt (SVM per-scene)'] - piv['Otsu (VV-only)']
 print('KGE vs PlanetScope (near-truth):')
 print(piv.round(3).to_string())
-print(f"\nmean KGE  Otsu={res[res.method=='Otsu (VV-only)']['KGE'].mean():.3f}  "
-      f"dual={res[res.method=='dual (VV+VH SVM)']['KGE'].mean():.3f}  "
-      f"VVsvm={res[res.method=='VV-only SVM']['KGE'].mean():.3f}")
 
-# ── Figure: per-reservoir timeseries (PlanetScope + 3 SAR methods) ────────────
+print('\nmean KGE per method:')
+for label in METHODS:
+    sub = res[res.method == label]['KGE']
+    if not sub.empty:
+        print(f'  {label:<22} mean KGE={sub.mean():+.3f}  (n_resv={len(sub)})')
+
+# ── Figure: per-reservoir timeseries (PlanetScope + 4 SAR methods) ────────────
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
-# Only the two experiment methods (drop legacy VV-only SVM — it's raw/off-pipeline noise).
-PLOT_METHODS = ['Otsu (VV-only)', 'dual (VV+VH SVM)']
 
 fig, axes = plt.subplots(2, 2, figsize=(15, 9))
 axes = axes.ravel()
@@ -233,22 +215,20 @@ for ax, name in zip(axes, RESERVOIRS):
     planet = load_planet(name)
     if planet is not None and not planet.empty:
         ax.plot(planet['date'], planet['planet'], 'o-', color='#d62728', ms=4,
-                lw=1.3, zorder=6, label='PlanetScope (3 m, truth)')
-    for label in PLOT_METHODS:
-        token, col = METHODS[label]
-        sar = load_sar(name, label, token, col)
+                lw=1.5, zorder=6, label='PlanetScope (3 m, truth)')
+    for label, folder in METHODS.items():
+        sar = load_sar(name, folder)
         if sar is None or sar.empty:
             continue
-        ax.plot(sar['date'], sar['sar'], '.-', color=MCOL[label], ms=4, lw=1.0,
+        ax.plot(sar['date'], sar['sar'], MLS[label], color=MCOL[label], ms=3, lw=1.1,
                 alpha=0.85, zorder=4, label=label)
-    sub = res[(res.name == name) & (res.method.isin(PLOT_METHODS))]
+    sub = res[res.name == name]
     txt = '\n'.join(f"{r.method.split(' ')[0]:>5}: KGE={r.KGE:+.2f}"
                     for r in sub.itertuples())
     if txt:
         ax.text(0.015, 0.97, txt, transform=ax.transAxes, va='top', ha='left',
                 fontsize=8, family='monospace',
                 bbox=dict(boxstyle='round', fc='white', ec='#bbb', alpha=0.85))
-    # Focus the x-axis on the PlanetScope-covered window (±2 weeks margin).
     if planet is not None and not planet.empty:
         pad = pd.Timedelta(days=14)
         ax.set_xlim(planet['date'].min() - pad, planet['date'].max() + pad)
@@ -266,11 +246,10 @@ fig.savefig(OUT_PNG, dpi=140, bbox_inches='tight')
 plt.close(fig)
 print(f'\nSaved: {OUT_PNG}')
 
-# ── Scatter panels: Otsu×Planet, dual×Planet, Otsu×dual (pooled, colored by lake) ──
+# ── Scatter panels: adapt×Planet, Otsu×Planet, adapt×Otsu (pooled, by lake) ───
 OUT_SC = pathlib.Path('analysis/method_comparison_output/sicily_planet_scatter.png')
 RCOL = {'Ancipa': '#1f77b4', 'Pozzillo': '#ff7f0e', 'Poma': '#2ca02c', 'Rosamarina': '#9467bd'}
 
-# (a)/(b) reuse matched Planet↔SAR pairs; (c) merge Otsu & dual SAR on common dates.
 def pooled_vs_planet(label):
     out = []
     for name in RESERVOIRS:
@@ -279,22 +258,23 @@ def pooled_vs_planet(label):
             out.append(pd.DataFrame({'x': m['planet'], 'y': m['sar'], 'name': name}))
     return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
 
-def pooled_otsu_dual():
+def pooled_pair(label_x, label_y):
+    """Merge two SAR methods on common dates (per reservoir) for a method-vs-method scatter."""
     out = []
     for name in RESERVOIRS:
-        o = load_sar(name, 'Otsu (VV-only)',  'Otsu',      'areaOtsu_ha')
-        d = load_sar(name, 'dual (VV+VH SVM)', 'SVM_VVpVH', 'areaSVM_ha')
-        if o is None or d is None or o.empty or d.empty:
+        dx = load_sar(name, METHODS[label_x])
+        dy = load_sar(name, METHODS[label_y])
+        if dx is None or dy is None or dx.empty or dy.empty:
             continue
-        mm = pd.merge(d.rename(columns={'sar': 'x'}), o.rename(columns={'sar': 'y'}), on='date')
+        mm = pd.merge(dx.rename(columns={'sar': 'x'}), dy.rename(columns={'sar': 'y'}), on='date')
         if not mm.empty:
             out.append(pd.DataFrame({'x': mm['x'], 'y': mm['y'], 'name': name}))
     return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
 
 PANELS = [
-    (pooled_vs_planet('Otsu (VV-only)'),   'PlanetScope area (ha)', 'VV-only Otsu area (ha)', '(a) VV-only vs PlanetScope'),
-    (pooled_vs_planet('dual (VV+VH SVM)'), 'PlanetScope area (ha)', 'VV+VH SVM area (ha)',    '(b) dual vs PlanetScope'),
-    (pooled_otsu_dual(),                   'VV+VH SVM area (ha)',   'VV-only Otsu area (ha)', '(c) VV-only vs dual'),
+    (pooled_vs_planet('Otsu (VV-only)'),      'PlanetScope area (ha)', 'VV-only Otsu area (ha)',   '(a) Otsu vs PlanetScope'),
+    (pooled_vs_planet('adapt (SVM per-scene)'), 'PlanetScope area (ha)', 'VV+VH SVM (per-scene) (ha)', '(b) adapt-SVM vs PlanetScope'),
+    (pooled_pair('adapt (SVM per-scene)', 'Otsu (VV-only)'), 'VV+VH SVM (per-scene) (ha)', 'VV-only Otsu area (ha)', '(c) Otsu vs adapt-SVM'),
 ]
 allv = np.concatenate([np.r_[d['x'], d['y']] for d, *_ in PANELS if not d.empty])
 lo, hi = allv.min() * 0.8, allv.max() * 1.2

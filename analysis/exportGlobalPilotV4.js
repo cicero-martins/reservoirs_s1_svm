@@ -70,7 +70,7 @@ var JRC_ONLY = false;
 // 'VV_OTSU_FAST' : VV Otsu + pixel-count area inside the pool polygon — NO fill, NO
 //                  vectorisation, NO keep-polygon, NO dynamic A/P (Tier 1-fast). Cuts the
 //                  dominant (vectorisation) cost to isolate the *pipeline architecture* cost.
-var CLASSIFIER = 'SVM_ADAPTIVE';  // 'SVM' | 'SVM_ADAPTIVE' | 'VV_OTSU' | 'VV_OTSU_FAST'
+var CLASSIFIER = 'VV_OTSU_FAST';  // 'SVM' | 'SVM_ADAPTIVE' | 'VV_OTSU' | 'VV_OTSU_FAST'
 
 // Convenience flags derived from CLASSIFIER.
 var USE_OTSU = (CLASSIFIER === 'VV_OTSU' || CLASSIFIER === 'VV_OTSU_FAST');
@@ -177,6 +177,24 @@ var PILOT_RESERVOIRS = [
   // Argentina — DROPPED: La_Vina (wrong GDW match), Cruz_del_Eje (JRC max 1167 ha)
   // Italy
   ['Occhito',       41.534,  14.913,  4076, null,  746, null],  // GDW 4076 ✓ (7.46 km²)
+
+  // ── v3 POOL (indices 45–54) — the 10 non-Sicilian pilot_v3 reservoirs ────────
+  // Ported from exportGlobalPilotV2.js so the method comparison covers the SAME
+  // 42-reservoir study area as the pooled A/P→KGE curve (avoids "study area tuned
+  // to analysis" critique). v3 fills the HIGH-A/P tail (up to 461 m) v4 lacks.
+  // The 4 Sicilian v3 reservoirs (Ancipa/Poma/Pozzillo/Rosamarina) are omitted here —
+  // they are method-compared against PlanetScope near-truth instead (GEE_SicilyPlanet*).
+  // Format unchanged: [name, lat, lon, gdw_id, dahiti_id(unused in v4), area_ha, hylak_id]
+  ['Yesa',          42.606,  -1.115, 1423, null, 1554, null],  // Csa, Aragon ES (A/P 266)
+  ['Caia',          39.041,  -7.202, 1523, null, 1005, null],  // Csa, Alentejo PT (A/P 139)
+  ['Forggen',       47.632,  10.743, null, null, 1460, null],  // Dfb, Bavaria DE (GDW wrong → coord)
+  ['Garcia',        37.799,  13.119, null, null,  400, null],  // Csa, W Sicily (coord fallback; A/P 168)
+  ['Hubbard_Creek', 32.791, -98.999,  981, null, 4315, null],  // BSk, Texas (A/P 280)
+  ['Harlan_County', 40.057, -99.265,  775, null, 5001, null],  // Dwa, Nebraska (A/P 461)
+  ['Umbuluzi',     -26.110,  32.222, 2050, null, 3603, null],  // Cwa, Mozambique (A/P 361)
+  ['Erfenis',      -28.497,  26.820, null, null,  700, null],  // BSh, Free State ZA (A/P 318)
+  ['Paraibuna',    -23.370, -45.654, 1187, null, 1057, null],  // Cfa, SE Brazil (A/P 70)
+  ['Contas',       -13.845, -40.329, 1152, null, 7485, null],  // Aw, Bahia Brazil (A/P 252)
 ];
 
 // ── Datasets ──────────────────────────────────────────────────────────────────
@@ -410,8 +428,8 @@ function classifyImage(img, svm, lakePoly, samplePoints) {
 // ── Main export loop ───────────────────────────────────────────────────────────
 // Change BATCH_SLICE to the desired batch before running (see header comment).
 // VV_OTSU_FAST cost run: step this through the 8 batches (see header) across
-// sessions — [0,6], [6,12], [12,18], [18,24], [24,30], [30,35], [35,41], [41,45].
-var BATCH_SLICE = JRC_ONLY ? [0, 45] : [0, 6];
+// sessions — [0,6], [6,12], [12,18], [18,24], [24,30], [30,35], [35,41], [41,45], [45,50], [50,54].
+var BATCH_SLICE = JRC_ONLY ? [0, 45] : [45, 50];
 
 PILOT_RESERVOIRS.slice(BATCH_SLICE[0], BATCH_SLICE[1]).forEach(function(res) {
   var rName     = res[0];

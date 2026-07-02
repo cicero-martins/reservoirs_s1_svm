@@ -44,7 +44,7 @@ var JRC_ONLY = false;
 //                  points, but backscatter sampled from each scene → boundary adapts per
 //                  scene like Otsu (removes the arbitrary 2023 baseline). Folder ..._SVMadapt.
 // 'VV_OTSU'      : single-pol VV per-scene Otsu, same post-processing — Tier 1 (..._VVotsu).
-var CLASSIFIER = 'SVM_ADAPTIVE';  // 'SVM' | 'SVM_ADAPTIVE' | 'VV_OTSU' | 'VV_OTSU_FAST'
+var CLASSIFIER = 'VV_OTSU_FAST';  // 'SVM' | 'SVM_ADAPTIVE' | 'VV_OTSU' | 'VV_OTSU_FAST'
 
 var USE_OTSU = (CLASSIFIER === 'VV_OTSU' || CLASSIFIER === 'VV_OTSU_FAST');
 var FAST     = (CLASSIFIER === 'VV_OTSU_FAST');
@@ -291,7 +291,7 @@ function classifyImage(img, svm, lakePoly, samplePoints) {
 }
 
 // ── Main export loop ───────────────────────────────────────────────────────────
-var BATCH_SLICE = [1, 2];   // 4 reservoirs fit one session
+var BATCH_SLICE = [0, 4];   // 4 reservoirs fit one session
 
 PILOT_RESERVOIRS.slice(BATCH_SLICE[0], BATCH_SLICE[1]).forEach(function(res) {
   var rName     = res[0];

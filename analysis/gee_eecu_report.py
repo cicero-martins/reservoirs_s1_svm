@@ -33,6 +33,8 @@ import sys
 import re
 from pathlib import Path
 
+sys.stdout.reconfigure(encoding='utf-8')
+
 # Use the OS (Windows) trust store so SSL-intercepting networks (e.g. the UniPa
 # campus proxy) don't trip OpenSSL 3's strict cert checks. No-op if unavailable.
 try:
@@ -127,7 +129,8 @@ for method in ['svm_dual', 'vv_otsu', 'vv_fast', 'jrc', 'era5_wind']:
     if sub.empty:
         continue
     v = sub['eecu_seconds']
-    win = f"{sub['start_dt'].min():%Y-%m-%d}..{sub['start_dt'].max():%Y-%m-%d}"
+    dt = sub['start_dt'].dropna()
+    win = f"{dt.min():%Y-%m-%d}..{dt.max():%Y-%m-%d}" if not dt.empty else 'n/a'
     print(f'{method:<12} {len(sub):>7} {v.sum():>14.1f} {v.mean():>12.1f} {v.median():>10.1f}  {win:>23}')
 
 # ── Head-to-head per reservoir (svm vs vv), same dedup ────────────────────────
@@ -173,14 +176,18 @@ if {'svm_dual', 'vv_otsu'}.issubset(piv.columns):
         # reuse the same cache fence on the svm/vv ratio to drop confounded reservoirs
         ff = ff[(ff['svm_dual'] / ff['vv_otsu']) <= fence]
         print(f'\n=== VECTORISATION LEVER — VV_OTSU_FAST (N={len(ff)}) ===')
-        print(f'Median FAST/VV-Otsu  = {ff["fast_vv"].median():.3f}x  '
-              f'→ removing vectorisation cuts cost ~{1/ff["fast_vv"].median():.1f}x')
-        print(f'Median FAST/SVM-dual = {ff["fast_svm"].median():.3f}x')
+        fv, fs = ff['fast_vv'].median(), ff['fast_svm'].median()
+        print(f'Median FAST/VV-Otsu  = {fv:.3f}x  '
+              f'→ removing vectorisation from the VV pipeline cuts cost ~{1/fv:.2f}x ({(1-fv)*100:.0f}%)')
+        print(f'Median FAST/SVM-dual = {fs:.3f}x  '
+              f'→ FAST ≈ the dual SVM cost (NOT cheaper than it)')
         print(f'Total FAST/VV / FAST/SVM (Σ): '
               f'{ff["vv_fast"].sum()/ff["vv_otsu"].sum():.3f} / '
               f'{ff["vv_fast"].sum()/ff["svm_dual"].sum():.3f}')
-        print('→ Confirms the cost driver is post-processing (vectorisation), NOT the '
-              'classifier: FAST ≪ both full pipelines.')
+        print('→ Cost ordering: SVM-dual ≈ FAST < VV-Otsu. Vectorisation is a ~25% lever\n'
+              '  on the VV pipeline (brings it down to the dual-SVM cost), but it is NOT a\n'
+              '  dominant driver that beats classifier choice: the per-scene Otsu histogram\n'
+              '  overhead is what makes plain VV-Otsu the most expensive of the three.')
     else:
         print('\n[VV_OTSU_FAST not yet present] run exportGlobalPilotV4.js with '
               'CLASSIFIER="VV_OTSU_FAST" (8 batches) → download → re-run for the lever.')

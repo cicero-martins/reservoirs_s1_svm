@@ -70,7 +70,7 @@ var JRC_ONLY = false;
 // 'VV_OTSU_FAST' : VV Otsu + pixel-count area inside the pool polygon — NO fill, NO
 //                  vectorisation, NO keep-polygon, NO dynamic A/P (Tier 1-fast). Cuts the
 //                  dominant (vectorisation) cost to isolate the *pipeline architecture* cost.
-var CLASSIFIER = 'VV_OTSU_FAST';  // 'SVM' | 'SVM_ADAPTIVE' | 'VV_OTSU' | 'VV_OTSU_FAST'
+var CLASSIFIER = 'SVM_ADAPTIVE';  // 'SVM' | 'SVM_ADAPTIVE' | 'VV_OTSU' | 'VV_OTSU_FAST'
 
 // Convenience flags derived from CLASSIFIER.
 var USE_OTSU = (CLASSIFIER === 'VV_OTSU' || CLASSIFIER === 'VV_OTSU_FAST');
@@ -195,6 +195,38 @@ var PILOT_RESERVOIRS = [
   ['Erfenis',      -28.497,  26.820, null, null,  700, null],  // BSh, Free State ZA (A/P 318)
   ['Paraibuna',    -23.370, -45.654, 1187, null, 1057, null],  // Cfa, SE Brazil (A/P 70)
   ['Contas',       -13.845, -40.329, 1152, null, 7485, null],  // Aw, Bahia Brazil (A/P 252)
+
+  // ── GLOBAL-COVERAGE POOL (indices 55–76) — 22 GDW-screened, JRC-verified ─────
+  // Fills the tropical / Asia / S.America / sub-Saharan-Africa blanks of the map
+  // (Europe/US were over-represented). All gdw_id set → exact GDW polygon used.
+  // Screened from GDW v1.0 (250–980 ha, dam ≤2012) + JRC time-series verified.
+  // SE Asia / tropical
+  ['Wusijiang',            22.715, 109.653, 5025, null,  560, null],  // China Guangxi, humid subtropical
+  ['Chenderoh',             4.971, 100.957, 5233, null,  851, null],  // Malaysia 5°N — EQUATORIAL Af/Am (was missing)
+  ['Changmao',             18.652, 109.097, 5083, null,  733, null],  // China Hainan, tropical savanna
+  // Africa
+  ['Loumbila',             12.518,  -1.425, 5153, null,  817, null],  // Burkina Faso, tropical savanna Aw
+  ['Kamburu',              -0.828,  37.672, 5240, null,  867, null],  // Kenya, tropical highland/Aw
+  ['Mabubas',              -8.526,  13.727, 5251, null,  607, null],  // Angola, Dande R., tropical savanna
+  ['Youssf_BenTachfine',   29.812,  -9.474, 4741, null,  617, null],  // S Morocco, Sahara margin BWh (arid)
+  // South America
+  ['Chivor',                4.948, -73.325, 3410, null,  846, null],  // Colombia, tropical highland
+  ['Figueira',            -12.019, -62.167,40742, null,  550, null],  // Brazil Rondônia, AMAZON basin (Ji-Paraná)
+  ['La_Florida',          -33.113, -66.023, 3498, null,  610, null],  // Argentina San Luis, semi-arid
+  ['Recoleta',            -30.482, -71.094, 3492, null,  381, null],  // Chile Norte Chico, semi-arid
+  ['Itauba',              -29.200, -53.248, 3491, null,  842, null],  // S Brazil, humid subtropical
+  // Asia
+  ['Songhuaba',            25.166, 102.811, 4937, null,  825, null],  // China Yunnan, humid subtropical
+  ['Wushantou',            23.201, 120.388, 5017, null,  558, null],  // Taiwan, humid subtropical
+  ['Baisha',               34.350, 113.239, 4566, null,  616, null],  // China Henan, humid subtropical
+  ['Asolamandha',          20.239,  79.822, 5059, null,  721, null],  // India Maharashtra, tropical savanna
+  ['Wadhwana',             22.171,  73.487, 5031, null,  549, null],  // India Gujarat, semi-arid BSh
+  ['Amir_Kabir',           35.977,  51.104, 4477, null,  350, null],  // Iran Karaj, semi-arid
+  ['Karaoun',              33.568,  35.694, 4596, null,  550, null],  // Lebanon, Mediterranean
+  // Rest of world
+  ['Manuel_Avila_Camacho', 18.913, -98.145, 3375, null,  720, null],  // Mexico Puebla, semi-arid highland
+  ['Egorlyskaia',          45.050,  41.638, 3862, null,  970, null],  // Russia Stavropol, semi-arid steppe (E Europe)
+  ['Long_Lake',            49.862, -86.498, 2152, null,  453, null],  // Canada Ontario, boreal Dfb (ICE case — expect low KGE)
 ];
 
 // ── Datasets ──────────────────────────────────────────────────────────────────
@@ -427,9 +459,12 @@ function classifyImage(img, svm, lakePoly, samplePoints) {
 
 // ── Main export loop ───────────────────────────────────────────────────────────
 // Change BATCH_SLICE to the desired batch before running (see header comment).
-// VV_OTSU_FAST cost run: step this through the 8 batches (see header) across
-// sessions — [0,6], [6,12], [12,18], [18,24], [24,30], [30,35], [35,41], [41,45], [45,50], [50,54].
-var BATCH_SLICE = JRC_ONLY ? [0, 45] : [45, 50];
+//   v4 pilot (done):        [0,6]…[41,45]
+//   v3 pool (done):         [45,50], [50,55]
+//   GLOBAL-COVERAGE pool (NEW, 22 → run all 4 CLASSIFIER modes over these):
+//     [55,61], [61,67], [67,73], [73,77]
+// SVM mode also re-exports JRC for the new reservoirs (EXPORT_JRC ties to 'SVM').
+var BATCH_SLICE = JRC_ONLY ? [0, 77] : [73, 77];
 
 PILOT_RESERVOIRS.slice(BATCH_SLICE[0], BATCH_SLICE[1]).forEach(function(res) {
   var rName     = res[0];

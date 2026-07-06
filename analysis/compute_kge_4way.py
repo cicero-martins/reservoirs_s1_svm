@@ -104,7 +104,8 @@ VALID_FRAC_MIN = 0.80
 SAR_MIN_FRAC   = 0.02
 MIN_COMMON     = 10
 
-EXCLUDE  = {'Oued_Makhazine', 'Guajaraz', 'Antero', 'Miyagase', 'Welbedacht', 'Tzaneen'}
+EXCLUDE  = {'Oued_Makhazine', 'Guajaraz', 'Antero', 'Miyagase', 'Welbedacht', 'Tzaneen',
+            'Egorlyskaia', 'Boegoeberg', 'Itauba', 'Saguaro'}   # +4 flat-JRC chapados
 AREA_MIN = {'Saint_Cassien': 200}
 
 cand  = pd.read_csv('analysis/global_pilot_v4_candidates.csv')
@@ -162,23 +163,12 @@ def load_sar_monthly(name, sar_dirs):
     return m, ap_m
 
 
+from jrc_filter import load_jrc_monthly as _load_jrc_shared
 def load_jrc_monthly(name):
-    p = _jrc_path(name)
-    if p is None:
+    df = _load_jrc_shared(name, JRC_DIRS, despike=True)   # vf-gated de-spike
+    if df is None or df.empty:
         return None
-    try:
-        df = pd.read_csv(p, parse_dates=['date'])
-    except pd.errors.EmptyDataError:
-        return None
-    df = df.sort_values('date').reset_index(drop=True)
-    if 'valid_frac' in df.columns:
-        df = df[df['valid_frac'] >= VALID_FRAC_MIN].copy()
-    if df.empty:
-        return None
-    m, sd = df['jrc_area_ha'].mean(), df['jrc_area_ha'].std()
-    if sd > 0:
-        df = df[np.abs(df['jrc_area_ha'] - m) <= 2.5 * sd].copy()
-    df['ym'] = df['date'].dt.to_period('M')
+    df = df.copy(); df['ym'] = df['date'].dt.to_period('M')
     return df[['ym', 'jrc_area_ha']].dropna()
 
 

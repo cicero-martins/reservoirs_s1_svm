@@ -1,0 +1,4 @@
+name,GDW_ID,region,poly_ha,water_max_ha,n_valid_mon,jrc_mean_ha,jrc_cv,verdict
+Hassan_Addakhil,4638,Sahara_Morocco,535.0,534.0,69,525.0,0.062,OK
+SMB_Aouda,4505,Semiarid_Algeria,801.0,796.0,63,634.0,0.213,OK
+Youssf_BenTachfine,4741,Sahara_Morocco,618.0,615.0,73,495.0,0.201,OK

@@ -344,7 +344,7 @@ function fillCoverageGaps(s1Col, windowDays) {
 // ─── 7c. PER-SCENE VV OTSU DETECTOR ──────────────────────────────────────
 // Single-polarisation water detector: a per-scene Otsu threshold on VV taken
 // over a land-ringed buffer (bimodal histogram); water = VV < T. Selected in
-// place of the dual-pol SVM when A/P is not low (see A/P classifier selector).
+// the recommended default detector (dual-pol SVM path kept for low-water cases).
 var OTSU = {band: 'VV', hist_buffer_m: 500, hist_buckets: 256};
 
 function otsuThreshold(histogram) {
@@ -696,7 +696,7 @@ var panel = ui.Panel({style: {width: '370px', padding: '10px'}});
 panel.add(ui.Label('Reservoir SAR Monitor', {
   fontSize: '17px', fontWeight: 'bold', margin: '0 0 2px 0',
 }));
-panel.add(ui.Label('Global · JRC auto-training · A/P-selected classifier', {
+panel.add(ui.Label('Global · JRC auto-training · per-scene VV Otsu', {
   fontSize: '11px', color: '#555', margin: '0 0 8px 0',
 }));
 
@@ -776,7 +776,7 @@ panel.add(statusLabel);
 
 // ── A/P indicator ──────────────────────────────────────────────
 panel.add(divider());
-panel.add(sectionLabel('A/P classifier selector'));
+panel.add(sectionLabel('A/P reliability indicator'));
 
 var apValueLabel = ui.Label('— m', {
   fontSize: '26px', fontWeight: 'bold', margin: '2px 0',
@@ -1130,8 +1130,12 @@ runBtn.onClick(function() {
     // ── A/P-based classifier selection ───────────────────────
     // Dual-pol SVM only where the shoreline is complex (low A/P); the cheaper
     // single-pol VV Otsu is used elsewhere (equal accuracy above A/P ~120 m).
-    var useDual    = (S.ap_m != null && S.ap_m < CFG.ap_low);
-    var methodName = useDual ? 'dual-pol SVM (VV+VH)' : 'single-pol VV Otsu';
+    // Per-scene single-pol VV Otsu is the recommended default: across a global
+    // 51-reservoir test it matched the dual-pol SVM on accuracy at lower cost,
+    // with no A/P regime where dual reliably helps. The dual SVM path is kept
+    // (set useDual=true) for the extreme low-water, low-A/P case only.
+    var useDual    = false;
+    var methodName = 'single-pol VV Otsu';
 
     // ── Training samples + SVM (only needed for the dual-pol branch) ──
     var trainingFC = autoTrainingSamples(lakePoly, aoi);
@@ -1421,31 +1425,31 @@ function updateBadge(ap_m) {
   if (ap_m == null || isNaN(+ap_m)) return;
   apValueLabel.setValue((+ap_m).toFixed(0) + ' m');
   if (ap_m >= CFG.ap_high) {
-    apBadgeLabel.setValue('● High reliability  (A/P ≥ ' + CFG.ap_high + ' m)  ·  VV Otsu');
+    apBadgeLabel.setValue('● High reliability  (A/P ≥ ' + CFG.ap_high + ' m)');
     apBadgeLabel.style().set({
       backgroundColor: '#c8e6c9', color: '#1b5e20', border: '1px solid #a5d6a7',
     });
     apDescLabel.setValue(
-      'Compact shoreline: few mixed pixels at SAR scale. The single-pol VV Otsu ' +
-      'is selected (equal accuracy to dual-pol here, at lower cost).'
+      'Compact shoreline: few mixed pixels at SAR scale. Surface area is tracked ' +
+      'reliably (across the global test, high A/P -> median KGE ~0.9).'
     );
   } else if (ap_m >= CFG.ap_low) {
-    apBadgeLabel.setValue('◐ Medium reliability  (' + CFG.ap_low + '–' + CFG.ap_high + ' m)  ·  VV Otsu');
+    apBadgeLabel.setValue('◐ Medium reliability  (' + CFG.ap_low + '–' + CFG.ap_high + ' m)');
     apBadgeLabel.style().set({
       backgroundColor: '#fff9c4', color: '#e65100', border: '1px solid #ffe082',
     });
     apDescLabel.setValue(
-      'Moderate shoreline complexity. The single-pol VV Otsu is selected; dual-pol ' +
-      'gives no consistent gain above A/P ~120 m. Cross-check against JRC if in doubt.'
+      'Moderate shoreline complexity. Generally reliable; cross-check against JRC ' +
+      'or optical imagery where the series looks noisy.'
     );
   } else {
-    apBadgeLabel.setValue('○ Low A/P  (< ' + CFG.ap_low + ' m)  ·  dual-pol SVM');
+    apBadgeLabel.setValue('○ Low reliability  (A/P < ' + CFG.ap_low + ' m)');
     apBadgeLabel.style().set({
       backgroundColor: '#ffcdd2', color: '#b71c1c', border: '1px solid #ef9a9a',
     });
     apDescLabel.setValue(
-      'Narrow / dendritic shoreline with many mixed pixels. The dual-pol (VV+VH) ' +
-      'SVM is selected to recover water that a single-band threshold misses.'
+      'Narrow / dendritic shoreline with many mixed pixels. SAR area is less ' +
+      'reliable, especially at low water; validate before operational use.'
     );
   }
 }

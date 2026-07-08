@@ -1,28 +1,33 @@
 \section{Conclusions}
 \label{sec:conclusions}
 
-Using a fully automated Google Earth Engine workflow applied to 38 reservoirs
-on five continents, together with four Sicilian reservoirs validated against
-3~m PlanetScope imagery, we tested the area-to-perimeter ratio as an a-priori
-predictor of SAR surface-area accuracy and used it to reconsider the choice of
-water classifier. Three conclusions follow. First, A/P predicts the geometric
-ceiling on monitorability and can be computed from global databases before any
-image is processed, which makes it a practical tool for screening where SAR
-monitoring will succeed. Second, the decisive methodological factor is
-per-scene adaptivity, not the number of polarisations: a per-scene single-band
-threshold matches a per-scene dual-polarisation SVM on average, and the
-dual-polarisation advantage is confined to low-A/P reservoirs. Third, cost
-follows per-scene adaptivity rather than polarisation: the accurate per-scene
-dual SVM is the most expensive method, so it should be reserved for the low-A/P
-reservoirs where its advantage appears, with the cheaper single-band threshold
-used elsewhere. A/P thus guides not only where SAR monitoring will succeed but
-also which classifier is worth its cost. The wind analysis shows that
-radiometric failures form a separate axis that A/P does not capture and that the
-choice of polarisation does not fix.
+Using a fully automated Google Earth Engine workflow applied to 62
+reference-quality-screened reservoirs on five continents, together with four
+Sicilian reservoirs validated against 3~m PlanetScope imagery, we tested the
+area-to-perimeter ratio as an a-priori predictor of SAR surface-area accuracy
+and asked whether the added complexity of a dual-polarisation,
+machine-learning classifier is justified. Three conclusions follow. First,
+A/P is a strong, geographically general predictor of the geometric ceiling on
+monitorability (Spearman $\rho = 0.51$) and can be computed from global
+databases before any image is processed, which makes it a practical tool for
+screening where SAR monitoring will succeed. Second, the added complexity is
+not justified: a per-scene single-polarisation Otsu threshold is as accurate
+as a per-scene dual-polarisation SVM across the global set, is the better
+detector in most reservoirs, and is also the cheapest to run, while a
+fixed-training SVM is the least accurate, so per-scene adaptivity matters more
+than the number of polarisations. Third, climate is a secondary but genuine
+modulator of the geometric ceiling: humid, vegetated reservoirs are tracked
+less well at given A/P even after every reservoir with an unreliable optical
+reference is excluded, marking where an all-weather SAR record is most
+valuable and where climate, rather than reference quality, is now the more
+defensible explanation.
 
 Future work should extend the framework from surface area to storage volume,
 supported by updated area--elevation--volume relationships, and should address
-the radiometric axis directly, for example through a dynamic threshold on the
-cross-polarised or ratio channel. Combined with the automated, transferable
-training used here, these steps would move the workflow towards operational
-reservoir monitoring in data-scarce regions.
+the radiometric residual directly, for example through a dynamic threshold on
+the cross-polarised or ratio channel for the extreme low-water, low-A/P regime
+where a second polarisation can still help. Combined with the automated,
+transferable training and the simple per-scene detector adopted here, released
+as an interactive application over more than 35,000 global reservoirs, these
+steps would move the workflow towards operational reservoir monitoring in
+data-scarce regions.

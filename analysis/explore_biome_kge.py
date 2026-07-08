@@ -45,11 +45,14 @@ if missing:
     print(f'[warn] no climate for: {missing}')
 
 def family(z):
-    z = str(z)
-    if 'Mediterranean' in z:                       return 'Mediterranean'
-    if 'Semi-arid' in z or 'arid' in z:            return 'Semi-arid/arid'
+    # case-insensitive: the raw climate_zone strings are inconsistently capitalised
+    # (e.g. Youssf_BenTachfine = plain "Arid"), and a case-sensitive check silently
+    # dropped such rows into 'Other' even though they clearly belong to a family.
+    z = str(z).lower()
+    if 'mediterranean' in z:                       return 'Mediterranean'
+    if 'arid' in z:                                return 'Semi-arid/arid'
     if 'temperate' in z or 'continental' in z:     return 'Temperate/continental'
-    if any(k in z for k in ('subtropical', 'tropical', 'Tropical')): return '(Sub)tropical'
+    if any(k in z for k in ('subtropical', 'tropical')): return '(Sub)tropical'
     return 'Other'
 
 df['biome'] = df['climate_zone'].map(family)

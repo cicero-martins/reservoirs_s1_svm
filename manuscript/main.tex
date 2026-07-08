@@ -64,32 +64,35 @@
 
 % -----------------------------------------------------------------------
 \begin{abstract}
-% NOTE: the four-way global comparison is currently N=28 (10 complementary
-% reservoirs pending). Stable numbers: A/P rho=0.57; between-method rho=-0.41;
-% EECU fixed-dual 0.69x, per-scene dual 1.21x VV-Otsu. See project memory.
+% Final numbers (Jul 2026, reference-quality-screened global set): A/P->KGE
+% rho=0.51 p=3e-5 (N=62); VV-Otsu wins 38/62; climate 2nd axis p=0.012 (survives
+% excluding all 14 reservoirs with an unreliable JRC reference); EECU per-scene
+% dual 1.17x VV-Otsu (n=92, merged cost log incl. all 15 newest reservoirs).
+% See project memory.
 The area-to-perimeter ratio (A/P) of a reservoir shoreline, computable in
-advance from global databases, predicts both the accuracy of Sentinel-1
-surface-area monitoring and the water classifier a reservoir requires. We test
-this in a single cloud-based Google Earth Engine pipeline that compares two
-per-scene-adaptive detectors: a single-polarisation VV Otsu threshold and a
-dual-polarisation (VV+VH) support vector machine (SVM) re-trained for each
-acquisition, with training samples drawn automatically from the JRC Global
-Surface Water dataset. The comparison covers 38 reservoirs on five continents,
-referenced to JRC surface water, and four Sicilian reservoirs validated against
-3~m PlanetScope near-truth. A/P predicts surface-area skill (Spearman
-$\rho = 0.57$), setting a geometric ceiling that is high for compact reservoirs
-and low and variable for narrow, dendritic ones. Per-scene adaptivity, not the
-number of polarisations, drives accuracy: a fixed-training dual SVM is the least
-accurate, whereas the two per-scene detectors tie on the median, the
-dual-polarisation advantage appearing only at low A/P ($\rho = -0.41$). Cost
-follows the same axis, so the accurate per-scene dual SVM is the most expensive
-method, about $1.2\times$ the VV threshold. A/P therefore selects the cheapest
-sufficient classifier, reserving the dual SVM for complex shorelines. We release
-the workflow as an interactive Google Earth Engine application that auto-trains
-from JRC and applies this A/P-based selection over more than 35,000 global
-reservoirs (Global Dam Watch). It provides a reliable, low-cost, and transferable
-basis for the surface-area input to reservoir storage monitoring in data-scarce
-regions.
+advance from global databases, predicts how accurately Sentinel-1 can monitor
+its surface area. We test this in a single cloud-based Google Earth Engine
+pipeline that compares per-scene water detectors: a single-polarisation VV Otsu
+threshold and a dual-polarisation (VV+VH) support vector machine (SVM)
+re-trained for each acquisition, with training samples drawn automatically from
+the JRC Global Surface Water dataset. The comparison covers 62 reservoirs on
+five continents, referenced to JRC surface water and screened for reference
+reliability, plus four Sicilian reservoirs validated against 3~m PlanetScope
+near-truth. A/P is a strong predictor of surface-area skill (Spearman
+$\rho = 0.51$, $p = 3\times10^{-5}$): it sets a geometric ceiling, high and
+stable for compact reservoirs (median KGE 0.93 above 200~m) and lower and more
+variable for narrow, dendritic ones (0.48 below 100~m). The second
+polarisation adds no reliable accuracy across this global set: the single-band
+per-scene Otsu is as accurate as the dual-band SVM, wins in most reservoirs,
+and is the simplest and cheapest to run, whereas a fixed-training SVM is the
+least accurate, so per-scene adaptivity matters more than polarisation.
+Climate is a genuine secondary modulator, humid and vegetated reservoirs
+underperforming at given A/P even after every reservoir with an unreliable
+optical reference is excluded. We release the workflow as an interactive
+Google Earth Engine application that auto-trains from JRC and runs this
+per-scene detector over more than 35,000 global reservoirs (Global Dam Watch),
+a reliable, low-cost, and transferable basis for the surface-area input to
+reservoir storage monitoring in data-scarce regions.
 \end{abstract}
 
 \begin{keyword}

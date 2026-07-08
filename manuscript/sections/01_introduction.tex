@@ -75,13 +75,12 @@ mixed pixels introduce systematic errors whose severity depends on the
 ratio of shoreline length to water body area \citep{CazalsEtAl2021}.
 Shadowing and layover effects in topographically complex settings further
 complicate delineation near steep reservoir margins \citep{Martinis2015}.
-These phenomena are well-established individually; yet two linked operational
-questions remain unanswered: \emph{which geometric property of a reservoir
-best predicts its SAR classification skill, knowable in advance of any SAR
-processing, and can that same property tell us which
-classifier a reservoir actually needs, separating the cases a simple
-single-polarisation threshold already handles from the few that justify a
-more complex dual-polarisation learner?}
+These phenomena are well-established individually; yet a basic operational
+question remains unanswered: \emph{which geometric property of a reservoir best
+predicts its SAR classification skill, knowable in advance of any SAR
+processing, and does that skill in fact require the added complexity of a
+dual-polarisation, machine-learning classifier, or does a simple
+single-polarisation threshold already suffice?}
 
 We propose that the answer lies in the \textbf{area-to-perimeter ratio
 (A/P; units: m)}, a length-scale index that captures the compactness of
@@ -108,25 +107,25 @@ radiometric axis genuinely co-varies with geometry or acts independently is an
 empirical question we test directly rather than assume.
 
 This paper addresses that gap with a fully automated, cloud-based GEE
-workflow applied to two complementary reservoir samples: a global pilot of
-38 reservoirs spanning five continents and a wide range of shoreline
-geometry, referenced against the JRC Global Surface Water dataset
-\citep{Pekel2016}, and four Sicilian reservoirs validated against
-high-resolution PlanetScope imagery as near-truth. We: (i)~quantify the
-statistical relationship between A/P and SAR surface-area accuracy across the
-global pilot; (ii)~establish, through a like-for-like comparison of a
-single-polarisation (VV) per-scene threshold and a dual-polarisation (VV+VH)
-per-scene SVM run under an identical pipeline, that per-scene adaptivity
-rather than polarisation count is the decisive factor, with dual-polarisation
-complexity justified only at low A/P; and
-(iii)~audit the computational cost of each classifier, overturning the common
-assumption that the dual-polarisation learner is the more expensive option.
-Because training samples are drawn automatically from global water masks, the
-workflow carries no manual delineation and transfers directly across climatic
-regions. The A/P ratio emerges as a practical screening tool: computable from
-global databases such as GRanD or GROWL before any SAR image is processed, it
-lets practitioners anticipate both where the workflow will perform well and
-which classifier a given reservoir actually requires.
+workflow applied to 62 reference-quality-screened reservoirs on five
+continents, referenced against the
+JRC Global Surface Water dataset \citep{Pekel2016}, and to four Sicilian
+reservoirs validated against high-resolution PlanetScope imagery as near-truth.
+We: (i)~quantify the statistical relationship between A/P and SAR surface-area
+accuracy across the global set; (ii)~show, through a like-for-like comparison of
+a single-polarisation (VV) per-scene threshold and a dual-polarisation (VV+VH)
+per-scene SVM under an identical pipeline, that per-scene adaptivity matters
+more than polarisation count, and that the simple single-band detector is as
+accurate as the dual-band one across the global set, so the added complexity is
+not justified; and (iii)~audit the computational cost of each detector,
+overturning the assumption that the dual-polarisation learner is the expensive
+option and confirming that the simple detector is also the cheapest. Because
+training samples are drawn automatically from global water masks, the workflow
+carries no manual delineation and transfers directly across climatic regions,
+subject to a modest secondary sensitivity to humid, vegetated settings that we
+quantify. The A/P ratio emerges as a practical screening tool, computable from
+global databases such as GRanD or GROWL before any SAR image is processed, that
+lets practitioners anticipate where the workflow will perform well.
 
 The remainder of the paper is organised as follows.
 Section~\ref{sec:study_area} describes the two-tier reservoir sample.
@@ -134,7 +133,8 @@ Section~\ref{sec:methods} details the SAR preprocessing, the automated
 training, the two scene-adaptive classifiers, the morphometric analysis, and
 the validation and cost-audit strategy. Section~\ref{sec:results} presents the
 A/P--performance relationship, the single- versus dual-polarisation
-comparison, the computational-cost audit, and the wind analysis.
+comparison, the computational-cost audit, and the secondary climate and
+reference limits.
 Section~\ref{sec:discussion} discusses implications for operational monitoring,
 the geometric-versus-radiometric limits of the approach, and avenues for
 future work, including the conversion of surface area to storage volume.

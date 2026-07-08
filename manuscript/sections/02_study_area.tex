@@ -2,34 +2,37 @@
 \label{sec:study_area}
 
 The experimental design rests on two complementary reservoir samples, chosen
-to separate the two questions this paper addresses. The first,
-whether the area-to-perimeter ratio (A/P) predicts SAR classification skill
-and governs the choice between a single- and a dual-polarisation detector,
-requires \emph{breadth}: many reservoirs spanning a wide range of shoreline
-geometry and climate. The second, how the resulting surface-area series
-compare against near-truth reference data, requires \emph{depth}: a few
-reservoirs with independent, high-resolution validation. We therefore combine
-a global pilot of 38 reservoirs referenced against the JRC Global Surface
-Water dataset \citep{Pekel2016} with four Sicilian reservoirs validated
-against high-resolution PlanetScope imagery.
+to separate the two questions this paper addresses. The first, whether the
+area-to-perimeter ratio (A/P) predicts SAR classification skill and whether the
+added complexity of a dual-polarisation detector is warranted, requires
+\emph{breadth}: many reservoirs spanning a wide range of shoreline geometry and
+climate. The second, how the resulting surface-area series compare against
+near-truth reference data, requires \emph{depth}: a few reservoirs with
+independent, high-resolution validation. We therefore combine a global set of
+62 reservoirs referenced against the JRC Global Surface Water dataset
+\citep{Pekel2016} with four Sicilian reservoirs validated against
+high-resolution PlanetScope imagery.
 
-\subsection{Global pilot: 38 reservoirs across five continents}
+\subsection{Global set: 62 reservoirs across five continents}
 \label{sec:study_global}
 
-The global pilot comprises 38 reservoirs distributed across fourteen
-countries and five continents (Europe, Africa, Asia, the Americas, and
-Oceania), spanning a broad range of K\"oppen--Geiger climate types from
-tropical to humid-continental (Figure~\ref{fig:map_global}; per-reservoir
-country, climate, area, and A/P in Table~\ref{tab:pilot}). Surface areas
-range from roughly 2.4 to 50~\si{\kilo\metre\squared} (about 240--5000~ha).
-The reservoirs sit in contrasting biomes and, with them, contrasting wind
-regimes (the radiometric factor examined in
-Section~\ref{sec:methods_wind}), so SAR performance is probed well beyond a
-single climatic setting.
+The global set comprises 62 reservoirs distributed across 33 countries and
+five continents (Europe, Africa, Asia, the Americas, and Oceania), spanning
+a broad range of K\"oppen--Geiger climate types from equatorial tropical to
+humid-continental (Figure~\ref{fig:map_global}; per-reservoir country,
+climate, area, and A/P in Table~\ref{tab:pilot}). Surface areas span roughly
+2 to 75~\si{\kilo\metre\squared}. The reservoirs sit in contrasting biomes and
+climates, so SAR performance is probed well beyond a single climatic setting;
+the modest secondary effect of climate on accuracy is examined in
+Section~\ref{sec:res_climate}. This is the set retained after the
+reference-quality screen described in Section~\ref{sec:val_global}; it excludes
+14 reservoirs whose optical reference proved unreliable, so that reported
+accuracy reflects the SAR classifiers rather than artefacts of the comparison
+data.
 
-Across the sample, static shoreline compactness (the A/P of the JRC
+Across the set, static shoreline compactness (the A/P of the JRC
 maximum-water-extent polygon, computable a priori)
-ranges from 66 to 461~m. At the low-A/P end are narrow, dendritic gorge
+ranges from 62 to 461~m. At the low-A/P end are narrow, dendritic gorge
 reservoirs impounded in steep valleys (e.g.\ Sau and Susqueda on the Ter,
 Rappbode, Grandval), whose long, convoluted shorelines maximise the
 mixed-pixel fraction; at the high-A/P end are compact, bowl- or plain-shaped
@@ -44,7 +47,7 @@ from the JRC layer \citep{Pekel2016}.
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/study_area_map}
-  \caption{Global pilot reservoirs ($n=38$) coloured by static shoreline
+  \caption{Global-set reservoirs ($n=62$) coloured by static shoreline
   area-to-perimeter ratio (A/P): low ($<$120~m), medium (120--250~m), and
   high ($\geq$250~m). Per-reservoir country, climate zone, area, and A/P are
   listed in Table~\ref{tab:pilot}. Basemap: Natural Earth.}

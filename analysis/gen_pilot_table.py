@@ -1,91 +1,56 @@
-"""Emit the LaTeX longtable (Table 1) of the 38 global-pilot reservoirs.
+"""Emit the LaTeX longtable (Table 1) of the global-pilot reservoirs.
 
-Columns: Reservoir, Country, Koppen code, Climate, Area (km2), static A/P (m).
-Sorted by static A/P. Koppen codes for the 10 v3-pool reservoirs are taken from
-the export-script comments; codes for the 28 core are assigned from location +
-climate (a few B/D cases are indicative — VERIFY: Boegoeberg, Saguaro, and the
-Utah valleys East_Canyon/Pineview/Deer_Creek/Rockport). Area/A/P are read from
-the export script / KGE CSVs so there is a single source of truth.
+Columns: Reservoir, Country, Climate zone (Koppen-Geiger descriptor), Area, A/P.
+Set = the JRC-scored reservoirs in biome_kge.csv (N varies as the pipeline is
+refined; do not hardcode it here). Country/area/climate from
+global_pilot_v4_candidates.csv. Sorted by static A/P.
 """
-import re, os
+import os
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "manuscript", "sections", "table_pilot.tex"))
 
-# ── Koppen code per reservoir ────────────────────────────────────────────────
-KOPPEN = {
-    # core 28 (assigned; * = indicative, verify)
-    "Grandval": "Cfb", "Sarrans": "Cfb", "Rappbode": "Cfb", "Boegoeberg": "BWh",
-    "Susqueda": "Csb", "Sau": "Csb", "Karapuzha": "Am", "Saint_Cassien": "Csa",
-    "Boadella": "Csa", "Cachi": "Cfb", "Yamba": "Dfb", "Blyde": "Cwa",
-    "Saguaro": "BSh", "Panneciere": "Cfb", "Googong": "Cfb", "El_Atazar": "Csa",
-    "Castillon": "Csb", "East_Canyon": "Dsb", "Cecita": "Csb", "El_Burguillo": "Csa",
-    "Salto": "Csa", "Puentes_Viejas": "Csb", "Cardinia": "Cfb", "Bilancino": "Csa",
-    "Shaharchay": "BSk", "Pineview": "Dfb", "Deer_Creek": "Dfa", "Rockport": "Dsb",
-    # v3 pool 10 (exact, from script comments)
-    "Yesa": "Csa", "Caia": "Csa", "Forggen": "Dfb", "Garcia": "Csa",
-    "Hubbard_Creek": "BSk", "Harlan_County": "Dwa", "Umbuluzi": "Cwa",
-    "Erfenis": "BSh", "Paraibuna": "Cfa", "Contas": "Aw",
-}
-CODE2DESC = {
-    "Af": "Tropical rainforest", "Am": "Tropical monsoon", "Aw": "Tropical savanna",
-    "BWh": "Hot desert", "BWk": "Cold desert", "BSh": "Hot semi-arid", "BSk": "Cold semi-arid",
-    "Csa": "Hot-summer Mediterranean", "Csb": "Warm-summer Mediterranean",
-    "Cwa": "Humid subtropical, dry winter", "Cfa": "Humid subtropical", "Cfb": "Oceanic/temperate",
-    "Dwa": "Humid continental, dry winter", "Dfa": "Hot-summer humid continental",
-    "Dfb": "Warm-summer humid continental", "Dsa": "Dry-summer humid continental",
-    "Dsb": "Dry-summer humid continental",
-}
-COUNTRY = {  # for the 10 v3 pool; the 28 come from pilot_kge_compare.csv
-    "Yesa": "Spain", "Caia": "Portugal", "Forggen": "Germany", "Garcia": "Italy",
-    "Hubbard_Creek": "USA", "Harlan_County": "USA", "Umbuluzi": "Mozambique",
-    "Erfenis": "South Africa", "Paraibuna": "Brazil", "Contas": "Brazil",
-}
+df = pd.read_csv(os.path.join(HERE, "biome_kge.csv"))[["name", "ap_m", "climate_zone"]].copy()
+cand = pd.read_csv(os.path.join(HERE, "global_pilot_v4_candidates.csv"))
+cand = cand.drop_duplicates("name").set_index("name")
+df["country"] = df.name.map(cand["country"])
+df["area_km2"] = df.name.map(cand["area_ha_approx"]) / 100.0
+# a few originals may miss the candidate row -> fill from climate/known
+df["country"] = df["country"].fillna("--")
+df = df.sort_values("ap_m").reset_index(drop=True)
 
-# area_ha (6th field) from the export script — one source for all 38
-js = open(os.path.join(HERE, "exportGlobalPilotV4.js"), encoding="utf-8").read()
-area = {}
-for m in re.finditer(r"\['([A-Za-z_]+)',\s*-?\d+\.\d+,\s*-?[\d.]+,\s*(?:null|\d+),\s*(?:null|\d+),\s*(\d+)", js):
-    area.setdefault(m.group(1), int(m.group(2)))
+miss = df[df.area_km2.isna()].name.tolist()
+if miss:
+    print("WARN missing area:", miss)
+print("rows:", len(df), "| climate zones:", df.climate_zone.nunique())
 
-core = pd.read_csv(os.path.join(HERE, "pilot_kge_compare.csv"))[["name", "ap_m", "country"]]
-comp = pd.read_csv(os.path.join(HERE, "pilot_kge_v3.csv"))[["name", "ap_m"]]
-comp = comp[comp.name.isin(COUNTRY)].copy()
-comp["country"] = comp.name.map(COUNTRY)
-df = pd.concat([core, comp], ignore_index=True).sort_values("ap_m").reset_index(drop=True)
-df["koppen"] = df.name.map(KOPPEN)
-df["climate"] = df.koppen.map(CODE2DESC)
-df["area_km2"] = df.name.map(area) / 100.0
-
-assert df.koppen.notna().all(), df[df.koppen.isna()].name.tolist()
-print("rows:", len(df), "| Koppen codes:", sorted(df.koppen.unique()),
-      "| n codes:", df.koppen.nunique())
-
+def areastr(a):
+    return "--" if pd.isna(a) else "%.1f" % a
 rows = "\n".join(
-    "%s & %s & %s & %s & %.1f & %.0f \\\\" % (
-        r["name"].replace("_", " "), r["country"], r["koppen"],
-        r["climate"], r["area_km2"], r["ap_m"])
+    "%s & %s & %s & %s & %.0f \\\\" % (
+        r["name"].replace("_", " "), r["country"], r["climate_zone"],
+        areastr(r["area_km2"]), r["ap_m"])
     for _, r in df.iterrows())
 
-tex = r"""% Auto-generated by analysis/gen_pilot_table.py — do not edit by hand.
-\begingroup\footnotesize
-\begin{longtable}{@{}l l l l r r@{}}
-\caption{The 38 global-pilot reservoirs, ordered by static shoreline
-area-to-perimeter ratio (A/P). Area is the JRC maximum-water-extent surface;
-climate is the K\"oppen--Geiger type (code and descriptor).}
-\label{tab:pilot}\\
-\toprule
-Reservoir & Country & K\"oppen & Climate type & Area (\si{\kilo\metre\squared}) & A/P (m) \\
-\midrule
+tex = ("% Auto-generated by analysis/gen_pilot_table.py -- do not edit by hand.\n"
+       r"\begingroup\footnotesize" "\n"
+       r"\begin{longtable}{@{}l l l r r@{}}" "\n"
+       r"\caption{The __N__ global-pilot reservoirs, ordered by static shoreline" "\n"
+       r"area-to-perimeter ratio (A/P). Area is the approximate full-pool surface;" "\n"
+       r"climate is the K\"oppen--Geiger zone.}" "\n"
+       r"\label{tab:pilot}\\" "\n"
+       r"\toprule" "\n"
+       r"Reservoir & Country & Climate zone & Area (\si{\kilo\metre\squared}) & A/P (m) \\" "\n"
+       r"\midrule").replace("__N__", str(len(df))) + "\n" + r"""
 \endfirsthead
-\multicolumn{6}{@{}l}{\itshape Table~\ref{tab:pilot} (continued)}\\
+\multicolumn{5}{@{}l}{\itshape Table~\ref{tab:pilot} (continued)}\\
 \toprule
-Reservoir & Country & K\"oppen & Climate type & Area (\si{\kilo\metre\squared}) & A/P (m) \\
+Reservoir & Country & Climate zone & Area (\si{\kilo\metre\squared}) & A/P (m) \\
 \midrule
 \endhead
 \midrule
-\multicolumn{6}{r@{}}{\itshape continued on next page}\\
+\multicolumn{5}{r@{}}{\itshape continued on next page}\\
 \endfoot
 \bottomrule
 \endlastfoot

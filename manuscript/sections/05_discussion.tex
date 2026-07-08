@@ -1,84 +1,109 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\subsection{Adaptivity, not polarisation, decides accuracy}
+\subsection{A simple, per-scene detector is enough}
 
 The four-detector comparison changes how the single- versus dual-polarisation
-question should be posed. When both detectors adapt to each scene, the
-dual-polarisation SVM and the single-band Otsu threshold are, on the median,
-indistinguishable across the global pilot, and the dual-polarisation advantage
-appears only at low A/P (Section~\ref{sec:res_fourway}). The fixed-training
-dual SVM, by contrast, ranks below the single-band threshold, because it
-cannot follow the scene-to-scene changes in backscatter that a per-scene
-threshold absorbs by construction. The operational lesson is that the choice
-worth making is not how many polarisations to use, but whether the decision
-rule is re-estimated for each acquisition. This also settles the objection that
-a fixed training year is arbitrary: retraining per scene removes the dependence
-on any baseline year and, on the pilot, is at worst neutral and on the median a
-small gain (Sections~\ref{sec:res_fourway} and~\ref{sec:res_sicily}).
+question should be posed. Two per-scene detectors, a single-band Otsu threshold
+and a dual-band SVM, are statistically indistinguishable across the global set,
+and the single-band detector is the better of the two in most reservoirs
+(Section~\ref{sec:res_fourway}). A fixed-training dual SVM, by contrast, ranks
+below the single-band threshold, because it cannot follow the scene-to-scene
+changes in backscatter that a per-scene rule absorbs by construction. Two
+lessons follow. First, the choice worth making is not how many polarisations to
+use but whether the decision rule is re-estimated for each acquisition;
+retraining per scene also removes any dependence on a baseline year, settling
+the objection that a fixed training year is arbitrary. Second, the second
+polarisation is not worth its overhead: it adds no reliable accuracy over a wide
+range of geometry and climate.
 
-A second consequence concerns cost, and here the picture is more nuanced than
-the usual ``dual-pol is expensive'' assumption. Polarisation count itself is
-cheap: a dual SVM trained once is cheaper than the single-band Otsu, whose
-per-scene histogram dominates its cost. What is expensive is adaptivity.
-Re-training the dual SVM on every scene, which is what makes it accurate, also
-makes it the costliest method, somewhat above the VV Otsu
-(Section~\ref{sec:res_cost}). Cost and accuracy therefore trade off, and because
-the dual advantage is confined to low A/P, the two can be reconciled by using
-the per-scene dual SVM only where it pays and the cheaper per-scene VV Otsu
-elsewhere. This is the same A/P-based selection rule that the accuracy results
-imply, now justified on cost as well.
+An earlier, Europe-heavy subsample had suggested that the dual polarisation
+helps at low A/P, which would have made A/P a rule for choosing the detector.
+That signal did not survive the global expansion (Section~\ref{sec:res_fourway})
+and we do not claim it; the Sicilian Ancipa case shows the mechanism is real at
+an extreme but does not generalise. The cost audit points the same way.
+Polarisation count itself is cheap, but making the dual classifier adapt
+requires per-scene retraining, which makes it the costliest method, whereas the
+per-scene single-band Otsu is the simplest and about a fifth cheaper to run
+(Section~\ref{sec:res_cost}). The most accurate method on the median is
+therefore also the most expensive and buys no general gain, so the
+recommendation is the simple per-scene VV Otsu.
 
 \subsection{A/P as an a-priori screening tool}
 
-Because A/P is computed from a water-body polygon that is already available in
-global databases (GRanD, GRDL, or the JRC extent), it can be evaluated in
-advance of processing. Its value is that it predicts the geometric ceiling
-on accuracy: high-A/P reservoirs are tracked reliably, whereas low-A/P
-reservoirs are only permitted, not guaranteed, to fail
-(Section~\ref{sec:res_ap}). This supports two practical uses. First, screening:
-a water manager can rank a portfolio of reservoirs by expected SAR reliability
-and direct field effort or complementary altimetry to the low-A/P systems.
-Second, classifier selection: because the dual-polarisation advantage
-concentrates at low A/P, the extra polarisation is worth adding only for the
-compact-shoreline minority, and a single-band threshold is adequate elsewhere.
-Both uses turn a descriptive geometric index into an operational decision rule.
-The screening is also inexpensive to deploy, since the training samples and the
-reservoir boundary are drawn automatically from global water and land-cover
-masks, which removes the manual delineation that would otherwise limit transfer
-to new regions.
+Because A/P is computed from a water-body polygon already available in global
+databases (GRanD, GRDL, or the JRC extent), it can be evaluated in advance of
+processing. Its value is that it predicts the geometric ceiling on accuracy:
+high-A/P reservoirs are tracked reliably, whereas low-A/P reservoirs are only
+permitted, not guaranteed, to fail (Section~\ref{sec:res_ap}). A water manager
+can therefore rank a portfolio of reservoirs by expected SAR reliability before
+acquiring or processing any imagery, and direct field effort or complementary
+altimetry to the low-A/P systems where errors are likely. The screening is
+inexpensive to deploy, since the training samples and the reservoir boundary are
+drawn automatically from global water and land-cover masks, which removes the
+manual delineation that would otherwise limit transfer to new regions. Coupled
+with the parsimony result above, a single simple detector applied everywhere,
+with A/P used only to flag where its output should be trusted, keeps the
+operational workflow as light as possible.
 
-\subsection{Geometric and radiometric limits are distinct}
+\subsection{Geometric and radiometric limits}
+\label{sec:disc_geo_radio}
 
-A/P bounds accuracy from geometry alone and is blind to radiometric failures,
-and the pooled data make this explicit. The two high-A/P reservoirs with low
-skill (Rockport and Boegoeberg) fail for reasons A/P cannot see, namely ice
-cover and extreme drawdown (Section~\ref{sec:res_ap}). Wind, the failure mode
-most often invoked for SAR water mapping, does not organise along geometry and
-does not explain the between-method differences: the expected Bragg signature
-is absent across the pilot, and A/P remains the only significant predictor of
-the accuracy gap (Section~\ref{sec:res_wind}). We read this as evidence that
-the geometric and radiometric axes are genuinely separate. A/P is a clean and
-transferable predictor of the geometric limit, whereas the radiometric residual
-is real but site- and date-specific and is not removed by the choice of
-polarisation. Addressing it would require a different lever, such as a dynamic
-threshold on the cross-polarised or ratio channel rather than on VV.
+A/P bounds accuracy from geometry and is blind to radiometric effects, which
+form a second axis. The clearest radiometric candidate, wind, does not organise
+along geometry and shows no systematic effect on the 46-reservoir set tested
+(Section~\ref{sec:res_climate}); the intuitive attribution of specific
+high-A/P failures to wind or ice does not hold up, and one such case, Rockport,
+is in fact well tracked by both per-scene detectors once the arbitrary
+fixed-training baseline is set aside. The residual that A/P does not explain is
+instead organised, in part, by climate: reservoirs in humid, vegetated settings
+are tracked less well at given A/P than those in arid or Mediterranean ones.
+Reaching this conclusion required first separating a genuine climate signal
+from a data-quality artefact. In a first pass, the climate residual lost
+significance once reservoirs with a demonstrably noisy optical reference were
+excluded, since those reservoirs were disproportionately humid and tropical;
+we could not tell whether climate mattered or the reference did. We therefore
+built an explicit reference-quality screen (a roughness ratio comparing
+month-to-month JRC variability to that of two independent SAR detectors;
+Section~\ref{sec:val_global}) and excluded the 14 reservoirs it flagged before
+computing any result. On this cleaned set the climate residual remains
+significant ($p=0.012$), so it is not merely standing in for reference noise:
+climate is a genuine, if secondary, modulator of the geometric ceiling A/P
+sets. The practical implication survives either way. Where two independent
+SAR detectors agree on a stable reservoir and an optical reference does not,
+the disagreement is a limit of the reference, not of the SAR, and this is
+precisely where an all-weather SAR record is most valuable.
 
 \subsection{Limitations}
+\label{sec:disc_limitations}
 
 Several limitations bound these conclusions. The study addresses surface area
-only. Converting area to storage volume requires area--elevation--volume
+only; converting area to storage volume requires area--elevation--volume
 information that for many reservoirs is outdated, and we leave that conversion,
-together with the updating of those curves, to future work. The global tier is
-referenced against the 30~m JRC product, which is an inter-product comparison
-rather than ground truth; we mitigate this with the four Sicilian reservoirs
-validated against 3~m PlanetScope near-truth, which reproduce the global
-findings, but a broader near-truth validation would strengthen them. The A/P
-classes used for display (low, medium, high) are a reading aid rather than a
-formal taxonomy, and the underlying relationship is continuous. Finally, the
-static A/P used for screening describes the full pool; at very low water the
-effective shoreline complexity changes, which the dynamic A/P captures but the
-a-priori index does not.
+and the updating of those curves, to future work. The global set is referenced
+against the 30~m JRC product, an inter-product comparison rather than ground
+truth; the four Sicilian reservoirs validated against 3~m PlanetScope reproduce
+the main findings, but a broader near-truth validation would strengthen them,
+especially in the humid settings where the optical reference is weakest. Four
+reservoirs whose regulated level is nearly constant were excluded a priori,
+since a flat reference makes KGE undefined in practice; they are monitored
+perfectly well but cannot be scored this way. The reference-quality screen
+itself, while principled, uses a single threshold (roughness ratio
+$\geq$2.5) calibrated on this dataset; a stricter or looser cut would move a
+handful of borderline reservoirs across the line.
 
-% PROVISIONAL: the global four-way comparison is currently N=28; the 10
-% complementary reservoirs are being processed and will bring it to 38.
+Finally, the temperate/continental climate zone's low median is not fully
+explained. Several of its worst-performing members (including one hydropeaking
+reservoir with a documented SVM-training phase lag, and two subsequently found
+to fail the reference-quality screen) have identifiable, non-climatic causes,
+and removing every such case still leaves a modest, only marginally significant
+residual driven largely by narrow, valley-confined hydropower reservoirs in
+central Europe. These reservoirs share regulated, operationally-driven water
+levels as much as they share a climate zone, so an operational confound
+(active drawdown-refill cycling for hydropower generation, which can decouple
+short-term level changes from the seasonal signal A/P-based expectations
+implicitly assume) is at least as plausible as a radiometric climate mechanism.
+We report the climate effect honestly as significant on the cleaned data,
+while flagging that its temperate-zone component may reflect reservoir
+operation rather than climate per~se; distinguishing the two is left to future
+work with an explicit operational-regime covariate.

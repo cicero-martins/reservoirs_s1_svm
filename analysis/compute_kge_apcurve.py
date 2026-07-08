@@ -1,14 +1,20 @@
 """
-compute_kge_apcurve.py  (v2 — best-of, de-spiked JRC)
+compute_kge_apcurve.py  (v2 — best-of, de-spiked JRC, reference-noise screened)
 
-The headline A/P → monitorability curve, now on the FINAL metric: best-of(adapt, vv)
-KGE vs the de-spiked JRC reference (from bestof_kge.csv → compute_bestof_kge.py). The
-retired dual-FIXED method and the 4 flat-JRC "chapados" are excluded; the 4 Sicilian
-(JRC period = dual-only) drop out automatically (best=NaN). Points are coloured by the
-winning method (adapt vs VV-Otsu) so the "1-band is enough / better" story is visible on
-the same axes as the geometric-predictor story.
+The headline A/P → monitorability curve: best-of(adapt, vv) KGE vs the de-spiked JRC
+reference (from bestof_kge.csv → compute_bestof_kge.py). Excluded: the retired dual-FIXED
+method; the 4 flat-JRC "chapados" (degenerate KGE); Forggen (a historical, narrow case
+missing only the dual-SVM export); and every reservoir flagged by
+screen_reference_noise.py (rough_ratio>=2.5 -- the JRC series itself is noisier than the
+SAR, so any KGE against it tests the reference, not the classifier). The 4 Sicilian (JRC
+period = dual-only) drop out automatically (best=NaN). This N legitimately exceeds
+pilot_kge_4way.csv's (which additionally requires the fixed-dual and fast exports, never
+run for the 7-8 Jul global-coverage/dip-bin/temperate additions) -- the two tables answer
+different questions and are not meant to share one N. Points are coloured by the winning
+method (adapt vs VV-Otsu) so the "1-band is enough / better" story is visible on the same
+axes as the geometric-predictor story.
 
-Reads:  analysis/bestof_kge.csv
+Reads:  analysis/bestof_kge.csv, analysis/reference_noise.csv
 Output: analysis/pilot_kge_apcurve.csv
         analysis/method_comparison_output/ap_kge_curve_pooled.png
 """
@@ -18,15 +24,27 @@ from scipy import stats
 
 sys.stdout.reconfigure(encoding='utf-8')
 
+NO_DUAL_EXPORT = {'Forggen'}
+try:
+    _rn = pd.read_csv('analysis/reference_noise.csv')
+    REF_NOISE = set(_rn.loc[_rn.ref_noise, 'name'])
+except FileNotFoundError:
+    REF_NOISE = set()
+
 df = pd.read_csv('analysis/bestof_kge.csv')
 df = df.dropna(subset=['best'])                     # drops the 4 Sicilian (dual-only)
 n_all = len(df)
 df = df[~df['chapado']].copy()                      # drop flat-JRC chapados
+df = df[~df['name'].isin(NO_DUAL_EXPORT)].copy()    # Forggen: historical special case
+n_before_refnoise = len(df)
+df = df[~df['name'].isin(REF_NOISE)].copy()         # drop reference-noise-flagged
 df = df.sort_values('ap_m').reset_index(drop=True)
 df.to_csv('analysis/pilot_kge_apcurve.csv', index=False)
 
 r, p = stats.spearmanr(df['ap_m'], df['best'])
-print(f'A/P → best-of KGE (de-spiked JRC), N={len(df)} (from {n_all}, −{n_all-len(df)} chapados)')
+print(f'  (reference-noise dropped {n_before_refnoise - len(df)} of {n_before_refnoise})')
+print(f'A/P → best-of KGE (de-spiked JRC), N={len(df)} (from {n_all}, '
+      f'−{n_all-len(df)} chapados/incomplete-methods)')
 print(f'  Spearman ρ = {r:+.3f}  p = {p:.2e}   median KGE = {df["best"].median():.3f}')
 lo, hi = df[df.ap_m < 100], df[df.ap_m >= 200]
 print(f'  A/P<100  (n={len(lo)}): median {lo["best"].median():.3f}')

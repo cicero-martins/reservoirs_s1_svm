@@ -188,14 +188,43 @@ composite score. The comparison between detectors is summarised by
 $\Delta\text{KGE} = \text{KGE}_{\text{dual}} - \text{KGE}_{\text{VV}}$ on the
 months common to both.
 
-\subsubsection{Global tier: JRC surface-water reference (38 reservoirs)}
+\subsubsection{Global tier: JRC surface-water reference (62 reservoirs)}
 \label{sec:val_global}
 
-For the 38 pilot reservoirs, SAR-derived monthly surface areas are compared
+For the 62 global reservoirs, SAR-derived monthly surface areas are compared
 against the JRC Monthly Water History (2015--2021), which provides a globally
-consistent optical reference at 30~m. Only months with valid JRC observations
-over the AOI are retained. This tier establishes breadth across climate and
-geometry, at the cost of a 30~m inter-product comparison.
+consistent optical reference at 30~m, at the cost of a 30~m inter-product
+comparison rather than ground truth. Because this reference is itself a
+classification product, we apply two quality-control steps before it enters
+any result.
+
+\paragraph{De-spiking.} Only months with valid-fraction $\geq$0.90 are
+retained; a loose global $3\sigma$ clip removes gross outliers; and an
+isolated-excursion filter drops any single month whose value deviates from the
+linear interpolation of its neighbours by more than $4\times$ the median
+residual (or 12\% of the series median, whichever is larger), gated to apply
+only when that month's valid-fraction is below 0.95. The gate matters: it
+lets genuine, sustained drawdowns through (which occur at near-complete
+coverage) while removing isolated optical-contamination spikes (which
+coincide with partial coverage).
+
+\paragraph{Reference-noise screening.} De-spiking removes isolated
+contamination but not sustained, pervasive reference noise. For every
+reservoir we therefore compute a roughness ratio,
+$\rho_{\text{rough}} = \operatorname{std}(\Delta\text{JRC}) /
+\operatorname{std}(\Delta\text{SAR})$, the month-to-month variability of the
+JRC series relative to that of its best-performing SAR detector, on the
+months common to both. Genuine hydrological dynamics move both series
+together (ratio $\approx$1); a JRC series that jumps while both independent
+SAR detectors stay smooth ($\rho_{\text{rough}} \geq 2.5$) indicates the
+optical reference itself is unreliable, most often due to cloud, haze, or
+riparian-vegetation contamination. Fourteen reservoirs are flagged on this
+criterion and excluded from the results that follow, together with four whose
+regulated level is nearly constant (a flat reference makes KGE degenerate)
+and one lacking one of the four classifier exports. Section~\ref{sec:res_climate}
+reports the roughness screen's own diagnostic value: where it does not
+resolve a low-agreement case, the residual is attributed to the reference
+rather than to the SAR detector.
 
 \subsubsection{Sicilian near-truth: PlanetScope NDWI (4 reservoirs)}
 \label{sec:val_sicily}
@@ -223,14 +252,15 @@ configuration removes the post-processing (vectorisation, keep-polygon, and
 dynamic-perimeter steps) and computes area by direct pixel counting inside the
 reservoir polygon.
 
-\subsection{Wind as an orthogonal radiometric axis}
+\subsection{Radiometric and climate limits}
 \label{sec:methods_wind}
 
 A/P captures a purely \emph{geometric} limit and is blind to
-\emph{radiometric} failures such as wind-driven surface roughening, which
-raises VV backscatter and can cause water to be omitted. To test whether wind
-explains the between-method differences, we extract 10~m wind speed from the
-hourly ERA5 reanalysis \citep{Hersbach2020} at each Sentinel-1 overpass time
-(the hourly product is required because Sentinel-1 overpasses fall near the
-diurnal wind extremes) and relate it to both the between-method area
-divergence and $\Delta\text{KGE}$.
+\emph{radiometric} effects, of which we probe two on the reference-noise-screened
+62-reservoir set (Section~\ref{sec:val_global}). First, wind: we extract 10~m
+wind speed from the hourly ERA5 reanalysis \citep{Hersbach2020} at each
+Sentinel-1 overpass (the hourly product is required because overpasses fall near
+the diurnal wind extremes) and relate it to the between-method area divergence.
+Second, climate: we group reservoirs by K\"oppen--Geiger zone and test, on the
+KGE residual after accounting for A/P, whether climate carries a signal beyond
+geometry.

@@ -106,6 +106,15 @@ MIN_COMMON     = 10
 
 EXCLUDE  = {'Oued_Makhazine', 'Guajaraz', 'Antero', 'Miyagase', 'Welbedacht', 'Tzaneen',
             'Egorlyskaia', 'Boegoeberg', 'Itauba', 'Saguaro'}   # +4 flat-JRC chapados
+# Reference-noise screen (screen_reference_noise.py, rough_ratio>=2.5): the JRC series
+# itself jumps month-to-month while independent SAR methods stay smooth, at high
+# valid_frac (so it is optical misclassification, not coverage) -- any KGE computed
+# against these is comparing methods to a bad reference, not testing the methods.
+try:
+    _rn = pd.read_csv('analysis/reference_noise.csv')
+    EXCLUDE |= set(_rn.loc[_rn.ref_noise, 'name'])
+except FileNotFoundError:
+    pass  # first run before reference_noise.csv exists: falls back to the hardcoded set
 AREA_MIN = {'Saint_Cassien': 200}
 
 cand  = pd.read_csv('analysis/global_pilot_v4_candidates.csv')

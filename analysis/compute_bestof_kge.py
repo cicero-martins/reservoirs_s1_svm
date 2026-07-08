@@ -83,7 +83,14 @@ def kge(o, s):
     r = stats.pearsonr(o, s)[0]
     return 1 - np.sqrt((r - 1) ** 2 + (np.std(s) / np.std(o) - 1) ** 2 + (np.mean(s) / np.mean(o) - 1) ** 2)
 
-names = pd.read_csv('analysis/low_kge_diagnosis.csv')['name'].tolist()
+# Name source: the curated master candidate list (kept in sync with every export
+# batch), NOT low_kge_diagnosis.csv (a one-off diagnostic snapshot that silently
+# goes stale whenever new reservoirs are added — it missed all 15 from the
+# Temperate/dip-bin expansion on 7-8 Jul 2026). The 4 Sicilian (JRC-period
+# dual-only) are appended explicitly: they drop out naturally below (best=NaN)
+# but are needed elsewhere (PlanetScope near-truth track).
+names = pd.read_csv('analysis/global_pilot_v4_candidates.csv')['name'].tolist()
+names += ['Ancipa', 'Poma', 'Pozzillo', 'Rosamarina']
 rows, checks = [], []
 for n in names:
     jr, jspan = load_jrc(n)

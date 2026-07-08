@@ -117,9 +117,27 @@ latest = (ok.sort_values('start_dt')
             .drop_duplicates(['method', 'reservoir'], keep='last')
             .reset_index(drop=True))
 
+# EE's listOperations() only retains a rolling window of task history: older
+# completed tasks age out and become unrecoverable via the API. Overwriting the
+# CSV from a fresh pull therefore silently DROPS any (method, reservoir) pair
+# whose task has since expired, even though it was validly recorded before. We
+# merge onto the existing CSV instead, keeping every previously-recorded pair
+# and only adding/refreshing pairs present in this pull.
+if OUT_CSV.exists():
+    prior = pd.read_csv(OUT_CSV)
+    prior['start_dt'] = pd.to_datetime(prior['start'], errors='coerce', utc=True)
+    combined = pd.concat([prior, latest], ignore_index=True)
+    latest = (combined.sort_values('start_dt')
+                       .drop_duplicates(['method', 'reservoir'], keep='last')
+                       .reset_index(drop=True))
+    n_new = len(latest) - len(prior)
+    print(f'Merged onto existing {len(prior)}-row CSV ({n_new:+d} net rows; '
+          f'{len(prior) - len(prior.merge(latest, on=["method","reservoir"]))} pairs would have been '
+          f'lost by a plain overwrite).')
+
 latest.to_csv(OUT_CSV, index=False)
 print(f'Saved {len(latest)} latest-per-(method,reservoir) tasks -> {OUT_CSV}')
-print(f'(from {len(df)} total / {len(ok)} succeeded-with-EECU; deduped historical re-runs)\n')
+print(f'(from {len(df)} total / {len(ok)} succeeded-with-EECU this pull, merged with prior history)\n')
 
 # ── Summary by method (deduped) ───────────────────────────────────────────────
 print(f'{"method":<12} {"n_resv":>7} {"total_eecu_s":>14} {"mean_eecu_s":>12} {"median":>10}  {"window":>23}')

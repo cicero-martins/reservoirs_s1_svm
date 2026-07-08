@@ -84,9 +84,13 @@ var OTSU = {
   hist_buckets:  256,    // histogram resolution
 };
 
-// JRC reference is classifier-independent — only re-export it on the SVM run.
-// For the VV runs the JRC CSVs already exist; leave EXPORT_JRC false to save compute.
-var EXPORT_JRC = (CLASSIFIER === 'SVM');
+// JRC reference is classifier-independent — only re-export it on the SVM/SVM_ADAPTIVE
+// run. Ties to SVM_ADAPTIVE too (not just fixed SVM) so a brand-new reservoir batch
+// only needs 2 runs (SVM_ADAPTIVE + VV_OTSU) instead of 3 — the fixed-dual 'SVM' mode
+// is retired from the accuracy story (see best-of) and no longer needs its own pass
+// just to trigger a JRC export. Harmless no-op re-export for reservoirs that already
+// have JRC CSVs (VV runs still skip it to save compute).
+var EXPORT_JRC = (CLASSIFIER === 'SVM' || CLASSIFIER === 'SVM_ADAPTIVE');
 
 // Output folder is suffixed per mode so the runs never overwrite each other.
 var MODE_SUFFIX = (CLASSIFIER === 'VV_OTSU')      ? '_VVotsu'
@@ -227,6 +231,36 @@ var PILOT_RESERVOIRS = [
   ['Manuel_Avila_Camacho', 18.913, -98.145, 3375, null,  720, null],  // Mexico Puebla, semi-arid highland
   ['Egorlyskaia',          45.050,  41.638, 3862, null,  970, null],  // Russia Stavropol, semi-arid steppe (E Europe)
   ['Long_Lake',            49.862, -86.498, 2152, null,  453, null],  // Canada Ontario, boreal Dfb (ICE case — expect low KGE)
+
+  // ── TEMPERATE/CONTINENTAL EXPANSION (indices 77–81, 6 Jul 2026) ────────────
+  // Added to strengthen the smallest, most fragile biome bucket (n=8, 2 idiosyncratic
+  // cases — Sarrans hydropeaking+lag, Yamba noisy-JRC — flip biome significance).
+  // All 5 pre-screened: JRC valid_frac 0.86-0.98, cv 0.06-0.28 (not flat/degenerate),
+  // A/P 70-229 m (fills the 120-230 gap the existing 8 leave nearly empty).
+  ['Vranov',    48.925179,  15.762819, 3743, null,  559, null],  // Czech Republic, Dfb
+  ['Roxburgh', -45.426920, 169.323001, 5552, null,  410, null],  // New Zealand, Cfb
+  ['Conestogo', 43.695903, -80.729401, 2455, null,  568, null],  // Canada Ontario, Dfb
+  ['Yedang',    36.614198, 126.802821, 4421, null, 1039, null],  // South Korea, Dwa
+  ['Loch_Doon', 55.248957,  -4.375792, 3617, null,  705, null],  // UK Scotland, Cfb
+
+  // ── A/P "DIP-BIN" REINFORCEMENT (indices 82–91, 6 Jul 2026) ────────────────
+  // The pooled A/P->KGE curve's (130,180] bin (n=10, median 0.74) sits below its
+  // neighbours (0.82 and 0.94) — a noisy mix of good/bad reservoirs, not a
+  // single-biome effect (already 4 Mediterranean/3 Subtropical/2 Semi-arid/1
+  // Temperate there). Added 10 more, prioritising Semi-arid/arid and (Sub)tropical
+  // (the two biomes most under-represented in and around that bin), diverse
+  // countries, all pre-screened: JRC valid_frac 0.89-0.99, cv 0.14-0.78 (not flat).
+  // 5 land directly in the dip range (Da_Mi_1, Ambuklao, Barekese, Kotmale, Kidatu).
+  ['Mundaring_Weir',      -31.981518, 116.204285, 5431, null,  459, null],  // Australia WA, semi-arid
+  ['Kartalkaya',           37.485491,  37.267598, 4359, null, 1047, null],  // Turkey, semi-arid Anatolia
+  ['Lago_de_Almafuerte',  -32.177115, -64.276379, 3497, null,  833, null],  // Argentina, semi-arid Pampas
+  ['Hassan_Addakhil',      32.007544,  -4.453376, 4638, null, 1336, null],  // Morocco, semi-arid Atlas steppe
+  ['Da_Mi_1',              11.255608, 107.842041, 5178, null,  570, null],  // Vietnam, (sub)tropical
+  ['Ambuklao',             16.480774, 120.756061, 5109, null,  640, null],  // Philippines, (sub)tropical
+  ['Barekese',              6.843878,  -1.709110, 5227, null,  285, null],  // Ghana, (sub)tropical
+  ['Kotmale',               7.060651,  80.635003, 5226, null,  538, null],  // Sri Lanka, (sub)tropical
+  ['Cinco_de_Noviembre',   13.987793, -88.779011, 3388, null,  857, null],  // Honduras, (sub)tropical
+  ['Kidatu',               -7.640911,  36.834722, 5246, null,  710, null],  // Tanzania, (sub)tropical
 ];
 
 // ── Datasets ──────────────────────────────────────────────────────────────────
@@ -461,10 +495,15 @@ function classifyImage(img, svm, lakePoly, samplePoints) {
 // Change BATCH_SLICE to the desired batch before running (see header comment).
 //   v4 pilot (done):        [0,6]…[41,45]
 //   v3 pool (done):         [45,50], [50,55]
-//   GLOBAL-COVERAGE pool (NEW, 22 → run all 4 CLASSIFIER modes over these):
-//     [55,61], [61,67], [67,73], [73,77]
-// SVM mode also re-exports JRC for the new reservoirs (EXPORT_JRC ties to 'SVM').
-var BATCH_SLICE = JRC_ONLY ? [0, 77] : [73, 77];
+//   GLOBAL-COVERAGE pool (done): [55,61], [61,67], [67,73], [73,77]
+//   TEMPERATE/CONTINENTAL expansion (NEW, 5 — Vranov/Roxburgh/Conestogo/Yedang/Loch_Doon)
+//   + A/P DIP-BIN reinforcement (NEW, 10 — Mundaring_Weir..Kidatu): 15 total, [77,92].
+//     Only 2 runs needed over the FULL [77,92] slice: CLASSIFIER='SVM_ADAPTIVE' (also
+//     exports JRC now) then CLASSIFIER='VV_OTSU'. No fixed 'SVM' or 'VV_OTSU_FAST' run
+//     needed (best-of only uses adapt+vv; see compute_bestof_kge.py). Batch further if
+//     the Code Editor hits a memory/timeout limit over 15 reservoirs at once, e.g.
+//     [77,85] then [85,92].
+var BATCH_SLICE = JRC_ONLY ? [0, 92] : [77, 85];
 
 PILOT_RESERVOIRS.slice(BATCH_SLICE[0], BATCH_SLICE[1]).forEach(function(res) {
   var rName     = res[0];

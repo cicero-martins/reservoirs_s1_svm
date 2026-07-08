@@ -10,14 +10,22 @@ wind-robust dual-pol as the reference:
 Physical expectation: as wind rises, water VV backscatter rises (Bragg), Otsu loses the
 water mode → VV under-detects → rel_div becomes increasingly negative with wind speed.
 
+Usage:
+  python analyze_wind_divergence.py [dual|adapt]
+    dual  (default) — fixed-training 2023 dual SVM, the retired baseline
+    adapt           — per-scene SVM_ADAPTIVE, the method actually used everywhere
+                       else in the paper; also the only one the 15 newest
+                       reservoirs have, so this pulls them into the test.
+
 Reads:
-  dual : raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4/SAR_area_*.csv
-  vv   : raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_VVotsu/SAR_area_*.csv
-  wind : raw_data/GEE_GlobalPilotV4b/GEE_Era5Wind/Era5Wind_*.csv
+  dual/adapt : raw_data/GEE_GlobalPilotV4*/GEE_GlobalPilotV4[_SVMadapt]/SAR_area_*.csv
+  vv         : raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_VVotsu/SAR_area_*.csv
+  wind       : raw_data/GEE_GlobalPilotV4b/GEE_Era5Wind/Era5Wind_*.csv
 
 Output:
-  analysis/wind_divergence_pooled.csv
-  analysis/method_comparison_output/wind_divergence.png
+  analysis/wind_divergence_pooled_<method>.csv
+  analysis/method_comparison_output/wind_divergence_<method>.png
+  analysis/method_comparison_output/wind_divergence_per_reservoir_<method>.png
 
 Skeleton: guards missing VV/wind data and exits cleanly with a notice.
 """
@@ -30,11 +38,32 @@ from scipy import stats
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-SAR_DUAL_DIR = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4')
+METHOD = sys.argv[1] if len(sys.argv) > 1 else 'dual'
+if METHOD not in ('dual', 'adapt'):
+    sys.exit(f"unknown method '{METHOD}', expected 'dual' or 'adapt'")
+
+
+def _P(*p):
+    return [pathlib.Path(x) for x in p]
+
+
+def _res(dirs, fn):
+    for d in dirs:
+        p = d / fn
+        if p.exists():
+            return p
+    return None
+
+
+SAR_REF_DIRS = {
+    'dual':  _P('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4'),
+    'adapt': _P('raw_data/GEE_GlobalPilotV4_SVMadapt',
+                'raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_SVMadapt'),
+}[METHOD]
 SAR_VV_DIR   = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_VVotsu')
 WIND_DIR     = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_Era5Wind')
-OUT_CSV      = pathlib.Path('analysis/wind_divergence_pooled.csv')
-OUT_PNG      = pathlib.Path('analysis/method_comparison_output/wind_divergence.png')
+OUT_CSV      = pathlib.Path(f'analysis/wind_divergence_pooled_{METHOD}.csv')
+OUT_PNG      = pathlib.Path(f'analysis/method_comparison_output/wind_divergence_{METHOD}.png')
 
 EXCLUDE  = {'Oued_Makhazine', 'Guajaraz', 'Antero', 'Miyagase', 'Welbedacht', 'Tzaneen'}
 AREA_MIN = {'Saint_Cassien': 200}
@@ -45,9 +74,11 @@ NAMES = [n for n in cand['name'].tolist() if n not in EXCLUDE]
 
 
 def load_acq(name, sar_dir):
-    """Per-acquisition area (raw, no smoothing) keyed by date."""
-    p = sar_dir / f'SAR_area_{name}.csv'
-    if not p.exists():
+    """Per-acquisition area (raw, no smoothing) keyed by date. sar_dir may be a
+    single Path or a list of candidate Paths (first existing match wins)."""
+    dirs = sar_dir if isinstance(sar_dir, list) else [sar_dir]
+    p = _res(dirs, f'SAR_area_{name}.csv')
+    if p is None:
         return None
     try:
         df = pd.read_csv(p, parse_dates=['date'])
@@ -90,7 +121,7 @@ if not (have_vv and have_wind):
 # ── Pool per-acquisition divergence + wind across reservoirs ──────────────────
 pool = []
 for name in NAMES:
-    dual = load_acq(name, SAR_DUAL_DIR)
+    dual = load_acq(name, SAR_REF_DIRS)
     vv   = load_acq(name, SAR_VV_DIR)
     wind = load_wind(name)
     if dual is None or vv is None or wind is None:
@@ -146,9 +177,9 @@ ax.plot(centers, med.values, 'o-', color='#C62828', ms=8, lw=2, zorder=5,
         label='median per wind bin')
 ax.axhline(0, color='gray', lw=1, ls=':', alpha=0.7)
 ax.set_xlabel('ERA5 10 m wind speed at overpass (m/s)')
-ax.set_ylabel('rel. divergence  (area$_{VV}$ − area$_{dual}$) / area$_{dual}$')
-ax.set_title('Experiment C — no systematic VV/dual divergence with wind\n'
-             f'(pooled r={r:.2f}, p={pval:.2f}, NS; dual-pol as reference)',
+ax.set_ylabel(f'rel. divergence  (area$_{{VV}}$ - area$_{{{METHOD}}}$) / area$_{{{METHOD}}}$')
+ax.set_title(f'Experiment C ({METHOD}) — VV vs {METHOD} divergence with wind\n'
+             f'(pooled r={r:.2f}, p={pval:.2f}, N={allp["name"].nunique()} reservoirs; {METHOD} as reference)',
              fontsize=10, fontweight='bold')
 ax.legend(fontsize=9); ax.grid(alpha=0.25)
 ax.set_ylim(-1.0, 0.6)
@@ -162,7 +193,7 @@ print(f'\nSaved: {OUT_PNG}')
 # Within-reservoir Pearson r(wind, rel_div): tests the Bragg under-detection
 # hypothesis site by site (it predicts r < 0). A pooled null could hide per-site
 # effects, so this resolves them. Significant r<0 = hypothesis supported there.
-OUT_PNG2 = pathlib.Path('analysis/method_comparison_output/wind_divergence_per_reservoir.png')
+OUT_PNG2 = pathlib.Path(f'analysis/method_comparison_output/wind_divergence_per_reservoir_{METHOD}.png')
 MIN_N_PR = 10
 prs = []
 for name, g in allp.groupby('name'):
@@ -193,7 +224,7 @@ ax2.set_yticklabels([f"{n.replace('_', ' ')}  (n={nn}, w$_{{max}}$={w:.1f})"
                     fontsize=8)
 ax2.set_ylim(-0.6, len(prdf) - 0.4)
 ax2.set_xlabel('within-reservoir Pearson r(wind, rel. divergence)', fontsize=10)
-ax2.set_title('Per-reservoir wind effect on VV/dual divergence\n'
+ax2.set_title(f'Per-reservoir wind effect on VV/{METHOD} divergence\n'
               'Bragg hypothesis predicts r < 0 (red) — observed in '
               f'{n_neg}/{len(prdf)}; opposite sign (green) in {n_pos}/{len(prdf)}',
               fontsize=10, fontweight='bold')

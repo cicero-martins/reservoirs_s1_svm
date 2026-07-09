@@ -16,31 +16,32 @@ after rainfall events, signalling a progressive depletion trend in
 regional water reserves.
 
 Accurate and continuous monitoring of reservoir storage is therefore
-essential for adaptive water management. The principal sources of
-information are in-situ gauge networks and remote-sensing time series,
-each with specific strengths and limitations. Water-level gauges provide
-near-real-time data, but converting levels into volumes requires
-area--elevation--volume (AEV) relationships. In many systems, these still
-rely on design-phase bathymetric surveys (1950s--1960s), which may not
-reflect current conditions due to sedimentation and morphological change
-\citep{BrunoEtAl2003}. Satellite radar altimetry, as provided for
-example by the DAHITI database \citep{Schwatke2015}, offers a
-complementary and globally consistent source of water-level time series,
-now covering several thousand lakes and reservoirs worldwide. Combined
-with global reservoir attribute databases such as GRanD
-\citep{Lehner2011} and GRDL \citep{Hao2024}, which compile AEV
-relationships for over 7,000 water bodies, and in-situ and altimetry-based
-records compiled in GROWL \citep{Zhang2026}, these platforms have
-substantially expanded the observational basis for large-scale hydrological
-assessments. Converting any of these signals into a storage volume, however,
-still requires AEV information (whether from in-situ surveys, bathymetric
-modelling, or design-phase documentation), which for many reservoirs is
-outdated and is itself a major source of uncertainty. Storage volume is thus
-reachable by two routes, from water level or from water-surface area, but both
-are gated by the same AEV step. We place the present study on the surface-area
-route and, within it, on the quantity the SAR classifier measures directly; the
-AEV conversion to volume, and the updating of those curves, is left to future
-work as the strategic next step.
+essential for adaptive water management, and which observable is actually
+monitored, water level, water-surface area, or both, determines how broadly
+that monitoring can be deployed. In-situ gauges provide near-real-time water
+levels but exist for only a fraction of the world's reservoirs. Satellite
+radar altimetry extends level monitoring beyond gauged sites, with databases
+such as DAHITI \citep{Schwatke2015} and GROWL \citep{Zhang2026} now covering
+several thousand lakes and reservoirs worldwide. Altimetry's coverage,
+however, is set by orbit geometry rather than by where monitoring is needed.
+Only water bodies actually crossed by a satellite ground track are observed,
+which excludes many small reservoirs, precisely the ones least likely to have
+a gauge either. Surface area, by contrast, is retrievable by any imaging
+sensor whose swath overlaps the reservoir, with no track-crossing or in-situ
+station required, which makes it the more broadly deployable observable for
+exactly the ungauged, altimetry-blind reservoirs where monitoring is most
+needed. Realising that potential, however, requires a reliable, automated
+area-retrieval method, since manual or ad-hoc delineation does not scale to
+thousands of reservoirs. Turning either level or area into a storage volume
+still requires
+area--elevation--volume (AEV) relationships, compiled for over 7,000 water
+bodies by databases such as GRanD \citep{Lehner2011} and GRDL
+\citep{Hao2024}, but in many systems still resting on design-phase
+bathymetric surveys (1950s--1960s) that predate decades of sedimentation and
+morphological change \citep{BrunoEtAl2003}. We place the present study on the
+surface-area side of that pipeline, on the quantity a SAR classifier measures
+directly. Extending it to storage volume, and updating the AEV relationships
+that step requires, is left to future work.
 
 Alongside altimetry, Synthetic Aperture Radar (SAR) imagery offers a
 complementary approach to reservoir monitoring based on the direct
@@ -52,19 +53,15 @@ can severely reduce the temporal availability of optical observations
 \citep{Pekel2016}. Processed on cloud computing platforms such as Google
 Earth Engine (GEE), Sentinel-1 SAR data enable systematic surface water
 mapping over large areas and long time periods \citep{Gorelick2017}.
-Recent studies confirm this operational maturity: \citet{BhatpuriaEtAl2024}
-applied automated SAR workflows for storage monitoring in semi-arid India;
+Recent studies confirm this operational maturity. \citet{BhatpuriaEtAl2024}
+applied automated SAR workflows for storage monitoring in semi-arid India.
 \citet{ValerioEtAl2024} showed that Sentinel-1 combined with Sentinel-2 on
-GEE reliably detects water bodies smaller than 0.5~ha; and
+GEE reliably detects water bodies smaller than 0.5~ha, and
 \citet{PengEtAl2025} demonstrated GEE-based SAR--optical fusion for flood
-mapping with accuracies above 92\%. Relative to altimetry, area-based SAR
-approaches have the advantage of providing spatially explicit water masks
-that can capture asymmetric drawdown patterns, detect disconnected water
-pools, and function independently of whether a satellite altimetry track
-passes over the water body. The two approaches are therefore
-complementary: altimetry constrains water levels with centimetric accuracy
-where coverage exists, while SAR provides spatial and temporal coverage
-of the water surface in systems not reached by altimetry tracks.
+mapping with accuracies above 92\%. Beyond this all-weather advantage,
+area-based SAR masks are spatially explicit and can capture asymmetric
+drawdown patterns and disconnected water pools that a single water-level
+number cannot.
 
 Despite this progress, SAR-based reservoir delineation exhibits
 substantial variability in performance across water bodies that cannot be
@@ -75,7 +72,7 @@ mixed pixels introduce systematic errors whose severity depends on the
 ratio of shoreline length to water body area \citep{CazalsEtAl2021}.
 Shadowing and layover effects in topographically complex settings further
 complicate delineation near steep reservoir margins \citep{Martinis2015}.
-These phenomena are well-established individually; yet a basic operational
+These phenomena are well-established individually, yet a basic operational
 question remains unanswered: \emph{which geometric property of a reservoir best
 predicts its SAR classification skill, knowable in advance of any SAR
 processing, and does that skill in fact require the added complexity of a
@@ -83,7 +80,7 @@ dual-polarisation, machine-learning classifier, or does a simple
 single-polarisation threshold already suffice?}
 
 We propose that the answer lies in the \textbf{area-to-perimeter ratio
-(A/P; units: m)}, a length-scale index that captures the compactness of
+(A/P, in metres)}, a length-scale index that captures the compactness of
 the shoreline relative to the water body's spatial extent. The physical
 reasoning proceeds as follows. For a sensor with ground resolution $r$,
 the boundary strip of width $r$ enclosing the perimeter $P$ contains
@@ -111,19 +108,17 @@ workflow applied to 62 reference-quality-screened reservoirs on five
 continents, referenced against the
 JRC Global Surface Water dataset \citep{Pekel2016}, and to four Sicilian
 reservoirs validated against high-resolution PlanetScope imagery as near-truth.
-We: (i)~quantify the statistical relationship between A/P and SAR surface-area
-accuracy across the global set; (ii)~show, through a like-for-like comparison of
-a single-polarisation (VV) per-scene threshold and a dual-polarisation (VV+VH)
-per-scene SVM under an identical pipeline, that per-scene adaptivity matters
-more than polarisation count, and that the simple single-band detector is as
-accurate as the dual-band one across the global set, so the added complexity is
-not justified; and (iii)~audit the computational cost of each detector,
-overturning the assumption that the dual-polarisation learner is the expensive
-option and confirming that the simple detector is also the cheapest. Because
-training samples are drawn automatically from global water masks, the workflow
-carries no manual delineation and transfers directly across climatic regions,
-subject to a modest secondary sensitivity to humid, vegetated settings that we
-quantify. The A/P ratio emerges as a practical screening tool, computable from
+First, we quantify the statistical relationship between A/P and SAR
+surface-area accuracy across the global set, the geometric half of the
+question above. Second, we compare a single-polarisation (VV) per-scene
+threshold against a dual-polarisation (VV+VH) per-scene SVM under an
+identical pipeline, testing whether the added complexity of the dual-band
+classifier is justified on accuracy grounds. Added complexity is usually
+assumed to come at an added computational cost too, so we audit that cost for
+each detector as well. Because training samples are drawn automatically from
+global water masks, the
+workflow carries no manual delineation and transfers directly across climatic
+regions. The A/P ratio emerges as a practical screening tool, computable from
 global databases such as GRanD or GROWL before any SAR image is processed, that
 lets practitioners anticipate where the workflow will perform well.
 

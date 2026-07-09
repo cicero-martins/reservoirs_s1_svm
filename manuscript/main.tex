@@ -45,9 +45,8 @@
 
 \begin{frontmatter}
 
-\title{Monitoring Reservoir Surface Area with Sentinel-1 SAR in Google
-       Earth Engine: the Area-to-Perimeter Ratio as an A-Priori Predictor of
-       Water-Classifier Skill and Choice}
+\title{Shoreline compactness predicts Sentinel-1 water-area monitoring
+       reliability across reservoirs worldwide}
 
 \author[unipa]{Cicero Martins Jr.\corref{cor1}}
 \ead{cicero.martinsjr@unipa.it}
@@ -68,31 +67,22 @@
 % rho=0.51 p=3e-5 (N=62); VV-Otsu wins 38/62; climate 2nd axis p=0.012 (survives
 % excluding all 14 reservoirs with an unreliable JRC reference); EECU per-scene
 % dual 1.17x VV-Otsu (n=92, merged cost log incl. all 15 newest reservoirs).
-% See project memory.
-The area-to-perimeter ratio (A/P) of a reservoir shoreline, computable in
-advance from global databases, predicts how accurately Sentinel-1 can monitor
-its surface area. We test this in a single cloud-based Google Earth Engine
-pipeline that compares per-scene water detectors: a single-polarisation VV Otsu
-threshold and a dual-polarisation (VV+VH) support vector machine (SVM)
-re-trained for each acquisition, with training samples drawn automatically from
-the JRC Global Surface Water dataset. The comparison covers 62 reservoirs on
-five continents, referenced to JRC surface water and screened for reference
-reliability, plus four Sicilian reservoirs validated against 3~m PlanetScope
-near-truth. A/P is a strong predictor of surface-area skill (Spearman
-$\rho = 0.51$, $p = 3\times10^{-5}$): it sets a geometric ceiling, high and
-stable for compact reservoirs (median KGE 0.93 above 200~m) and lower and more
-variable for narrow, dendritic ones (0.48 below 100~m). The second
-polarisation adds no reliable accuracy across this global set: the single-band
-per-scene Otsu is as accurate as the dual-band SVM, wins in most reservoirs,
-and is the simplest and cheapest to run, whereas a fixed-training SVM is the
-least accurate, so per-scene adaptivity matters more than polarisation.
-Climate is a genuine secondary modulator, humid and vegetated reservoirs
-underperforming at given A/P even after every reservoir with an unreliable
-optical reference is excluded. We release the workflow as an interactive
-Google Earth Engine application that auto-trains from JRC and runs this
-per-scene detector over more than 35,000 global reservoirs (Global Dam Watch),
-a reliable, low-cost, and transferable basis for the surface-area input to
-reservoir storage monitoring in data-scarce regions.
+% GDW_RESERVOIRS_V1_0 verified live via EE = 35,295 (8 Jul 2026).
+% Abstract word count: 150/150 (ENVSOFT Guide for Authors limit, exact). See project memory.
+The area-to-perimeter ratio (A/P) of a reservoir shoreline may predict, in
+advance, how reliably Sentinel-1 monitors surface area; we test this in an
+Earth Engine pipeline comparing two scene-adaptive detectors
+grounded in JRC: a single-polarisation VV Otsu threshold and a
+dual-polarisation (VV+VH) Support Vector Machine (SVM). The set spans 62
+reference-screened reservoirs on five continents validated against JRC
+time-series, plus four Sicilian reservoirs validated against 3~m PlanetScope
+near-truth. A/P is a strong predictor (Spearman $\rho = 0.51$,
+$p = 3\times10^{-5}$), with median KGE 0.93 above 200~m and 0.48 below
+100~m. Otsu wins outright in most reservoirs (38 of 62 vs the SVM's 24); the
+SVM's edge concentrates at low A/P, also seen in Sicily. Climate remains a genuine
+secondary modulator ($p=0.012$); humid, vegetated reservoirs underperform at
+given A/P. We release it as an interactive, JRC-auto-trained Earth Engine app
+that also flags its 35,000+ global reservoirs by expected reliability from A/P.
 \end{abstract}
 
 \begin{keyword}

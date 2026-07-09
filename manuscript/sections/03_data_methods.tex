@@ -38,8 +38,8 @@ classifier itself rather than of the surrounding pipeline.
 \node[clf]   (svm)  at (2.7,-4.0) {\textbf{Dual-pol SVM}\\per-scene retrain\\\emph{VV+VH}};
 \node[aux]   (train)at (7.4,-4.0) {\textbf{Automated training}\\JRC water occ.\ $\geq$95\%\\WorldCover land};
 \node[stage] (post) at (0,-6.25)  {\textbf{Identical post-processing}\\gap-fill $\to$ vectorise $\to$ keep in-reservoir polygon};
-\node[stage] (area) at (0,-8.0)   {\textbf{Surface-area series + morphometry}\\static \& dynamic A/P $\cdot$ LOWESS temporal smoothing};
-\node[io]    (val)  at (0,-9.75)  {\textbf{Validation \& cost}\\JRC (38) $\cdot$ PlanetScope 3\,m (4) $\cdot$ EECU audit};
+\node[stage] (area) at (0,-8.0)   {\textbf{Surface-area series + morphometry}\\static A/P $\cdot$ LOWESS temporal smoothing};
+\node[io]    (val)  at (0,-9.75)  {\textbf{Validation \& cost}\\JRC (62) $\cdot$ PlanetScope 3\,m (4) $\cdot$ EECU audit};
 
 \draw[arr] (s1) -- (pre);
 \draw[arr] (pre.south) -- (otsu.north);
@@ -68,24 +68,29 @@ We use the Sentinel-1 C-band Ground Range Detected (GRD) collection in
 Interferometric Wide (IW) swath mode at 10~m resolution, with dual
 polarisation (VV and VH) \citep{Torres2012}. GEE delivers this product with
 thermal-noise removal, radiometric calibration, and terrain correction
-already applied. The analysis window spans 1~October~2014 to
+already applied. For the global tier, the analysis window spans 1~October~2014 to
 31~December~2021, bounded by the availability of the JRC Monthly Water History
-used as the global reference (Section~\ref{sec:val_global}). Speckle is
+used as the reference there (Section~\ref{sec:val_global}). The Sicilian
+near-truth tier instead uses acquisitions from May~2024 to May~2025, matching
+the availability of the PlanetScope validation imagery
+(Section~\ref{sec:val_sicily}). Speckle is
 reduced with a 30~m circular focal-mean filter.
 
 Because reservoirs at the edge of the Sentinel-1 swath can be imaged by
 several relative orbits with markedly different viewing geometries, we select,
 per reservoir, the orbit with the highest mean incidence angle (typically
-sub-swath IW3, $\sim$42--46$^{\circ}$) among orbits that satisfy two gates:
-at least 20 available scenes and at least one scene covering $\geq$90\% of the
-AOI. Higher (far-range) incidence angles yield a more specular (hence
-darker) water return and therefore a larger water/land backscatter
-contrast that is more robust to wind roughening \citep{Giustarini2013}.
-Prioritising incidence angle rather than pixel count is a deliberate choice:
-for swath-edge reservoirs the two criteria select different orbits, and the
-angle-based choice produces markedly more stable series. Within the chosen
-orbit, per-scene coverage gaps are filled by compositing acquisitions within a
-6~day window.
+sub-swath IW3, $\sim$42--46$^{\circ}$) among orbits with at least 20 available
+scenes and at least one scene covering $\geq$90\% of the AOI. Within the
+chosen orbit, only scenes that reach that same $\geq$90\% coverage are
+retained for the time series, falling back to a 50\% threshold only on the
+rare orbit where no scene reaches 90\%. An alternative selection rule would
+instead maximise scene count or coverage extent, and for swath-edge
+reservoirs the two rules can pick different orbits. We prioritise incidence
+angle because, in practice, it is the choice that reduces angular
+backscatter variability and yields a more temporally consistent series,
+which matters more for a per-scene classifier than the raw number of
+available scenes. Per-scene coverage gaps within the chosen orbit are filled
+by compositing acquisitions within a 6~day window.
 
 \subsection{Automated, transferable training}
 \label{sec:methods_training}
@@ -161,16 +166,15 @@ within the reservoir. Surface area is the pixel-area sum of the retained mask
 at 10~m. Because water backscatter is sensitive to wind roughness, the
 resulting series is temporally filtered with a moving-window outlier removal
 followed by LOWESS smoothing, exploiting the $\sim$6--12~day effective revisit
-of the selected orbit; this smoothing is applied outside GEE so that the
+of the selected orbit. This smoothing is applied outside GEE so that the
 accuracy metrics judge the raw classification quality.
 
 \subsection{Shoreline morphometry: the A/P ratio}
 \label{sec:methods_ap}
 
 For each reservoir we compute a \emph{static} A/P from the JRC
-maximum-extent polygon (area divided by perimeter, in metres) and, for each
-acquisition, a \emph{dynamic} A/P from the perimeter of the actual water
-extent on that date. As introduced in Section~\ref{sec:introduction}, A/P sets
+maximum-extent polygon (area divided by perimeter, in metres). As introduced
+in Section~\ref{sec:introduction}, A/P sets
 the geometric ceiling on monitorability: for a ground resolution $r$, the
 fraction of ambiguous boundary pixels is approximately $r/(A/P)$, so
 low-A/P (narrow, dendritic) reservoirs carry proportionally more mixed pixels

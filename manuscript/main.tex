@@ -45,8 +45,9 @@
 
 \begin{frontmatter}
 
-\title{Shoreline compactness predicts Sentinel-1 water-area monitoring
-       reliability across reservoirs worldwide}
+%% The effect of shoreline compactness on Sentinel-1 water-area monitoring reliability in reservoirs 
+\title{Shoreline compactness predicts reliability of Sentinel-1 water-area monitoring
+       across reservoirs worldwide}
 
 \author[unipa]{Cicero Martins Jr.\corref{cor1}}
 \ead{cicero.martinsjr@unipa.it}
@@ -70,19 +71,19 @@
 % GDW_RESERVOIRS_V1_0 verified live via EE = 35,295 (8 Jul 2026).
 % Abstract word count: 150/150 (ENVSOFT Guide for Authors limit, exact). See project memory.
 The area-to-perimeter ratio (A/P) of a reservoir shoreline may predict, in
-advance, how reliably Sentinel-1 monitors surface area; we test this in an
-Earth Engine pipeline comparing two scene-adaptive detectors
-grounded in JRC: a single-polarisation VV Otsu threshold and a
-dual-polarisation (VV+VH) Support Vector Machine (SVM). The set spans 62
-reference-screened reservoirs on five continents validated against JRC
-time-series, plus four Sicilian reservoirs validated against 3~m PlanetScope
-near-truth. A/P is a strong predictor (Spearman $\rho = 0.51$,
-$p = 3\times10^{-5}$), with median KGE 0.93 above 200~m and 0.48 below
-100~m. Otsu wins outright in most reservoirs (38 of 62 vs the SVM's 24); the
-SVM's edge concentrates at low A/P, also seen in Sicily. Climate remains a genuine
-secondary modulator ($p=0.012$); humid, vegetated reservoirs underperform at
-given A/P. We release it as an interactive, JRC-auto-trained Earth Engine app
-that also flags its 35,000+ global reservoirs by expected reliability from A/P.
+advance, how reliably Sentinel-1 monitors surface area, a low-cost basis for
+tracking small, ungauged reservoirs beyond altimetry and gauges. We test this
+in an Earth Engine pipeline comparing two scene-adaptive detectors grounded in
+JRC, a single-polarisation VV Otsu threshold and a dual-polarisation (VV+VH)
+Support Vector Machine (SVM), across 62 reference-screened reservoirs on five
+continents plus four in Sicily validated against 3~m PlanetScope near-truth.
+A/P is a strong predictor (Spearman $\rho = 0.51$, $p = 3\times10^{-5}$), with
+median KGE 0.93 above 200~m and 0.48 below 100~m, and the simpler Otsu matches
+the dual-band SVM overall. Climate remains a genuine secondary modulator
+($p=0.012$), with humid, vegetated reservoirs underperforming at given A/P.
+We release it as an interactive, JRC-auto-trained Earth Engine app
+that flags 35,000+ global reservoirs by expected reliability, a practical
+screening tool for water managers before any image is processed.
 \end{abstract}
 
 \begin{keyword}
@@ -112,7 +113,10 @@ Area-to-Perimeter Ratio
 
 \section*{Data Availability Statement}
 The GEE scripts and supplementary datasets are available at:
-\url{https://github.com/cicero-martins/reservoirs_s1_svm}.
+\url{https://github.com/cicero-martins/reservoirs_s1_svm}. A supplementary
+document giving a worked example of each statistical test used in
+Section~3.5 (KGE, Spearman, Wilcoxon, Kruskal-Wallis) is submitted alongside
+this manuscript.
 
 \bibliographystyle{elsarticle-harv}
 \bibliography{references}

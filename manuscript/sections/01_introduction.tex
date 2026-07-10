@@ -34,11 +34,12 @@ needed. Realising that potential, however, requires a reliable, automated
 area-retrieval method, since manual or ad-hoc delineation does not scale to
 thousands of reservoirs. Turning either level or area into a storage volume
 still requires
-area--elevation--volume (AEV) relationships, compiled for over 7,000 water
-bodies by databases such as GRanD \citep{Lehner2011} and GRDL
-\citep{Hao2024}, but in many systems still resting on design-phase
-bathymetric surveys (1950s--1960s) that predate decades of sedimentation and
-morphological change \citep{BrunoEtAl2003}. We place the present study on the
+area--elevation--volume (AEV) relationships, which can be retrieved from
+local authorities or from databases such as GRanD \citep{Lehner2011} and GRDL
+\citep{Hao2024}, now covering over 7,000 water bodies, but in many systems
+these still rest on outdated design-phase bathymetric surveys that predate
+decades of sedimentation and morphological change \citep{BrunoEtAl2003}. We
+place the present study on the
 surface-area side of that pipeline, on the quantity a SAR classifier measures
 directly. Extending it to storage volume, and updating the AEV relationships
 that step requires, is left to future work.
@@ -93,7 +94,15 @@ corroborated by \citet{CazalsEtAl2021}, who quantified a systematic
 perimeter-inward erosion of $\sim$20~m in Sentinel-1-derived water masks
 at the pixel level. This mixed-pixel argument is purely geometric: it depends
 only on shoreline length and pixel size, and is therefore sensor- and
-algorithm-agnostic. It predicts that A/P is a reliable a-priori indicator of
+algorithm-agnostic. Other shoreline-shape descriptors, such as fractal
+dimension or compactness indices, also quantify irregularity, but they are
+not derived from the mixed-pixel mechanism itself, so there is no equivalent
+argument for why they should set an accuracy ceiling. A/P, by contrast, is
+the length-scale the derivation above requires: the ambiguous-boundary
+fraction $r/(A/P)$ follows directly from dividing the boundary-strip area by
+the water area, so A/P is not one candidate among several equally-motivated
+shape metrics, but the quantity the error mechanism itself implies. It
+predicts that A/P is a reliable a-priori indicator of
 the \emph{geometric} ceiling on SAR classification performance, one that,
 to our knowledge, has not been systematically tested across a multi-reservoir
 dataset. Radiometric failures form a second, orthogonal axis to which A/P is

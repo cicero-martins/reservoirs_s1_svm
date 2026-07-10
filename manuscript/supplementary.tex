@@ -1,0 +1,280 @@
+%% Environmental Modelling & Software -- elsarticle, author-year (Harvard)
+%% Supplementary Material: worked examples for the non-parametric tests used
+%% in the main text (Section 3.5, Validation).
+\documentclass[12pt,authoryear]{elsarticle}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+\biboptions{authoryear,round,semicolon}
+
+\begin{document}
+
+\begin{frontmatter}
+\title{Supplementary Material: Worked Examples for the Statistical Tests
+       Used in the Main Text}
+\author[unipa]{Cicero Martins Jr.\corref{cor1}}
+\ead{cicero.martinsjr@unipa.it}
+\author[unipa]{Fulvio Capodici}
+\author[unipa]{Mauro De Marchis}
+\author[unipa]{Giuseppe Ciraolo}
+\cortext[cor1]{Corresponding author}
+\affiliation[unipa]{organization={Dipartimento di Ingegneria,
+                    Universit\`a degli Studi di Palermo},
+                    city={Palermo}, country={Italy}}
+\end{frontmatter}
+
+\noindent This document accompanies
+\emph{Shoreline compactness predicts Sentinel-1 water-area monitoring
+reliability across reservoirs worldwide} and gives a self-contained,
+hand-checkable worked example for each of the four quantitative tools
+introduced in Section~3.5: the accuracy metric (KGE) and the three
+non-parametric tests applied to it. Each example uses a small, real subset of
+the reservoirs analysed in the main text so the mechanics of the calculation
+can be followed by hand, then compared against a statistical package. Because
+each subset is far smaller than the full sample used in the paper ($n=62$ or
+$n=59$, depending on the test), the resulting $p$-values here are not
+significant. That is expected and is not a discrepancy: these examples
+illustrate \emph{how} each statistic is computed, not a replication of the
+main text's headline results.
+
+\section*{S1. Kling-Gupta Efficiency (KGE) \citep{Gupta2009}}
+
+\textbf{Used for:} the core accuracy score throughout the paper, comparing
+a SAR-derived monthly area series against a reference (JRC or PlanetScope).
+It is the quantity that Sections~S2--S4 below then compare or correlate.
+
+\textbf{Why this metric:} the two obvious alternatives are the Pearson
+correlation $r$ alone, and the older Nash-Sutcliffe Efficiency (NSE). Both
+conflate several distinct ways a simulated series can fail to match an
+observed one. A series can track the timing of every rise and fall
+perfectly ($r=1$) while still being consistently too high, or while swinging
+much more sharply than the truth, and a single correlation or NSE value
+cannot tell these failure modes apart. KGE decomposes accuracy into three
+independent components so each can be inspected on its own.
+
+\textbf{Calculation.} For observed series $o$ and simulated series $s$ of
+equal length,
+\[
+\mathrm{KGE} = 1 - \sqrt{(r-1)^2 + (\alpha-1)^2 + (\beta-1)^2},
+\]
+where $r$ is the Pearson correlation between $o$ and $s$ (captures timing
+and shape), $\alpha = \sigma_s/\sigma_o$ is the variability ratio (captures
+whether $s$ swings by the right amount), and $\beta = \mu_s/\mu_o$ is the
+bias ratio (captures whether $s$ is centred correctly). All three equal 1
+under perfect agreement, so $\mathrm{KGE}=1$ is a perfect score, and it
+decreases as any one component departs from 1, regardless of the other two.
+
+\textbf{Worked example} (Cecita, 7 consecutive months of JRC-referenced
+monthly area, ha):
+
+\begin{center}
+\begin{tabular}{lrrrrrrr}
+\toprule
+& 2015-03 & 04 & 05 & 06 & 07 & 08 & 09 \\
+\midrule
+JRC (obs.), $o$    & 773.5 & 780.2 & 768.8 & 768.4 & 739.4 & 684.4 & 544.9 \\
+VV Otsu (sim.), $s$ & 701.3 & 878.4 & 879.7 & 791.6 & 712.8 & 652.6 & 569.5 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+$\bar{o}=722.8$, $\bar{s}=740.8$, $\sigma_o=78.8$, $\sigma_s=107.1$, and the
+Pearson correlation of the two rows is $r=0.812$. So
+\[
+\alpha = \frac{107.1}{78.8} = 1.359, \qquad
+\beta = \frac{740.8}{722.8} = 1.025,
+\]
+\[
+\mathrm{KGE} = 1 - \sqrt{(0.812-1)^2 + (1.359-1)^2 + (1.025-1)^2}
+             = 1 - \sqrt{0.0353 + 0.1289 + 0.0006} = 0.594.
+\]
+The correlation alone looks reasonable ($r=0.81$, the seasonal drawdown is
+captured), but $\alpha=1.36$ shows VV Otsu over-swings relative to JRC by
+about 36\% in this window, which is what actually drags the composite score
+down to 0.59. This is the diagnostic value of the decomposition: a
+correlation-only or NSE score would not have distinguished a timing problem
+from an amplitude problem. \texttt{scipy}, applied to the same seven-month
+window, reproduces $r$, $\alpha$, and $\beta$ to the same precision.
+
+\subsection*{A note on $p$-values and significance}
+
+Sections~S2--S4 below each return two numbers: a statistic ($\rho$, $W$, or
+$H$) that summarises the pattern found in the sample, and a $p$-value that
+judges how surprising that pattern would be under a specific no-effect
+scenario, the \emph{null hypothesis} ($H_0$): no monotonic relationship
+(Spearman), no systematic paired difference (Wilcoxon), or no difference
+between groups (Kruskal-Wallis). Formally, the $p$-value is the probability
+of obtaining a statistic at least as extreme as the one observed if $H_0$
+were exactly true. A small $p$-value means the observed pattern would be
+unlikely to arise by chance alone, and is treated as evidence against
+$H_0$. Throughout the paper we use the conventional threshold $p<0.05$
+\citep{Fisher1925}: results below it are called \emph{statistically
+significant} (the pattern is unlikely to be a sampling artefact), and
+results at or above it are called \emph{not significant} (NS), meaning the
+data do not rule out $H_0$, not that no effect exists. This last point
+matters for the worked examples below: each uses only 7--8 reservoirs to
+keep the arithmetic tractable by hand, and at that sample size even a real,
+large effect will usually not clear $p<0.05$. That is why every
+worked-example $p$-value in Sections~S2--S4 is NS while the corresponding
+full-sample result in the paper is significant, the effect is the same,
+only the statistical power to detect it differs. KGE (Section~S1) is not a
+hypothesis test and has no associated $p$-value: it is a descriptive
+accuracy score bounded above by 1, not a statistic being compared to a null
+distribution.
+
+\section*{S2. Spearman rank correlation \citep{Spearman1904}}
+
+\textbf{Used for:} testing whether the area-to-perimeter ratio (A/P)
+predicts surface-area skill (KGE), Section~4.1, and similar monotonic
+relationships throughout the paper.
+
+\textbf{Why this test:} Spearman's $\rho$ tests for a monotonic relationship
+without assuming it is linear or that either variable is normally
+distributed. This matters here because A/P is expected to set a
+\emph{ceiling} on KGE (rising sharply then saturating), not a straight-line
+trend, so a rank-based measure is the appropriate one.
+
+\textbf{Calculation.} Both variables are converted to ranks (1 = smallest),
+and the ordinary correlation coefficient is computed on the ranks rather
+than the raw values:
+\[
+\rho = 1 - \frac{6 \sum_i d_i^2}{n(n^2-1)}, \qquad
+d_i = \mathrm{rank}(X_i) - \mathrm{rank}(Y_i).
+\]
+
+\textbf{Worked example} (7 reservoirs spanning the A/P range):
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Reservoir & A/P (m) & KGE & rank(A/P) & rank(KGE) & $d^2$ \\
+\midrule
+Long\_Lake       & 62  & 0.251 & 1 & 1 & 0 \\
+Sau              & 84  & 0.878 & 2 & 5 & 9 \\
+Panneciere       & 111 & 0.743 & 3 & 4 & 1 \\
+Cecita           & 125 & 0.953 & 4 & 6 & 4 \\
+Chivor           & 158 & 0.693 & 5 & 2 & 9 \\
+Baisha           & 209 & 0.711 & 6 & 3 & 9 \\
+Hassan\_Addakhil & 267 & 0.963 & 7 & 7 & 0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+With $n=7$ and $\sum d_i^2 = 32$:
+\[
+\rho = 1 - \frac{6 \times 32}{7(49-1)} = 1 - \frac{192}{336} = 0.429.
+\]
+For reference, \texttt{scipy.stats.spearmanr} on the same seven pairs
+returns $\rho = 0.429$, $p = 0.34$ (not significant at $n=7$, as expected).
+On the full 62-reservoir set used in the paper, the same calculation gives
+$\rho = 0.51$, $p = 3\times10^{-5}$ (Section~4.1).
+
+\section*{S3. Wilcoxon signed-rank test \citep{Wilcoxon1945}}
+
+\textbf{Used for:} the paired, per-reservoir comparison between the
+per-scene SVM and VV Otsu detectors, Section~4.2.
+
+\textbf{Why this test:} it is the non-parametric analogue of the paired
+$t$-test, appropriate because the paired KGE differences
+($\mathrm{KGE}_{\text{SVM}} - \mathrm{KGE}_{\text{VV}}$) are strongly
+right-skewed (a few very large SVM wins alongside many smaller VV wins)
+rather than normally distributed, which would violate the assumption behind
+a paired $t$-test.
+
+\textbf{Calculation.} For each pair, compute the signed difference
+$d_i = \mathrm{KGE}_{\mathrm{SVM},i} - \mathrm{KGE}_{\mathrm{VV},i}$, rank the
+\emph{absolute} differences $|d_i|$ from smallest to largest, then reattach
+each rank's original sign. Sum the ranks of the positive differences ($W^+$)
+and of the negative differences ($W^-$). The test statistic is
+$W = \min(W^+, W^-)$.
+
+\textbf{Worked example} (7 reservoirs, ordered by $|d_i|$):
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Reservoir & KGE$_{\text{VV}}$ & KGE$_{\text{SVM}}$ & $d_i$ & $|d_i|$ rank & signed rank \\
+\midrule
+Cardinia       & 0.855  & 0.874 & $+0.019$ & 1 & $+1$ \\
+Karapuzha      & 0.773  & 0.723 & $-0.050$ & 2 & $-2$ \\
+Hubbard\_Creek & 0.755  & 0.504 & $-0.251$ & 3 & $-3$ \\
+Saint\_Cassien & 0.678  & 0.347 & $-0.331$ & 4 & $-4$ \\
+Sau            & 0.515  & 0.878 & $+0.363$ & 5 & $+5$ \\
+Ambuklao       & 0.048  & 0.859 & $+0.811$ & 6 & $+6$ \\
+Baisha         & $-0.320$ & 0.711 & $+1.031$ & 7 & $+7$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+$W^+ = 1+5+6+7 = 19$, $W^- = 2+3+4 = 9$, so $W = \min(19,9) = 9$.
+\texttt{scipy.stats.wilcoxon} on the same seven pairs returns the same
+statistic and $p = 0.47$ (not significant at $n=7$). Note that four of the
+seven reservoirs favour VV (negative $d_i$) while only three favour SVM, yet
+the rank sums are closer together than the raw count suggests: the SVM's
+three wins carry the three \emph{largest} ranks (5, 6, 7), which is exactly
+the asymmetric-magnitude pattern discussed in Section~4.2. On the full
+59-reservoir paired set used in the paper, the same calculation gives
+$p = 0.37$.
+
+\section*{S4. Kruskal-Wallis test \citep{KruskalWallis1952}}
+
+\textbf{Used for:} testing whether the KGE residual, after accounting for
+A/P, still differs across the four climate-zone families, Section~4.5.
+
+\textbf{Why this test:} it is the non-parametric analogue of one-way ANOVA
+for comparing more than two independent groups, appropriate given the small
+and uneven group sizes ($n=12$--19 per biome in the full analysis) where
+normality and equal variance within each group cannot be assumed.
+
+\textbf{Calculation.} First isolate the climate signal from the geometric
+one: fit a linear regression of KGE on A/P across all reservoirs, and take
+the residual $e_i = \mathrm{KGE}_i - (\hat a + \hat b \cdot \mathrm{A/P}_i)$
+for each reservoir. Pool the residuals from all groups, rank them 1 to $N$,
+and sum the ranks within each group ($R_j$). The test statistic is
+\[
+H = \frac{12}{N(N+1)} \sum_j \frac{R_j^2}{n_j} - 3(N+1),
+\]
+which is approximately $\chi^2$-distributed with $k-1$ degrees of freedom
+($k=4$ biome families here, so 3 d.f.).
+
+\textbf{Worked example} (2 reservoirs per biome; the fitted line on this
+8-point subset is $\mathrm{KGE} = 0.499 + 0.00108\times\mathrm{A/P}$):
+
+\begin{center}
+\begin{tabular}{llrrr}
+\toprule
+Reservoir & Biome & A/P (m) & KGE & residual $e_i$ \\
+\midrule
+Boadella    & Mediterranean          & 93  & 0.832 & $+0.232$ \\
+Bilancino   & Mediterranean          & 160 & 0.683 & $+0.011$ \\
+Amir\_Kabir & Semi-arid/arid         & 92  & 0.322 & $-0.276$ \\
+Recoleta    & Semi-arid/arid         & 237 & 0.933 & $+0.177$ \\
+Conestogo   & Temperate/continental  & 123 & 0.729 & $+0.097$ \\
+Cardinia    & Temperate/continental  & 156 & 0.874 & $+0.206$ \\
+Ambuklao    & (Sub)tropical          & 118 & 0.859 & $+0.232$ \\
+Asolamandha & (Sub)tropical          & 255 & 0.938 & $+0.163$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Ranking the 8 residuals and summing within each 2-member group gives
+$H = 1.17$ on 3 d.f., $p = 0.76$ (not significant, as expected for
+$n=8$ split four ways). \texttt{scipy.stats.kruskal} on the same eight
+residuals returns the same value. On the full 62-reservoir set used in the
+paper, the same procedure (pooling all reservoirs' A/P-regression residuals
+and grouping by biome) gives $H$ corresponding to $p = 0.012$
+(Section~4.5), which is significant: unlike this small illustrative subset,
+the full sample shows that climate carries a genuine signal beyond what A/P
+alone explains.
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{references}
+
+\end{document}

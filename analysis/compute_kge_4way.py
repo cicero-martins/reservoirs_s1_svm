@@ -104,8 +104,13 @@ VALID_FRAC_MIN = 0.80
 SAR_MIN_FRAC   = 0.02
 MIN_COMMON     = 10
 
-EXCLUDE  = {'Oued_Makhazine', 'Guajaraz', 'Antero', 'Miyagase', 'Welbedacht', 'Tzaneen',
+EXCLUDE  = {'Oued_Makhazine', 'Guajaraz', 'Miyagase', 'Welbedacht', 'Tzaneen',
             'Egorlyskaia', 'Boegoeberg', 'Itauba', 'Saguaro'}   # +4 flat-JRC chapados
+# NOTE (9 Jul 2026): 'Antero' was previously hardcoded here on an old, undocumented
+# "extreme geometry" judgment call that predates the systematic reference-noise screen
+# below. It does NOT fail that screen and IS part of the trusted N=62 apcurve set, so
+# excluding it only here (not from the primary accuracy analysis) was an inconsistency,
+# not a real data-quality reason. Removed; Antero is now included if it clears MIN_COMMON.
 # Reference-noise screen (screen_reference_noise.py, rough_ratio>=2.5): the JRC series
 # itself jumps month-to-month while independent SAR methods stay smooth, at high
 # valid_frac (so it is optical misclassification, not coverage) -- any KGE computed

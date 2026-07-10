@@ -8,26 +8,16 @@ area-to-perimeter ratio as an a-priori predictor of SAR surface-area accuracy
 and asked whether the added complexity of a dual-polarisation,
 machine-learning classifier is justified. Three conclusions follow. First,
 A/P is a strong, geographically general predictor of the geometric ceiling on
-monitorability (Spearman $\rho = 0.51$) and can be computed from global
-databases before any image is processed, which makes it a practical tool for
-screening where SAR monitoring will succeed. Second, the added complexity is
-not justified: a per-scene single-polarisation Otsu threshold is as accurate
-as a per-scene dual-polarisation SVM across the global set, is the better
-detector in most reservoirs, and is also the cheapest to run, while a
-fixed-training SVM is the least accurate, so per-scene adaptivity matters more
-than the number of polarisations. Third, climate is a secondary but genuine
-modulator of the geometric ceiling: humid, vegetated reservoirs are tracked
-less well at given A/P even after every reservoir with an unreliable optical
-reference is excluded, marking where an all-weather SAR record is most
-valuable and where climate, rather than reference quality, is now the more
-defensible explanation.
+monitorability (Spearman $\rho = 0.51$), computable from global databases
+before any image is processed. Second, the added complexity is not justified
+for most reservoirs: a per-scene single-polarisation Otsu threshold matches a
+per-scene dual-polarisation SVM across the global set, wins outright in 38 of
+62 reservoirs, and costs roughly 15\% less to run, while a fixed-training SVM
+is the least accurate of the four detectors tested. Third, climate is a
+secondary but genuine modulator of the geometric ceiling: humid, vegetated
+reservoirs are tracked less well at given A/P even after every reservoir with
+an unreliable optical reference is excluded.
 
-Future work should extend the framework from surface area to storage volume,
-supported by updated area--elevation--volume relationships, and should address
-the radiometric residual directly, for example through a dynamic threshold on
-the cross-polarised or ratio channel for the extreme low-water, low-A/P regime
-where a second polarisation can still help. Combined with the automated,
-transferable training and the simple per-scene detector adopted here, released
-as an interactive application over more than 35,000 global reservoirs, these
-steps would move the workflow towards operational reservoir monitoring in
-data-scarce regions.
+The workflow is released as an interactive Earth Engine application,
+auto-trained from JRC, covering more than 35,000 global reservoirs and
+flagging each by its expected monitoring reliability from A/P.

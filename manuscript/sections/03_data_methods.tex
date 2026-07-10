@@ -13,8 +13,11 @@ transferable; (iii)~per-acquisition water detection by one of two
 \emph{scene-adaptive} classifiers (a single-polarisation Otsu threshold or
 a dual-polarisation Support Vector Machine, SVM), both followed by an
 \emph{identical} post-processing chain; (iv)~conversion of the cleaned masks
-into surface-area time series and computation of shoreline morphometry
-(the area-to-perimeter ratio, A/P); and (v)~validation against reference data
+into surface-area time series and per-scene computation of \emph{dynamic}
+shoreline morphometry (the area-to-perimeter ratio, A/P, computed from that
+scene's own water mask, as distinct from the \emph{static} A/P computed once,
+a priori, from the JRC maximum-extent polygon, Section~\ref{sec:methods_ap});
+and (v)~validation against reference data
 and an audit of computational cost. Keeping every stage identical except the
 decision rule is what allows the comparison to isolate the effect of the
 classifier itself rather than of the surrounding pipeline.
@@ -38,7 +41,7 @@ classifier itself rather than of the surrounding pipeline.
 \node[clf]   (svm)  at (2.7,-4.0) {\textbf{Dual-pol SVM}\\per-scene retrain\\\emph{VV+VH}};
 \node[aux]   (train)at (7.4,-4.0) {\textbf{Automated training}\\JRC water occ.\ $\geq$95\%\\WorldCover land};
 \node[stage] (post) at (0,-6.25)  {\textbf{Identical post-processing}\\gap-fill $\to$ vectorise $\to$ keep in-reservoir polygon};
-\node[stage] (area) at (0,-8.0)   {\textbf{Surface-area series + morphometry}\\static A/P $\cdot$ LOWESS temporal smoothing};
+\node[stage] (area) at (0,-8.0)   {\textbf{Surface-area series + morphometry}\\dynamic A/P per scene $\cdot$ LOWESS temporal smoothing};
 \node[io]    (val)  at (0,-9.75)  {\textbf{Validation \& cost}\\JRC (62) $\cdot$ PlanetScope 3\,m (4) $\cdot$ EECU audit};
 
 \draw[arr] (s1) -- (pre);
@@ -109,7 +112,22 @@ JRC occurrence. Up to 500 points per class are drawn with a fixed random seed.
 Critically, this step fixes only the \emph{locations and labels} of the
 samples from multi-decadal, sensor-independent masks; the backscatter values
 attached to them are sampled later, which is what enables the scene-adaptive
-training below.
+training below. Figure~\ref{fig:sample_selection} illustrates this automated
+selection for one example reservoir, alongside the analogous region used to
+build Otsu's per-scene histogram (Section~\ref{sec:methods_otsu}).
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{sample_selection_pozzillo}
+  \caption{Automated sample and region selection at Pozzillo (Sicily),
+  against a Sentinel-1 VV backdrop (2020 median). (a) SVM training points:
+  water (JRC occurrence $\geq$95\%) and land (500--2000~m ring, non-water in
+  WorldCover, zero JRC occurrence), with the 500~m and 2000~m ring boundaries
+  shown for reference. (b) The 500~m land-ringed buffer used to
+  build Otsu's per-scene VV backscatter histogram. Both panels share the same
+  JRC maximum-extent polygon (white outline).}
+  \label{fig:sample_selection}
+\end{figure}
 
 \subsection{Two scene-adaptive water detectors}
 \label{sec:methods_detectors}
@@ -126,12 +144,21 @@ by wind, moisture, and viewing geometry.
 \label{sec:methods_otsu}
 
 For each acquisition, a water threshold is computed on the VV band by Otsu's
-between-class-variance maximisation \citep{Otsu1979} applied to the histogram
-(256 bins) of backscatter over a 500~m land-ringed buffer around the water
-body, which renders the histogram bimodal. Pixels with
-$\text{VV} < T_{\text{Otsu}}$ are labelled water, since smooth water has low
-backscatter. The threshold is therefore recomputed for every scene and
-follows the radiometry of that date.
+between-class-variance maximisation \citep{Otsu1979}: a histogram (256 bins)
+of backscatter is built over a 500~m land-ringed buffer around the water
+body, which renders it bimodal, and every candidate split of the histogram
+into a low- and a high-backscatter class is scored by the variance between
+the two resulting class means, weighted by class size. The split that
+maximises this between-class variance is the threshold, which is equivalent
+to minimising the within-class variance, the criterion Otsu's original 1979
+formulation derives a closed-form recursion for. We compute it directly by
+evaluating every candidate split over the array-valued histogram (a common
+Earth Engine implementation pattern for this exact criterion, rather than
+Otsu's original recursive shortcut, which is unnecessary once the histogram
+is small enough to score exhaustively), so the criterion being maximised is
+unchanged from the 1979 definition. Pixels with $\text{VV} < T_{\text{Otsu}}$
+are labelled water, since smooth water has low backscatter. The threshold is
+therefore recomputed for every scene and follows the radiometry of that date.
 
 \subsubsection{Dual-polarisation SVM re-trained per scene}
 \label{sec:methods_svm}
@@ -142,10 +169,11 @@ features, with cost $C=1$ and kernel width $\gamma=0.01$. In the scene-adaptive
 configuration used for the main comparison, the backscatter of the fixed JRC
 training points (Section~\ref{sec:methods_training}) is sampled from
 \emph{each scene} and the SVM is re-trained on that scene, producing a
-decision boundary that tracks the scene's radiometry exactly as Otsu's
-per-scene threshold does. This removes any dependence on an arbitrary baseline
-year and makes the SVM-vs-Otsu contrast a clean test of the two-band versus
-one-band decision rule.
+decision boundary that is re-estimated for every acquisition, adapting to
+that scene's radiometry the same way Otsu's per-scene threshold does, though
+as a nonlinear boundary in the two-band feature space rather than a single
+scalar cut. This makes the SVM-vs-Otsu contrast a clean test of the two-band
+versus one-band decision rule.
 
 % TODO: once SVM_ADAPTIVE run lands, confirm whether the fixed-2023 SVM variant
 % is reported (as an ablation showing the fixed baseline is unfair) or omitted.
@@ -165,7 +193,8 @@ suppresses isolated misclassified patches while preserving disconnected pools
 within the reservoir. Surface area is the pixel-area sum of the retained mask
 at 10~m. Because water backscatter is sensitive to wind roughness, the
 resulting series is temporally filtered with a moving-window outlier removal
-followed by LOWESS smoothing, exploiting the $\sim$6--12~day effective revisit
+followed by LOWESS smoothing \citep{Cleveland1979}, exploiting the
+$\sim$6--12~day effective revisit
 of the selected orbit. This smoothing is applied outside GEE so that the
 accuracy metrics judge the raw classification quality.
 
@@ -179,8 +208,16 @@ the geometric ceiling on monitorability: for a ground resolution $r$, the
 fraction of ambiguous boundary pixels is approximately $r/(A/P)$, so
 low-A/P (narrow, dendritic) reservoirs carry proportionally more mixed pixels
 and are expected to be harder to delineate regardless of sensor or classifier.
-A/P is thus tested as an \emph{a-priori} predictor: it is computable from
+A/P is thus tested as an \emph{a-priori} predictor, computable from
 global databases ahead of any image analysis.
+
+For every acquisition, we also compute a \emph{dynamic} A/P from the
+perimeter and area of that scene's own retained water mask
+(Section~\ref{sec:methods_postproc}), rather than from the JRC polygon.
+Because it depends on that day's own classification, dynamic A/P cannot
+serve as an a-priori predictor. It is used in
+Section~\ref{sec:disc_limitations} to test whether it could instead serve as
+a live operational signal for switching between detectors.
 
 \subsection{Validation}
 \label{sec:methods_validation}
@@ -192,25 +229,41 @@ composite score. The comparison between detectors is summarised by
 $\Delta\text{KGE} = \text{KGE}_{\text{dual}} - \text{KGE}_{\text{VV}}$ on the
 months common to both.
 
+Three further, non-parametric tests support the accuracy comparisons, chosen
+because none of the underlying distributions can be assumed normal. Spearman
+rank correlation \citep{Spearman1904} is used wherever a monotonic but not
+necessarily linear relationship is expected, for example where A/P sets a
+ceiling on KGE rather than a linear trend (Section~\ref{sec:res_ap}), since it
+does not assume linearity. The Wilcoxon signed-rank test \citep{Wilcoxon1945}
+is used for the paired per-reservoir comparison between detectors
+(Section~\ref{sec:res_fourway}), since the paired KGE differences are
+strongly right-skewed, which would violate the assumption behind a paired
+$t$-test. The Kruskal-Wallis test \citep{KruskalWallis1952} compares the KGE
+residual across the four climate-zone families (Section~\ref{sec:res_climate}),
+appropriate given the small, uneven group sizes ($n=12$--19) where normality
+and equal variance cannot be assumed. A worked, hand-checkable example of
+each of these four calculations, using small real subsets of the reservoirs
+analysed here, is given in the Supplementary Material.
+
 \subsubsection{Global tier: JRC surface-water reference (62 reservoirs)}
 \label{sec:val_global}
 
 For the 62 global reservoirs, SAR-derived monthly surface areas are compared
-against the JRC Monthly Water History (2015--2021), which provides a globally
-consistent optical reference at 30~m, at the cost of a 30~m inter-product
-comparison rather than ground truth. Because this reference is itself a
-classification product, we apply two quality-control steps before it enters
-any result.
+against the JRC Monthly Water History \citep{Pekel2016} (2015--2021), a
+globally consistent optical reference at 30~m. This is an inter-product
+comparison, not a validation against ground truth, since JRC is itself a
+satellite-derived classification product. We therefore apply two
+quality-control steps before it enters any result.
 
 \paragraph{De-spiking.} Only months with valid-fraction $\geq$0.90 are
 retained; a loose global $3\sigma$ clip removes gross outliers; and an
 isolated-excursion filter drops any single month whose value deviates from the
 linear interpolation of its neighbours by more than $4\times$ the median
 residual (or 12\% of the series median, whichever is larger), gated to apply
-only when that month's valid-fraction is below 0.95. The gate matters: it
-lets genuine, sustained drawdowns through (which occur at near-complete
-coverage) while removing isolated optical-contamination spikes (which
-coincide with partial coverage).
+only when that month's valid-fraction is below 0.95. This gating matters. It
+lets genuine, sustained drawdowns pass, since those occur at near-complete
+coverage, while removing isolated optical-contamination spikes, which
+coincide with partial coverage.
 
 \paragraph{Reference-noise screening.} De-spiking removes isolated
 contamination but not sustained, pervasive reference noise. For every
@@ -224,8 +277,8 @@ SAR detectors stay smooth ($\rho_{\text{rough}} \geq 2.5$) indicates the
 optical reference itself is unreliable, most often due to cloud, haze, or
 riparian-vegetation contamination. Fourteen reservoirs are flagged on this
 criterion and excluded from the results that follow, together with four whose
-regulated level is nearly constant (a flat reference makes KGE degenerate)
-and one lacking one of the four classifier exports. Section~\ref{sec:res_climate}
+regulated level is nearly constant (a flat reference makes KGE degenerate).
+Section~\ref{sec:res_climate}
 reports the roughness screen's own diagnostic value: where it does not
 resolve a low-agreement case, the residual is attributed to the reference
 rather than to the SAR detector.
@@ -233,13 +286,14 @@ rather than to the SAR detector.
 \subsubsection{Sicilian near-truth: PlanetScope NDWI (4 reservoirs)}
 \label{sec:val_sicily}
 
-To break the 30~m inter-product circularity, the four Sicilian reservoirs are
+To break free of JRC's own 30~m mixed-pixel limitation
+(Section~\ref{sec:study_sicily}), the four Sicilian reservoirs are
 validated against near-truth water masks derived from PlanetScope SuperDove
 imagery ($\sim$3~m; \citealp{PlanetTeam2017}) over May~2024--May~2025. Cloud-
 free scenes are converted to water masks with a scene-specific NDWI threshold,
 produced independently of the SAR workflow. Each PlanetScope observation is
-matched one-to-one to the nearest SAR acquisition within $\pm$6~days (no
-monthly averaging), and KGE is computed on the paired series.
+matched one-to-one to the nearest SAR acquisition within $\pm$6~days, and
+KGE is computed on the paired series.
 
 % TODO: state final N of PlanetScope scenes / matched pairs per reservoir once
 % the SVM_ADAPTIVE Sicily run is downloaded.
@@ -250,11 +304,13 @@ monthly averaging), and KGE is computed on the paired series.
 To test the common assumption that the dual-polarisation learner is more
 expensive than a single-band threshold, we audit the Earth Engine Compute Unit
 (EECU) usage of each export task via \texttt{batchEecuUsageSeconds}
-(\texttt{ee.data.listOperations}), pairing the two methods per reservoir and
-comparing their cost ratio. To isolate the true cost lever, a third
-configuration removes the post-processing (vectorisation, keep-polygon, and
-dynamic-perimeter steps) and computes area by direct pixel counting inside the
-reservoir polygon.
+(\texttt{ee.data.listOperations}) for all four classifier configurations
+(fixed-training dual SVM, per-scene VV Otsu, per-scene dual SVM, and a
+no-post-processing fast VV variant), pairing them per reservoir and comparing
+cost ratios. The fast configuration also isolates the true cost lever by
+removing the post-processing (vectorisation, keep-polygon, and
+dynamic-perimeter steps) and computing area by direct pixel counting inside
+the reservoir polygon.
 
 \subsection{Radiometric and climate limits}
 \label{sec:methods_wind}

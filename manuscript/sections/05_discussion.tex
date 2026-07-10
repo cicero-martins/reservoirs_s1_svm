@@ -11,20 +11,18 @@ and the single-band detector is the better of the two in most reservoirs
 below the single-band threshold, because it cannot follow the scene-to-scene
 changes in backscatter that a per-scene rule absorbs by construction. Two
 lessons follow. First, the choice worth making is not how many polarisations to
-use but whether the decision rule is re-estimated for each acquisition;
-retraining per scene also removes any dependence on a baseline year, settling
+use but whether the decision rule is re-estimated for each acquisition.
+Retraining per scene also removes any dependence on a baseline year, settling
 the objection that a fixed training year is arbitrary. Second, the second
 polarisation is not worth its overhead: it adds no reliable accuracy over a wide
-range of geometry and climate.
+range of geometry and climate, and where it does help, the Sicilian Ancipa
+case (Section~\ref{sec:res_sicily}) shows the mechanism is real at an extreme
+but does not generalise.
 
-An earlier, Europe-heavy subsample had suggested that the dual polarisation
-helps at low A/P, which would have made A/P a rule for choosing the detector.
-That signal did not survive the global expansion (Section~\ref{sec:res_fourway})
-and we do not claim it; the Sicilian Ancipa case shows the mechanism is real at
-an extreme but does not generalise. The cost audit points the same way.
+The cost audit points the same way.
 Polarisation count itself is cheap, but making the dual classifier adapt
 requires per-scene retraining, which makes it the costliest method, whereas the
-per-scene single-band Otsu is the simplest and about a fifth cheaper to run
+per-scene single-band Otsu is the simplest and roughly 15\% cheaper to run
 (Section~\ref{sec:res_cost}). The most accurate method on the median is
 therefore also the most expensive and buys no general gain, so the
 recommendation is the simple per-scene VV Otsu.
@@ -51,8 +49,16 @@ operational workflow as light as possible.
 
 A/P bounds accuracy from geometry and is blind to radiometric effects, which
 form a second axis. The clearest radiometric candidate, wind, does not organise
-along geometry and shows no systematic effect on the 46-reservoir set tested
-(Section~\ref{sec:res_climate}); the intuitive attribution of specific
+along geometry and shows no systematic effect on the 47-reservoir set tested
+(Section~\ref{sec:res_climate}). One reason the Bragg-scattering prediction
+\citep{Valenzuela1978} may not surface here is that Otsu's threshold is
+itself re-estimated every scene (Section~\ref{sec:methods_otsu}): a decision
+rule that recalibrates each acquisition can absorb some of the wind-driven
+backscatter shift before it becomes an omission error, in a way that Bragg's
+original formulation, developed against a fixed detection threshold, does not
+anticipate. This is a sample-specific finding, not a general one, and a
+larger or more wind-exposed set could still reveal an effect the present test
+is not powered to detect. The intuitive attribution of specific
 high-A/P failures to wind or ice does not hold up, and one such case, Rockport,
 is in fact well tracked by both per-scene detectors once the arbitrary
 fixed-training baseline is set aside. The residual that A/P does not explain is
@@ -61,11 +67,12 @@ are tracked less well at given A/P than those in arid or Mediterranean ones.
 Reaching this conclusion required first separating a genuine climate signal
 from a data-quality artefact. In a first pass, the climate residual lost
 significance once reservoirs with a demonstrably noisy optical reference were
-excluded, since those reservoirs were disproportionately humid and tropical;
-we could not tell whether climate mattered or the reference did. We therefore
-built an explicit reference-quality screen (a roughness ratio comparing
-month-to-month JRC variability to that of two independent SAR detectors;
-Section~\ref{sec:val_global}) and excluded the 14 reservoirs it flagged before
+excluded, since those reservoirs were disproportionately humid and tropical,
+and we could not tell whether climate mattered or the reference did. We
+therefore built an explicit reference-quality screen (a roughness ratio
+comparing month-to-month JRC variability to that of two independent SAR
+detectors, Section~\ref{sec:val_global}) and excluded the 14 reservoirs it
+flagged before
 computing any result. On this cleaned set the climate residual remains
 significant ($p=0.012$), so it is not merely standing in for reference noise:
 climate is a genuine, if secondary, modulator of the geometric ceiling A/P
@@ -78,19 +85,46 @@ precisely where an all-weather SAR record is most valuable.
 \label{sec:disc_limitations}
 
 Several limitations bound these conclusions. The study addresses surface area
-only; converting area to storage volume requires area--elevation--volume
+only. Converting area to storage volume requires area--elevation--volume
 information that for many reservoirs is outdated, and we leave that conversion,
 and the updating of those curves, to future work. The global set is referenced
 against the 30~m JRC product, an inter-product comparison rather than ground
-truth; the four Sicilian reservoirs validated against 3~m PlanetScope reproduce
+truth. The four Sicilian reservoirs validated against 3~m PlanetScope reproduce
 the main findings, but a broader near-truth validation would strengthen them,
 especially in the humid settings where the optical reference is weakest. Four
 reservoirs whose regulated level is nearly constant were excluded a priori,
-since a flat reference makes KGE undefined in practice; they are monitored
+since a flat reference makes KGE undefined in practice. They are monitored
 perfectly well but cannot be scored this way. The reference-quality screen
 itself, while principled, uses a single threshold (roughness ratio
-$\geq$2.5) calibrated on this dataset; a stricter or looser cut would move a
+$\geq$2.5) calibrated on this dataset, and a stricter or looser cut would move a
 handful of borderline reservoirs across the line.
+
+Motivated by the Ancipa mechanism (Section~\ref{sec:disc_geo_radio}), we also
+tested whether A/P computed dynamically, per scene, from the SAR mask itself
+could serve as a live operational trigger for switching from Otsu to the SVM.
+A genuine, narrow effect exists: in a $\sim$51--70~m dynamic-A/P window, the
+SVM's monthly area error is typically smaller than Otsu's, sharpening the
+mixed-pixel mechanism at the most extreme drawdowns. It does not, however,
+translate into a usable rule. The effect does not hold within individual
+reservoirs' own trajectories (the median within-reservoir correlation between
+dynamic A/P and the SVM's monthly edge is slightly positive, not negative, as
+the mechanism would require), and a switching policy backtested at that
+threshold more often lowers the resulting KGE than raises it, because a
+monthly series assembled from two differently-biased detectors introduces
+discontinuities that a correlation-based metric penalises heavily, even where
+the segment the SVM contributes is individually more accurate. We could not
+identify any variable, geometric or otherwise (static or dynamic A/P, climate,
+or the detector's own baseline skill), that predicts in advance which
+reservoirs benefit most from the SVM, so a per-scene or per-reservoir
+switching rule is not yet justified. This leaves the roughly 40\% of
+reservoirs where the SVM's advantage is large (Section~\ref{sec:res_fourway})
+without a confirmed explanation. Untested candidates include riparian
+vegetation, to which the cross-polarised channel is differentially sensitive,
+shoreline complexity beyond the single A/P scalar (for example the number of
+disconnected sub-basins or arms at a given A/P), seasonal ice or snow, and
+per-reservoir variation in training-sample quality. Finding that variable, or
+a splicing-aware combination rule that does not penalise the transition
+itself, is left to future work.
 
 Finally, the temperate/continental climate zone's low median is not fully
 explained. Several of its worst-performing members (including one hydropeaking
@@ -105,5 +139,5 @@ short-term level changes from the seasonal signal A/P-based expectations
 implicitly assume) is at least as plausible as a radiometric climate mechanism.
 We report the climate effect honestly as significant on the cleaned data,
 while flagging that its temperate-zone component may reflect reservoir
-operation rather than climate per~se; distinguishing the two is left to future
+operation rather than climate per~se. Distinguishing the two is left to future
 work with an explicit operational-regime covariate.

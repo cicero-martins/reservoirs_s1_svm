@@ -12,8 +12,7 @@
 
 %% --- Graphics & tables ---
 \usepackage{graphicx}
-% figures live in manuscript/figures/ (curated) and analysis output (draft/live)
-\graphicspath{{figures/}{../analysis/method_comparison_output/}}
+\graphicspath{{figures/}}
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{longtable}
@@ -27,9 +26,6 @@
 \usepackage{siunitx}
 \sisetup{detect-all, group-separator={,}}
 
-%% --- Diagrams ---
-\usepackage{tikz}
-\usetikzlibrary{arrows.meta, positioning, fit, backgrounds}
 
 %% --- Misc ---
 \usepackage{microtype}
@@ -109,10 +105,14 @@ Area-to-Perimeter Ratio
 
 % -----------------------------------------------------------------------
 \section*{Acknowledgements}
-% TODO
+The authors acknowledge the European Space Agency (ESA) for providing open-access 
+Sentinel-1 SAR data under the Copernicus Programme, Google Earth Engine (GEE) 
+for providing the cloud-based computational infrastructure used in this study, and 
+Planet Labs PBC for providing PlanetScope imagery used in the validation.
 
 \section*{Data Availability Statement}
-The GEE scripts and supplementary datasets are available at:
+The GEE application developed is available at \url{https://ee-ciceromartinsjr.projects.earthengine.app/view/globalpilotsar}.
+GEEscripts and supplementary datasets are available at:
 \url{https://github.com/cicero-martins/reservoirs_s1_svm}. A supplementary
 document giving a worked example of each statistical test used in
 Section~3.5 (KGE, Spearman, Wilcoxon, Kruskal-Wallis) is submitted alongside

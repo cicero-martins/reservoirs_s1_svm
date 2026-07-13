@@ -6,14 +6,17 @@
 //   fields: RES_NAME / DAM_NAME / ALT_NAME / GDW_ID / CAP_MCM / AREA_SKM).
 //   Global mode searches all three name fields; no pre-filter needed.
 //
-// Method mirrors trainSVMfromJRC / executeMainPipeline in reservoirs_s1_svm.js,
-// adapted for interactive single-reservoir use:
-//   • AOI → JRC max_extent polygon (NOT HydroLAKES polygon — see note below)
-//   • Training composite → fixed 2023 annual MOSAIC (not user-period median)
+// Detection method is user-selectable ("3 · Detection method" in the panel):
+//   • Otsu       → per-scene single-polarisation VV threshold (recommended default)
+//   • SVM        → per-scene ADAPTIVE dual-pol (VV+VH) RBF SVM (cost=1, gamma=0.01),
+//                  retrained on every image's own backscatter at fixed JRC/WorldCover
+//                  sample points (ported from exportGlobalPilotV4.js's SVM_ADAPTIVE) —
+//                  most accurate of the four detectors the paper tested, also costliest.
+// Both share the rest of the pipeline, adapted for interactive single-reservoir use:
+//   • AOI → JRC max_extent polygon (NOT HydroLAKES/GDW polygon — see note below)
 //   • Training samples → JRC occurrence ≥ 95% water + occurrence = 0 land in a
 //                        500 m near-shore ring (auto, pure JRC)
 //   • Orbit → highest-coverage 3° incidence-angle bin (PrioritizeDescending…)
-//   • Classifier → SVM RBF (cost=1, gamma=0.01)
 //   • Post-proc → gap-fill + largest connected region; then 4-pass outlier
 //                 removal + LOWESS smoothing of the area series
 //   • A/P → computed from JRC polygon geometry (area / perimeter)
@@ -30,16 +33,21 @@
 // ─── 1. CONFIGURATION ────────────────────────────────────────────────────
 var CFG = {
   // ── DATASET SELECTION ──────────────────────────────────────────────────
-  // Switch the reservoir catalogue here:
+  // Switch the reservoir catalogue here (also switchable at runtime via the
+  // Global/Sicily buttons in the panel — see switchDataset()):
   //   'sicily' = personal validated asset (4+ Sicilian reservoirs, field res_name)
-  //   'global' = Awesome GEE Community Catalog HydroLAKES v1.0 (1.43M water bodies)
-  dataset: 'sicily',
+  //   'global' = Global Dam Watch v1.0 (35,295 reservoir polygons)
+  dataset: 'global',
 
   datasets: {
     sicily: {
-      path:        'projects/ee-ciceromartinsjr/assets/HydroLAKES_sicily4',
-      name_fields: ['res_name', 'Lake_name'],
-      id_field:    'Hylak_id',
+      // All 41 named Sicilian reservoirs (not just the 4 validated in the
+      // paper). Schema is just {name, geometry} — no numeric ID field, so
+      // id_field is the name itself (onReservoirSelected/lakeLabel handle
+      // string vs numeric IDs).
+      path:        'projects/ee-ciceromartinsjr/assets/reservoirsSCL',
+      name_fields: ['name'],
+      id_field:    'name',
       type_filter: null,
       browsable:   true,
       poly_path:   null,             // search layer IS the polygon layer
@@ -57,6 +65,14 @@ var CFG = {
       id_field:    'GDW_ID',
       type_filter: null,
       browsable:   false,
+      // Precomputed A/P per GDW_ID (see analysis/export_gdw_ap_table.py) —
+      // the GDW asset itself has no perimeter field, and computing
+      // .geometry().perimeter() live for all 35,295 features on every app
+      // load was too slow. Colours the initial "Reservoirs" layer by A/P
+      // band (see showInitialPoints). A/P here is from the GDW polygon, not
+      // the JRC max_extent polygon used for the paper's 62-reservoir set,
+      // so values can differ slightly reservoir by reservoir.
+      ap_table:    'projects/ee-ciceromartinsjr/assets/GDW_reservoirs_ap',
     },
   },
 
@@ -75,11 +91,7 @@ var CFG = {
   land_ring_inner_m:   500,
   land_ring_outer_m:   2000,
 
-  // Training composite reference year (original trainSVMfromJRC uses a fixed
-  // 2023 annual MOSAIC, decoupled from the user's analysis period).
-  train_ref_year: 2023,
-
-  // SVM parameters (RBF kernel — same as original app)
+  // SVM parameters (RBF kernel — retrained per scene, see classifyCollection)
   svm_cost:   1,
   svm_gamma:  0.01,
 
@@ -131,11 +143,13 @@ var CFG = {
   // concurrent requests, faster first result). 3 = quarterly, 12 = yearly.
   chunk_months: 3,
 
-  // A/P thresholds (this study): drive both classifier selection and the
-  // reliability display. The dual-pol (VV+VH) SVM helps only at low A/P; above
-  // it the single-pol VV Otsu is equal or better on accuracy, and cheaper.
-  ap_low:  120,   // < 120 m  → select dual-pol SVM (complex / dendritic shoreline)
-  ap_high: 250,   // >= 250 m → high reliability; 120–250 m → medium
+  // A/P thresholds (this study, final global set): drive the reliability
+  // display (badge, legend, polygon colour). Per-scene single-pol VV Otsu is
+  // used everywhere (see useDual below) — dual-pol SVM was found not to
+  // reliably help at any A/P regime, so these thresholds no longer select
+  // the classifier, only the displayed reliability tier.
+  ap_low:  100,   // < 100 m  → low reliability (median KGE ~0.5 in the study)
+  ap_high: 200,   // >= 200 m → high reliability (median KGE ~0.9 in the study)
 
   // Optional: GRDL FeatureCollection asset for global volume curves
   grdl_path: null,
@@ -217,26 +231,6 @@ function autoTrainingSamples(lakePoly, aoi) {
   }).map(function(f) { return f.set('landcover', 2); });
 
   return waterSamples.merge(landSamples);
-}
-
-// ─── 6. SVM CLASSIFIER ───────────────────────────────────────────────────
-function trainSVM(trainingFC, s1Composite) {
-  var samples = s1Composite.select(BANDS).sampleRegions({
-    collection: trainingFC,
-    properties: ['landcover'],
-    scale: 30,
-  }).filter(ee.Filter.inList('landcover', ee.List([1, 2])))
-    .filter(ee.Filter.notNull(BANDS));
-
-  return ee.Classifier.libsvm({
-    kernelType: 'RBF',
-    cost:       CFG.svm_cost,
-    gamma:      CFG.svm_gamma,
-  }).train({
-    features:        samples,
-    classProperty:   'landcover',
-    inputProperties: BANDS,
-  });
 }
 
 // ─── 7. ORBIT AUTO-SELECTION ─────────────────────────────────────────────
@@ -390,12 +384,29 @@ function computeOtsuWater(img, lakePoly, aoi) {
 //     flooded roads) whose centroids lie outside the reservoir boundary.
 //   true — single largest polygon only (original app behaviour); safe for compact
 //     reservoirs but physically wrong for irregular / branching shapes.
-function classifyCollection(s1Proc, classifier, aoi, lakePoly, useDual) {
-  // Step 1 — water detection: dual-pol SVM at low A/P, else single-pol VV Otsu.
+function classifyCollection(s1Proc, trainingFC, aoi, lakePoly, useDual) {
+  // Step 1 — water detection: per-scene single-pol VV Otsu, or per-scene
+  // adaptive dual-pol SVM. The SVM is RETRAINED for every image: the JRC/
+  // WorldCover-derived sample POINTS (trainingFC) are fixed, but the
+  // backscatter values sampled at those points come from that image alone —
+  // exactly like Otsu's per-scene threshold, and exactly what the paper
+  // means by "adaptive" SVM (ported from exportGlobalPilotV4.js's
+  // SVM_ADAPTIVE path; the old fixed-2023-mosaic training this app used
+  // before is the least accurate of the four detectors the paper tested).
   var withWater = s1Proc.map(function(img) {
-    var water = useDual
-      ? img.select(BANDS).classify(classifier).eq(1).clip(aoi).rename('Water')
-      : computeOtsuWater(img, lakePoly, aoi);
+    var water;
+    if (useDual) {
+      var perScene = img.select(BANDS).sampleRegions({
+        collection: trainingFC, properties: ['landcover'], scale: 30,
+      }).filter(ee.Filter.inList('landcover', ee.List([1, 2])))
+        .filter(ee.Filter.notNull(BANDS));
+      var svmScene = ee.Classifier.libsvm({
+        kernelType: 'RBF', cost: CFG.svm_cost, gamma: CFG.svm_gamma,
+      }).train({features: perScene, classProperty: 'landcover', inputProperties: BANDS});
+      water = img.select(BANDS).classify(svmScene).eq(1).clip(aoi).rename('Water');
+    } else {
+      water = computeOtsuWater(img, lakePoly, aoi);
+    }
     return img.addBands(water);
   });
 
@@ -696,9 +707,17 @@ var panel = ui.Panel({style: {width: '370px', padding: '10px'}});
 panel.add(ui.Label('Reservoir SAR Monitor', {
   fontSize: '17px', fontWeight: 'bold', margin: '0 0 2px 0',
 }));
-panel.add(ui.Label('Global · JRC auto-training · per-scene VV Otsu', {
+panel.add(ui.Label('JRC auto-training · per-scene VV Otsu', {
   fontSize: '11px', color: '#555', margin: '0 0 8px 0',
 }));
+
+// ── Dataset switch ────────────────────────────────────────────
+var dsGlobalBtn = ui.Button({label: 'Global', style: {stretch: 'horizontal'}});
+var dsSicilyBtn = ui.Button({label: 'Sicily', style: {stretch: 'horizontal'}});
+panel.add(ui.Panel([dsGlobalBtn, dsSicilyBtn], ui.Panel.Layout.Flow('horizontal'),
+  {margin: '0 0 6px 0'}));
+dsGlobalBtn.onClick(function() { switchDataset('global'); });
+dsSicilyBtn.onClick(function() { switchDataset('sicily'); });
 
 // ── Search ─────────────────────────────────────────────────────
 panel.add(divider());
@@ -706,7 +725,7 @@ panel.add(sectionLabel('1 · Find reservoir'));
 
 var searchBox = ui.Textbox({
   placeholder: DS.browsable
-    ? 'Name or Hylak_id (e.g. Pozzillo, 12345)…'
+    ? 'Reservoir name (e.g. Rosamarina)…'
     : 'Name or GDW_ID (e.g. Chichester, Mrica, 12345)…',
   style: {width: '245px'},
 });
@@ -749,13 +768,32 @@ function showSelectItems(items) {
 panel.add(divider());
 panel.add(sectionLabel('2 · Analysis period'));
 
-var startBox = ui.Textbox({value: '2019-01-01', style: {width: '115px'}});
-var endBox   = ui.Textbox({value: '2023-12-31', style: {width: '115px'}});
+// Default to the last 3 months: a small, fast first run — widen the range
+// once the reservoir looks right.
+function _isoDateOffsetMonths(months) {
+  var d = new Date();
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+var startBox = ui.Textbox({value: _isoDateOffsetMonths(-3), style: {width: '115px'}});
+var endBox   = ui.Textbox({value: _isoDateOffsetMonths(0),  style: {width: '115px'}});
 panel.add(ui.Panel(
   [ui.Label('From:', {margin: '5px 4px 0 0'}), startBox,
    ui.Label('To:',   {margin: '5px 6px 0 6px'}), endBox],
   ui.Panel.Layout.Flow('horizontal')
 ));
+
+// ── Detection method ──────────────────────────────────────────
+panel.add(divider());
+panel.add(sectionLabel('3 · Detection method'));
+var methodOtsuBtn = ui.Button({label: 'Otsu (single-pol)', style: {stretch: 'horizontal'}});
+var methodSvmBtn  = ui.Button({label: 'SVM (dual-pol)', style: {stretch: 'horizontal'}});
+panel.add(ui.Panel([methodOtsuBtn, methodSvmBtn], ui.Panel.Layout.Flow('horizontal'),
+  {margin: '0 0 2px 0'}));
+var methodDescLabel = ui.Label('', {fontSize: '10px', color: '#777', margin: '0 0 4px 2px'});
+panel.add(methodDescLabel);
+methodOtsuBtn.onClick(function() { methodChoice = 'otsu'; updateMethodButtons(); });
+methodSvmBtn.onClick(function()  { methodChoice = 'svm';  updateMethodButtons(); });
 
 // ── Run ────────────────────────────────────────────────────────
 panel.add(divider());
@@ -798,7 +836,9 @@ var apLegend = ui.Panel({
   layout: ui.Panel.Layout.Flow('horizontal'),
   style:  {margin: '6px 0 0 0'},
 });
-[['f88f4d', 'Low <120'], ['d64a02', 'Med 120–250'], ['8a2d04', 'High ≥250']]
+[['f88f4d', 'Low <' + CFG.ap_low],
+ ['d64a02', 'Med ' + CFG.ap_low + '–' + CFG.ap_high],
+ ['8a2d04', 'High ≥' + CFG.ap_high]]
   .forEach(function(e) {
     apLegend.add(ui.Label(' ', {
       backgroundColor: '#' + e[0], padding: '0 6px', margin: '0 3px 0 0',
@@ -832,6 +872,11 @@ var S = {
   ap_m:      null,
 };
 
+// Detection method for Run Analysis — both classifiers exist in
+// classifyCollection (computeOtsuWater / per-scene adaptive SVM); this just
+// selects which one runBtn uses.
+var methodChoice = 'otsu';   // 'otsu' | 'svm'
+
 // ─── 16. SEARCH ──────────────────────────────────────────────────────────
 // Helper: build a label string from GDW or HydroLAKES feature properties
 function lakeLabel(p) {
@@ -842,6 +887,10 @@ function lakeLabel(p) {
   var ctry = p.COUNTRY   || p.Country   || p.country   || '';
   var id   = p.GDW_ID    || p.Hylak_id  || p.Hylak_ID || p.hylak_id || p.Grand_id || p.FID || '?';
   var cap  = p.CAP_MCM   || p.Cap_mcm;
+  // Datasets with no numeric ID (e.g. reservoirsSCL: {name} only) fall back
+  // to the name itself as the unique identifier — onReservoirSelected filters
+  // by string equality on DS.id_field when the value isn't numeric.
+  if (id === '?' && nm) id = nm;
   var extra = cap ? ' ~' + (+cap).toFixed(0) + ' mcm'
             : (area ? ' (' + (+area).toFixed(1) + ' km²)' : '');
   return {
@@ -963,20 +1012,26 @@ searchBox.onChange(function(v)  { doSearch(v); });   // fires on Enter or blur
 function onReservoirSelected(id_str) {
   if (!id_str) return;
 
+  // Leave "browsing reservoirs" mode so onChangeBounds (panning/zooming
+  // while viewing this reservoir's SAR/JRC layers below) doesn't call
+  // refreshReservoirLayer() and overwrite them.
+  showingOverview = false;
+
   statusLabel.setValue('Loading lake…');
   runBtn.setDisabled(true);
   chartPanel.clear();
   mapObj.layers().reset();
   resetBadge();
 
-  var numeric_id = parseInt(id_str, 10);
-  var id_field_r = DS.id_field || 'GDW_ID';
-  var lake;
-  if (!isNaN(numeric_id) && id_str !== '?') {
-    lake = HYDROLAKES.filter(ee.Filter.eq(id_field_r, numeric_id)).first();
-  } else {
-    lake = HYDROLAKES.first();
-  }
+  var numeric_id  = parseInt(id_str, 10);
+  var isNumericId = !isNaN(numeric_id) && String(numeric_id) === id_str;
+  var id_field_r  = DS.id_field || 'GDW_ID';
+  // Datasets without a numeric ID (e.g. reservoirsSCL) use the name itself
+  // as id_field's value — filter by exact string match instead of falling
+  // back to .first(), which would always select the same reservoir.
+  var lake = isNumericId
+    ? HYDROLAKES.filter(ee.Filter.eq(id_field_r, numeric_id)).first()
+    : HYDROLAKES.filter(ee.Filter.eq(id_field_r, id_str)).first();
 
   lake.evaluate(function(f, err) {
     if (err) { statusLabel.setValue('⚠ Lake load error: ' + err); return; }
@@ -1105,41 +1160,24 @@ runBtn.onClick(function() {
 
     statusLabel.setValue('Running JRC auto-training…');
 
-    // ── Training composite ───────────────────────────────────
-    // Fixed reference-year annual MOSAIC (not a median of the user period).
-    // Exactly mirrors trainSVMfromJRC: mosaic → focal_mean(30) → clip.
-    // mosaic() preserves instantaneous-image backscatter statistics, so the
-    // SVM boundary matches the per-image data it is later applied to.
-    // CRITICAL: clip to aoi + outer land ring, so that land sample points
-    // (in the 500–2000 m annulus, outside aoi) sample VALID pixels. If clipped
-    // to aoi only, those points hit masked pixels → null → dropped → the SVM
-    // sees water-only training → classifies the whole AOI as water.
-    var trainClip   = aoi.buffer(CFG.land_ring_outer_m);
-    var refStart    = CFG.train_ref_year + '-01-01';
-    var refEnd      = (CFG.train_ref_year + 1) + '-01-01';
-    var s1Composite = S1_RAW
-      .filter(ee.Filter.eq('instrumentMode', 'IW'))
-      .filter(ee.Filter.eq('resolution_meters', 10))
-      .filterBounds(trainClip)
-      .filterDate(refStart, refEnd)
-      .select(BANDS)
-      .mosaic()
-      .focal_mean(30, 'circle', 'meters')
-      .clip(trainClip);
+    // ── Classifier selection ──────────────────────────────────
+    // User-selectable via the "3 · Detection method" buttons (methodChoice).
+    // Per-scene single-pol VV Otsu is the recommended default: across the
+    // final global 62-reservoir test it matched the dual-pol SVM on accuracy
+    // (wins outright in 38/62) at lower cost, with no A/P regime where dual
+    // reliably helps (see the paper's parsimony result). SVM here is the
+    // per-scene ADAPTIVE variant (retrained on every image — see
+    // classifyCollection), the most accurate of the four detectors the paper
+    // tested but also the most expensive, offered for manual inspection of
+    // extreme low-A/P cases such as Ancipa, where the Sicily near-truth
+    // validation showed a real but non-generalising advantage.
+    var useDual    = (methodChoice === 'svm');
+    var methodName = useDual ? 'dual-pol SVM (adaptive)' : 'single-pol VV Otsu';
 
-    // ── A/P-based classifier selection ───────────────────────
-    // Dual-pol SVM only where the shoreline is complex (low A/P); the cheaper
-    // single-pol VV Otsu is used elsewhere (equal accuracy above A/P ~120 m).
-    // Per-scene single-pol VV Otsu is the recommended default: across a global
-    // 51-reservoir test it matched the dual-pol SVM on accuracy at lower cost,
-    // with no A/P regime where dual reliably helps. The dual SVM path is kept
-    // (set useDual=true) for the extreme low-water, low-A/P case only.
-    var useDual    = false;
-    var methodName = 'single-pol VV Otsu';
-
-    // ── Training samples + SVM (only needed for the dual-pol branch) ──
-    var trainingFC = autoTrainingSamples(lakePoly, aoi);
-    var classifier = useDual ? trainSVM(trainingFC, s1Composite) : null;
+    // ── Training sample points (only needed for the dual-pol branch) ──
+    // Fixed JRC/WorldCover-derived locations; the SVM itself is retrained
+    // per scene inside classifyCollection using these same points.
+    var trainingFC = useDual ? autoTrainingSamples(lakePoly, aoi) : null;
 
     // ── Preprocess + classify + clean ────────────────────────
     statusLabel.setValue('A/P = ' + (S.ap_m != null ? S.ap_m.toFixed(0) : '?') +
@@ -1148,7 +1186,7 @@ runBtn.onClick(function() {
     // For partial-coverage images (global reservoirs at S1 swath edges), mosaic
     // with images from within ±composite_window_days to fill coverage gaps.
     s1Proc = fillCoverageGaps(s1Proc, CFG.composite_window_days);
-    var waterMaskCleaned = classifyCollection(s1Proc, classifier, aoi, lakePoly, useDual);
+    var waterMaskCleaned = classifyCollection(s1Proc, trainingFC, aoi, lakePoly, useDual);
 
     // Store globally for chart-click callbacks
     G_waterMaskCleaned = waterMaskCleaned;
@@ -1392,7 +1430,9 @@ runBtn.onClick(function() {
   });
 });
 
-resetBtn.onClick(function() {
+// Clears the current selection/run state (used by both "New reservoir" and a
+// dataset switch); does NOT touch CFG.dataset/DS/HYDROLAKES or the map layers.
+function resetSelectionState() {
   S.hylak_id  = null; S.lake_name = null;
   S.hydroGeom = null; S.lakePoly  = null;
   S.aoi       = null; S.ap_m      = null;
@@ -1407,12 +1447,57 @@ resetBtn.onClick(function() {
   mapDateLabel.setValue(''); mapDateLabel.style().set({shown: false});
   runBtn.setDisabled(true);
   statusLabel.setValue('Select a reservoir above to begin.');
+}
 
+resetBtn.onClick(function() {
+  resetSelectionState();
   mapObj.layers().reset();
   showInitialPoints();
   if (CFG.dataset === 'sicily') { mapObj.setCenter(14.0, 37.5, 8); }
-  else { mapObj.setCenter(0, 20, 3); }
+  else { mapObj.setCenter(0, 20, 2); }
 });
+
+// ── Dataset switch (Global <-> Sicily) ────────────────────────────────────
+function updateDatasetButtons() {
+  var active   = {stretch: 'horizontal', backgroundColor: '#1565c0', fontWeight: 'bold'};
+  var inactive = {stretch: 'horizontal', backgroundColor: '#e0e0e0', fontWeight: 'normal'};
+  dsGlobalBtn.style().set(CFG.dataset === 'global' ? active : inactive);
+  dsSicilyBtn.style().set(CFG.dataset === 'sicily' ? active : inactive);
+}
+
+function updateMethodButtons() {
+  var active   = {stretch: 'horizontal', backgroundColor: '#1565c0', fontWeight: 'bold'};
+  var inactive = {stretch: 'horizontal', backgroundColor: '#e0e0e0', fontWeight: 'normal'};
+  methodOtsuBtn.style().set(methodChoice === 'otsu' ? active : inactive);
+  methodSvmBtn.style().set(methodChoice === 'svm' ? active : inactive);
+  methodDescLabel.setValue(methodChoice === 'svm'
+    ? 'Dual-pol (VV+VH), retrained per scene. Costlier; matches Otsu on accuracy overall.'
+    : 'Single-pol VV, per-scene threshold. Recommended default (see paper).');
+}
+
+function switchDataset(name) {
+  if (CFG.dataset === name) return;
+  CFG.dataset = name;
+  DS          = CFG.datasets[name];
+  HYDROLAKES  = ee.FeatureCollection(DS.path);
+  HYDROLAKES_CACHE = null;
+
+  searchBox.setValue('');
+  searchBox.setPlaceholder(DS.browsable
+    ? 'Reservoir name (e.g. Rosamarina)…'
+    : 'Name or GDW_ID (e.g. Chichester, Mrica, 12345)…');
+
+  resetSelectionState();
+  updateDatasetButtons();
+  mapObj.layers().reset();
+  showInitialPoints();
+  if (name === 'sicily') {
+    mapObj.setCenter(14.0, 37.5, 8);
+    loadCacheIfBrowsable(null);
+  } else {
+    mapObj.setCenter(0, 20, 2);
+  }
+}
 
 // ─── 19. A/P BADGE ───────────────────────────────────────────────────────
 // Sequential A/P colour (matches the study-area figure): light -> dark = low -> high A/P.
@@ -1475,14 +1560,153 @@ function sectionLabel(text) {
 }
 
 // ─── 21. INITIAL MAP LAYER ───────────────────────────────────────────────
-// Render reservoir locations on startup so users can click.
+// Render reservoir locations on startup so users can click. Coloured by A/P
+// band (matches the badge shown once a reservoir is selected) so the
+// reliability pattern is visible before clicking anything.
 // HYDROLAKES holds the active dataset's polygon/feature collection for both modes.
-function showInitialPoints() {
-  mapObj.addLayer(
-    HYDROLAKES.style({color: '1E88E5', fillColor: '1E88E544', pointSize: 7, width: 2}),
-    {}, 'Reservoirs — click to select'
-  );
+//
+// IMPORTANT: this style dict is built INSIDE a server-side .map() over up to
+// 35k features, so ap_m here is an ee.Number (ComputedObject), not a plain JS
+// number — apColorHex()'s JS comparisons (`<`, `isNaN`) silently misbehave on
+// that (every feature fell back to its gray "unknown" branch). Must use EE's
+// own server-side conditional (ee.Algorithms.If), not client JS control flow.
+function apStyleServer(apLike) {
+  var ap    = ee.Number(apLike);
+  var color = ee.String(ee.Algorithms.If(
+    ap.lt(CFG.ap_low), 'f88f4d',
+    ee.Algorithms.If(ap.lt(CFG.ap_high), 'd64a02', '8a2d04')
+  ));
+  return ee.Dictionary({
+    color: color, fillColor: color.cat('80'), pointSize: 7, width: 2,
+  });
 }
+
+// Precomputed once offline (each reservoir's own JRC max_extent polygon —
+// same method/definition as computeAP_fromGeom below), kept as a literal
+// table so showInitialPoints needs ZERO live server computation for Sicily.
+// The earlier version called jrcMaxExtentPoly (a reduceToVectors call) for
+// all 41 features inside the SAME render request — cheap in isolated testing,
+// but on the published App this is the likely cause of "There was an error
+// in some parts of the map": a published App's tile-serving budget is
+// stricter than the interactive Code Editor, and chaining 41 reduceToVectors
+// calls into one addLayer() computation graph can exceed it on some tiles.
+var SICILY_AP_TABLE = {
+  'Invaso Rosamarina': 187.4, 'Invaso Scanzano': 99.7,
+  'Invaso di Piana degli Albanesi': 134.4, 'Invaso Poma': 190.1,
+  'Invaso Garcia': 167.7, 'Invaso Prizzi': 84.8, 'Invaso Piano del Leone': 85.3,
+  'Invaso Fanaco': 135.8, 'Invaso di Gammauta': 36.3, 'Invaso Guadalami': 95.5,
+  'Invaso Ancipa': 90.5, 'Invaso Paceco': 132.3, 'Invaso Rubino': 140.4,
+  'Invaso Zaffarana': 59.2, 'Invaso Trinità': 135.7, 'Invaso Arancio': 182.2,
+  'Invaso Castello': 126.7, 'Invaso Gorgo': 100.2, 'Invaso San Giovanni': 134.4,
+  'Invaso Furore': 47.3, 'Invaso Gibbesi': 66.4, 'Invaso Comunelli': 100.2,
+  'Invaso Disueri': 136.5, 'Invaso Cimia': 100.2, 'Invaso di Gela': 209.5,
+  'Invaso Santa Rosalia': 74.1, 'Invaso Dirillo': 100.7, 'Invaso Diddino': 104.1,
+  'Invaso Monte Cavallaro': 104.1, 'Invaso Vasca Ogliastro': 123.3,
+  'Invaso Fiumara Grande': 10.0, 'Invaso Lentini': 572.1, 'Invaso Pietrarossa': 29.9,
+  'Invaso Don Sturzo': 254.6, 'Invaso Olivo': 50.7, 'Invaso Ponte Barca': 76.2,
+  'Invaso Sciaguana': 113.4, 'Invaso Pozzillo': 240.5, 'Invaso Nicoletti': 119.7,
+  'Invaso Villarosa': 110.4, 'Invaso Pergusa': 205.3,
+};
+
+// Below this zoom: cheap global raster-dot overview (all 35k, see below). At
+// or above it: real polygon outlines, restricted to the current viewport —
+// cheap because filterBounds runs on both sides BEFORE any join, so only a
+// handful of reservoirs (whatever's on screen) ever get joined/styled,
+// instead of the full 35k. Re-evaluated on every pan/zoom via onChangeBounds.
+var ZOOM_DETAIL_THRESHOLD = 8;
+
+// True only while the user is browsing reservoirs (not looking at a selected
+// reservoir's SAR/JRC layers) — gates refreshReservoirLayer() so panning/
+// zooming during Run Analysis results doesn't overwrite them.
+var showingOverview = true;
+
+function showInitialPoints() {
+  showingOverview = true;
+  refreshReservoirLayer();
+}
+
+function refreshReservoirLayer() {
+  if (!showingOverview) return;
+  mapObj.layers().reset();
+
+  if (!DS.ap_table) {
+    // Sicily (41 features): small enough that vector styling tiles fine at
+    // any zoom — no overview/detail switch needed.
+    var apDict = ee.Dictionary(SICILY_AP_TABLE);
+    var styledSicily = HYDROLAKES.map(function(f) {
+      var ap_m = apDict.get(f.get('name'), 9e9);   // unmatched name -> High, not gray
+      return f.set('style', apStyleServer(ap_m));
+    });
+    mapObj.addLayer(
+      styledSicily.style({styleProperty: 'style'}),
+      {}, 'Reservoirs — click to select'
+    );
+    return;
+  }
+
+  if (mapObj.getZoom() < ZOOM_DETAIL_THRESHOLD) {
+    // Global overview (35,295 features): FeatureCollection.style() renders
+    // as VECTORS, which tile poorly at this size — every tile request can
+    // need to re-filter the whole collection, a likely cause of "There was
+    // an error in some parts of the map" on the published App. Fix: paint a
+    // 0/1/2 A/P-band value into an Image and visualize that instead — images
+    // tile natively and cheaply.
+    //
+    // Painting the actual POLYGON geometry made only large (mostly high-A/P
+    // — for compact shapes A/P scales with size) reservoirs visible at low
+    // zoom: small polygons don't cover a single screen pixel, regardless of
+    // colour. 83% of reservoirs are low/medium A/P (16,992 low + 12,317 med
+    // vs 5,986 high of 35,295), so most were invisible until zoomed in far
+    // enough for their polygon to render. Fix: paint each reservoir's
+    // CENTROID as a fixed 3px-radius dot instead of its polygon — visibility
+    // no longer depends on physical size.
+    //
+    // GDW_reservoirs_ap ALREADY has centroid geometry (exported that way to
+    // satisfy Export.table.toAsset's geometry requirement — see
+    // export_gdw_ap_table.py) and the ap_m property, so this needs NO join
+    // against HYDROLAKES at all: joining two 35k collections on every tile
+    // request was still expensive even after switching to raster paint (the
+    // weight/timeout problem came back) — the fix wasn't the vector-vs-raster
+    // choice, it was the live join. Read the precomputed table directly.
+    var banded = ee.FeatureCollection(DS.ap_table).map(function(f) {
+      var ap_m = ee.Number(f.get('ap_m'));
+      var band = ee.Number(ee.Algorithms.If(
+        ap_m.lt(CFG.ap_low), 0, ee.Algorithms.If(ap_m.lt(CFG.ap_high), 1, 2)
+      ));
+      return f.set('band', band);
+    });
+    var img = ee.Image().paint(banded, 'band', 3).visualize({
+      min: 0, max: 2, palette: ['f88f4d', 'd64a02', '8a2d04'],
+    });
+    mapObj.addLayer(img, {}, 'Reservoirs — click to select');
+  } else {
+    // Zoomed in (>= ZOOM_DETAIL_THRESHOLD): real polygon outlines, but only
+    // for reservoirs inside the current viewport. filterBounds on BOTH
+    // HYDROLAKES and the (point-geometry) ap_table happens first, so the
+    // join afterwards is over a small, viewport-sized set, not the full 35k.
+    // getBounds(false) returns a plain [west, south, east, north] array, not
+    // a ready geometry (confirmed by "Invalid GeoJSON geometry" when passed
+    // straight to filterBounds) — wrap it in ee.Geometry.Rectangle.
+    var bounds     = ee.Geometry.Rectangle(mapObj.getBounds(false));
+    var visibleGdw = HYDROLAKES.filterBounds(bounds);
+    var visibleAp  = ee.FeatureCollection(DS.ap_table).filterBounds(bounds);
+    var joinFilter = ee.Filter.equals({leftField: 'GDW_ID', rightField: 'GDW_ID'});
+    var joined = ee.Join.inner('primary', 'secondary').apply(visibleGdw, visibleAp, joinFilter);
+    var styled = ee.FeatureCollection(joined.map(function(pair) {
+      var primary = ee.Feature(pair.get('primary'));
+      var ap_m    = ee.Feature(pair.get('secondary')).get('ap_m');
+      return primary.set('style', apStyleServer(ap_m));
+    }));
+    mapObj.addLayer(
+      styled.style({styleProperty: 'style'}),
+      {}, 'Reservoirs — click to select'
+    );
+  }
+}
+
+mapObj.onChangeBounds(function() {
+  refreshReservoirLayer();
+});
 
 // ─── 22. MAP CLICK → SELECT RESERVOIR ───────────────────────────────────
 mapObj.onClick(function(coords) {
@@ -1530,6 +1754,8 @@ mapObj.onClick(function(coords) {
 });
 
 // ─── 23. STARTUP ─────────────────────────────────────────────────────────
+updateDatasetButtons();
+updateMethodButtons();
 if (CFG.dataset === 'sicily') {
   mapObj.setCenter(14.0, 37.5, 8);
 } else {
@@ -1538,27 +1764,26 @@ if (CFG.dataset === 'sicily') {
 showInitialPoints();
 loadCacheIfBrowsable(null);   // background pre-load for instant search + hover
 
-// Map legend overlay
+// Map legend overlay — kept small: just the A/P colour key.
 (function() {
   function colorBox(hex) {
     return ui.Panel([], null, {
-      backgroundColor: hex, width: '14px', height: '14px',
-      margin: '3px 6px 3px 0', border: '1px solid rgba(0,0,0,0.25)',
+      backgroundColor: hex, width: '10px', height: '10px',
+      margin: '2px 5px 2px 0', border: '1px solid rgba(0,0,0,0.25)',
     });
   }
   function legendRow(hex, text) {
-    return ui.Panel([colorBox(hex), ui.Label(text, {fontSize: '11px', margin: '2px 0'})],
+    return ui.Panel([colorBox(hex), ui.Label(text, {fontSize: '10px', margin: '1px 0'})],
                     ui.Panel.Layout.Flow('horizontal'));
   }
   var lg = ui.Panel({
-    style: {position: 'top-right', padding: '8px 10px',
+    style: {position: 'top-right', padding: '5px 7px',
             backgroundColor: 'rgba(255,255,255,0.92)'},
   });
-  lg.add(ui.Label('Legend', {fontWeight: 'bold', fontSize: '12px', margin: '0 0 4px 0'}));
-  lg.add(legendRow('#1E88E5', 'Reservoir locations (click to select)'));
-  lg.add(legendRow('#00FFFF', 'Reservoir boundary (JRC max extent)'));
-  lg.add(legendRow('#006699', 'JRC occurrence (background)'));
-  lg.add(legendRow('#1565c0', 'Detected water (SAR-SVM)'));
+  lg.add(ui.Label('Reservoirs by A/P', {fontWeight: 'bold', fontSize: '11px', margin: '0 0 2px 0'}));
+  lg.add(legendRow('#f88f4d', 'Low <' + CFG.ap_low + ' m'));
+  lg.add(legendRow('#d64a02', 'Medium ' + CFG.ap_low + '–' + CFG.ap_high + ' m'));
+  lg.add(legendRow('#8a2d04', 'High ≥' + CFG.ap_high + ' m'));
   mapObj.add(lg);
 })();
 

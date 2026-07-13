@@ -24,35 +24,7 @@ classifier itself rather than of the surrounding pipeline.
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}[
-  font=\small,
-  stage/.style={rectangle, rounded corners, draw=black!55, fill=black!5,
-                text width=76mm, align=center, inner sep=5pt, minimum height=9mm},
-  io/.style={stage, fill=black!9},
-  clf/.style={rectangle, rounded corners, draw=orange!75!black, fill=orange!12,
-              text width=34mm, align=center, inner sep=4pt, minimum height=13mm},
-  aux/.style={rectangle, rounded corners, draw=black!45, fill=black!3,
-              text width=34mm, align=center, inner sep=4pt, minimum height=13mm},
-  arr/.style={-{Latex[length=2.2mm]}, draw=black!65, semithick},
-]
-\node[io]    (s1)   at (0,0)      {\textbf{Sentinel-1 GRD}\\IW, 10\,m, VV+VH (2014--2021)};
-\node[stage] (pre)  at (0,-1.75)  {\textbf{Preprocessing}\\incidence-angle orbit selection ($\geq$90\% coverage)\\focal-mean speckle filter};
-\node[clf]   (otsu) at (-2.7,-4.0){\textbf{VV Otsu}\\per-scene threshold\\\emph{single-pol}};
-\node[clf]   (svm)  at (2.7,-4.0) {\textbf{Dual-pol SVM}\\per-scene retrain\\\emph{VV+VH}};
-\node[aux]   (train)at (7.4,-4.0) {\textbf{Automated training}\\JRC water occ.\ $\geq$95\%\\WorldCover land};
-\node[stage] (post) at (0,-6.25)  {\textbf{Identical post-processing}\\gap-fill $\to$ vectorise $\to$ keep in-reservoir polygon};
-\node[stage] (area) at (0,-8.0)   {\textbf{Surface-area series + morphometry}\\dynamic A/P per scene $\cdot$ LOWESS temporal smoothing};
-\node[io]    (val)  at (0,-9.75)  {\textbf{Validation \& cost}\\JRC (62) $\cdot$ PlanetScope 3\,m (4) $\cdot$ EECU audit};
-
-\draw[arr] (s1) -- (pre);
-\draw[arr] (pre.south) -- (otsu.north);
-\draw[arr] (pre.south) -- (svm.north);
-\draw[arr, dashed] (train.west) -- (svm.east);
-\draw[arr] (otsu.south) -- (post.north);
-\draw[arr] (svm.south) -- (post.north);
-\draw[arr] (post) -- (area);
-\draw[arr] (area) -- (val);
-\end{tikzpicture}
+\includegraphics[width=\linewidth]{workflow_diagram.pdf}
 \caption{The GEE workflow. A single Sentinel-1 pipeline feeds two
 \emph{scene-adaptive} water detectors: a single-polarisation VV Otsu
 threshold and a dual-polarisation SVM re-trained per scene (the latter using
@@ -118,7 +90,7 @@ build Otsu's per-scene histogram (Section~\ref{sec:methods_otsu}).
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{sample_selection_pozzillo}
+  \includegraphics[width=\linewidth]{sample_selection_pozzillo.png}
   \caption{Automated sample and region selection at Pozzillo (Sicily),
   against a Sentinel-1 VV backdrop (2020 median). (a) SVM training points:
   water (JRC occurrence $\geq$95\%) and land (500--2000~m ring, non-water in

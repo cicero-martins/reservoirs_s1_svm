@@ -1,50 +1,58 @@
-# Reservoirs_s1_svm: SAR and Machine Learning for Reservoir Monitoring
+# Reservoirs_s1_svm: Shoreline Compactness and SAR Reservoir Monitoring
 
 [![Google Earth Engine](https://img.shields.io/badge/Google%20Earth%20Engine-JavaScript%20API-green)](https://earthengine.google.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Google Earth Engine tools and supplementary materials for monitoring reservoir surface area and storage dynamics using Sentinel-1 SAR imagery and machine learning.
+Google Earth Engine tools and supplementary materials for predicting, in advance, how reliably Sentinel-1 SAR monitors reservoir surface area — and for running that monitoring globally.
 
 ## Overview
 
-This repository contains source code, supplementary datasets, and validation notebooks associated with the manuscript:
+This repository contains source code, supplementary datasets, and the manuscript associated with:
 
-> **Monitoring Reservoir Surface and Storage Dynamics Using Sentinel-1 SAR and Machine Learning in Google Earth Engine**  
-> *(submitted to Environmental Modelling & Software, 2026)*
+> **Shoreline compactness predicts Sentinel-1 water-area monitoring reliability across reservoirs worldwide**  
+> *(prepared for submission to Environmental Modelling & Software)*
 
-The repository documents a cloud-based workflow for monitoring reservoir surface area, shoreline morphology, and storage dynamics from Sentinel-1 Synthetic Aperture Radar (SAR) imagery using Google Earth Engine. The methodology was tested across 41 reservoirs in Sicily (Italy) and includes both an interactive application and supplementary scripts/notebooks supporting the methodological assessment.
+The core finding is that a reservoir's shoreline area-to-perimeter ratio (A/P) — computable from global databases before any image is processed — predicts how reliably Sentinel-1 SAR tracks its surface area. The repository documents the Earth Engine pipeline behind this result (comparing a single-polarisation VV Otsu detector against a dual-polarisation SVM, both JRC auto-trained and re-estimated per scene) across 62 reference-quality-screened reservoirs on five continents plus four in Sicily validated against 3 m PlanetScope imagery, and ships an interactive app that applies the same pipeline to 35,000+ reservoirs worldwide.
 
 ## Highlights
 
-- A scalable cloud-processing framework tested across 41 Mediterranean reservoirs
-- SVM classification trained using VV and VH backscatter achieved ~96% accuracy
-- Filtering high incidence-angle SAR acquisition improved temporal consistency
-- Shoreline compactness controls SAR water classification performance
-- Strong agreement against PlanetScope-derived masks (R² > 0.95; KGE up to 0.96)
+- Shoreline A/P predicts SAR reservoir water-area accuracy a priori (Spearman ρ = 0.51)
+- A simple per-scene single-polarisation detector matches the dual-pol SVM overall
+- Per-scene adaptivity matters more for accuracy than the number of polarisations
+- The simpler detector is also the cheapest to run — added complexity isn't justified
+- An open Earth Engine app runs it over 35,000+ global reservoirs, JRC auto-trained
 
 ## Quick Start
 
-1. **Live application**  
-   Access the web application directly:  
-   [Reservoir Monitoring App](https://ee-ciceromartinsjr.projects.earthengine.app/view/customaoi)
+1. **Live application (global, all reservoirs)**  
+   [Reservoir SAR Monitor — global](https://ee-ciceromartinsjr.projects.earthengine.app/view/globalpilotsar)  
+   Search any of 35,000+ Global Dam Watch reservoirs or the full Sicilian catalogue, pick Otsu or SVM detection, and run the pipeline over any date range. Flags each reservoir by expected reliability (A/P band) before you run anything.
 
-2. **Source code and implementation details**  
+2. **Live application (original, Sicily / custom AOI)**  
+   [Reservoir Monitoring App — Sicily / custom AOI](https://ee-ciceromartinsjr.projects.earthengine.app/view/customaoi)  
+   The earlier, manual-AOI interactive tool this project started from.
+
+3. **Source code and implementation details**  
    See [Main Script README](./main_script/README.md)
-
-## Video Tutorials
-
-### Sicilian Reservoirs
-[![Video tutorial - Sicilian Reservoirs](https://img.youtube.com/vi/eEvuLQMvpsc/hqdefault.jpg)](https://youtu.be/eEvuLQMvpsc)
-
-### Custom AOI
-[![Video tutorial - Custom AOI](https://img.youtube.com/vi/d-azQwtdcA8/hqdefault.jpg)](https://youtu.be/d-azQwtdcA8)
 
 ## Repository Contents
 
-- **`main_script/`** — core Google Earth Engine JavaScript implementation
+- **`manuscript/`** — the paper itself (LaTeX source, `elsarticle` class)
+  - `main.tex`, `sections/` — manuscript body
+  - `supplementary.tex` — worked examples of every statistical test used (KGE, Spearman, Wilcoxon, Kruskal-Wallis)
+  - `references.bib` — bibliography
+  - `figures/` — all manuscript figures
+
+- **`analysis/`** — Python and Earth Engine analysis scripts behind the paper's results
+  - `gee_reservoir_monitor_app.js` — the global interactive app (see Quick Start above)
+  - `exportGlobalPilotV4.js` — batch SAR export pipeline (the four detector configurations compared in the paper)
+  - `compute_kge_*.py`, `plot_*.py` — accuracy metrics and figure generation
+  - `export_gdw_ap_table.py` — precomputes A/P for the full Global Dam Watch catalogue
+
+- **`main_script/`** — the original, single-reservoir Google Earth Engine JavaScript implementation
   - `reservoirs_s1_svm.js` — main application logic
   - `entries.js` — reservoir AOIs and training/sample inputs
-  - `README.md` — usage notes for the main GEE script
+  - `README.md` — usage notes for this script
 
 - **`raw_data/`** — metadata and descriptions of the raw datasets used in the study
   - `planetScope_IDs.xlsx` — list of PlanetScope scenes used in the validation
@@ -61,7 +69,7 @@ The repository documents a cloud-based workflow for monitoring reservoir surface
 
 ## Documentation
 
-- [Main Script Guide](./main_script/README.md) — instructions for using the GEE application
+- [Main Script Guide](./main_script/README.md) — instructions for using the original single-reservoir GEE application
 - [Data Description](./raw_data/README.md) — dataset specifications and notes
 
 ## Requirements
@@ -70,13 +78,13 @@ The repository documents a cloud-based workflow for monitoring reservoir surface
 - A modern web browser
 - Optional: access to PlanetScope data for validation-related analyses
 
-## Workflow Summary
+## Workflow Summary (global app)
 
-1. Select one of the predefined reservoirs in Sicily or define a custom AOI
-2. Specify the analysis period
-3. Process Sentinel-1 SAR imagery in Google Earth Engine
-4. Generate water masks, surface-area estimates, and storage time series
-5. Visualize outputs through maps and time-series plots
+1. Choose the **Global** (35,000+ Global Dam Watch reservoirs) or **Sicily** (41 named reservoirs) catalogue
+2. Search by name, click a reservoir on the map, or read its A/P reliability band directly off the map before selecting anything
+3. Pick a detection method — per-scene VV Otsu (recommended default) or per-scene adaptive dual-pol SVM — and an analysis period
+4. Process Sentinel-1 SAR imagery in Google Earth Engine, JRC auto-trained, no manual sample delineation
+5. Visualize the surface-area time series against the JRC optical reference, with per-date map inspection
 
 ## License
 
@@ -84,13 +92,14 @@ This repository is distributed under the **MIT License**. See the license terms 
 
 ## Citation
 
-If you use this repository, please cite the associated preprint.
+If you use this repository, please cite the associated manuscript. A DOI will be added here once the manuscript is accepted; in the meantime, cite the repository directly.
 
 ```bibtex
 @article{MartinsJr2026,
-  title   = {Monitoring Reservoir Surface and Storage Dynamics Using Sentinel-1 SAR and Machine Learning in Google Earth Engine},
+  title   = {Shoreline compactness predicts Sentinel-1 water-area monitoring reliability across reservoirs worldwide},
   author  = {Martins Jr., Cicero and Capodici, Fulvio and De Marchis, Mauro and Ciraolo, Giuseppe},
   year    = {2026},
-  note    = {Submitted to Environmental Modelling \& Software},
-  doi     = {10.2139/ssrn.6403974}
+  note    = {Manuscript in preparation},
+  url     = {https://github.com/cicero-martins/reservoirs_s1_svm}
 }
+```

@@ -82,6 +82,31 @@ area-monitoring reliability pattern of \citet{PaperOne} (Fig.~\ref{fig:extended}
   \label{fig:extended}
 \end{figure}
 
+\subsection{Cross-sensor validation: PlanetScope optical reconstruction}
+\label{sec:res_xsensor}
+Reconstructing the bathymetry from PlanetScope 3~m optical masks
+(Section~\ref{sec:xsensor}; 7--41 masks per reservoir) and comparing to the Sentinel-1
+DEM, the two independent sensors agree closely at medium-to-high A/P: over the common
+observable band the per-pixel elevation RMSE is $1.0$~m (Pozzillo, A/P~240), $1.7$~m
+(Poma) and $2.0$~m (Rosamarina) --- of the same order as the Garcia \emph{field} RMSE
+($2.44$~m) --- and the reconstructed band storage differs by only $0.1$--$1.8$~\si{Mm^3}
+(Fig.~\ref{fig:planet}). The agreement is strongest precisely where no field survey
+exists: at \emph{Pozzillo} the optical and SAR storages match to $0.1$~\si{Mm^3}, giving
+this reservoir an independent near-truth. At \emph{Ancipa} (A/P~90) the two reconstructions
+diverge (RMSE $5.0$~m; storage $15.8$ vs $10.9$~\si{Mm^3}), confirming that the method is
+unreliable at low A/P --- the same geometric limit seen throughout. Because optical NDWI
+and SAR backscatter fail under orthogonal conditions, agreement between them is strong
+evidence the reconstruction is not dominated by sensor-specific error.
+
+\begin{figure}[htbp]\centering
+  \includegraphics[width=\linewidth]{planet_vs_sar.png}
+  \caption{Cross-sensor check: area--elevation curves from the PlanetScope (optical,
+  3~m) and Sentinel-1 (SAR) bathymetric reconstructions, over the common observable
+  band. Close agreement at medium/high A/P (Pozzillo, Rosamarina, Poma); divergence at
+  low A/P (Ancipa).}
+  \label{fig:planet}
+\end{figure}
+
 \subsection{Uncertainty}
 \label{sec:res_unc}
 The Garcia-derived normalised bias model transfers well to Rosamarina (residual

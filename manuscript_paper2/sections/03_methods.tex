@@ -10,7 +10,10 @@ levels is a shoreline exposed in that increment and is assigned the mid-level
 $(h_{i-1}+h_i)/2$. The resulting elevation field is closed over the union footprint,
 interior gaps are filled by linear interpolation (\texttt{scipy.griddata}), and the
 DEM is smoothed with a Gaussian filter ($\sigma=2$ px, $=20$~m). This adapts
-\citet{Schwatke2020} to Sentinel-1 waterlines. The DEM reconstructs only the
+\citet{Schwatke2020} to Sentinel-1 waterlines. The procedure is agnostic to the mask
+source: any sequence of binary water masks with associated water levels stacks
+identically, which we exploit to cross-validate the reconstruction with an independent
+optical sensor (Section~\ref{sec:xsensor}). The DEM reconstructs only the
 drawdown-\emph{exposed} band $[\,\text{floor},\text{max}\,]$; the permanently wet
 deep zone is not observed.
 
@@ -34,6 +37,21 @@ and \emph{SWOT} altimetry. For each source we fit Eq.~\eqref{eq:powerlaw} and
 integrate over the common observed band, then compare the resulting storage to each
 other and to the field/survey truth. DAHITI is reported as a reprocessed-SWOT
 cross-check (Section~\ref{sec:results}), not as an independent tier.
+
+\subsection{Cross-sensor validation with PlanetScope optical masks}
+\label{sec:xsensor}
+Because the reconstruction (Section~\ref{sec:dem}) is agnostic to the mask source, we
+independently rebuild the bathymetry from PlanetScope 3~m optical water masks and
+compare it, pixel-wise and in AEV, to the Sentinel-1 reconstruction over the four
+reservoirs PlanetScope covers (2024--2025). Water is delineated per scene by a
+normalised difference water index,
+$\mathrm{NDWI}=(\rho_\text{green}-\rho_\text{NIR})/(\rho_\text{green}+\rho_\text{NIR})$,
+thresholded per scene, and the same gauge/SWOT water levels label the resulting
+waterlines. This provides an independent, higher-resolution optical check and, for
+\emph{Ancipa} and \emph{Pozzillo} (which lack a modern bathymetric survey), an
+independent near-truth. Because optical detection carries error modes orthogonal to
+SAR (surface algae and macrophytes, turbidity, sun glint), agreement between the two
+reconstructions is strong evidence that neither is dominated by sensor-specific error.
 
 \subsection{Capacity change: observable band versus total}
 \label{sec:bandtotal}

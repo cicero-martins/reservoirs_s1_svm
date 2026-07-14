@@ -43,9 +43,10 @@ st.sidebar.title('SAR Bathymetry Explorer')
 st.sidebar.caption('SAR-waterline reservoir bathymetry · Sicily')
 name = st.sidebar.selectbox('Reservoir', list(bt.RESERVOIRS.keys()), index=3)
 cfg = bt.RESERVOIRS[name]
-period = st.sidebar.radio('Period', ['B', 'A'],
-                          format_func=lambda p: 'B — 2022–2026' if p == 'B' else 'A — 2014–2016',
-                          horizontal=True)
+PLABEL = {'B': 'B — 2022–2026', 'A': 'A — 2014–2016', 'Planet': 'PlanetScope (optical, 3 m)'}
+periods = ['B', 'A'] + (['Planet'] if bt.has_period(name, 'Planet') else [])
+period = st.sidebar.radio('Reconstruction', periods,
+                          format_func=lambda p: PLABEL[p], horizontal=True)
 downsample = st.sidebar.slider('3D detail (downsample factor)', 1, 6, 3,
                                help='Higher = coarser/faster 3D surface')
 st.sidebar.markdown(f"**A/P** = {cfg['ap']:.0f} m &nbsp; "
@@ -55,7 +56,11 @@ st.sidebar.markdown(f"**A/P** = {cfg['ap']:.0f} m &nbsp; "
 st.sidebar.caption(cfg['notes'])
 
 dem = get_dem(name, period)
-st.title(f'{name} — {"Period B (2022–2026)" if period=="B" else "Period A (2014–2016)"}')
+dem_label = 'PlanetScope DEM' if period == 'Planet' else 'SAR DEM'
+st.title(f'{name} — {PLABEL[period]}')
+if period == 'Planet':
+    st.caption('Optical reconstruction (PlanetScope 3 m NDWI waterlines) — an independent '
+               'cross-check of the SAR (Period B) reconstruction.')
 
 if dem is None:
     st.warning(f'No reconstructed DEM found for {name} (Period {period}). '
@@ -109,13 +114,13 @@ with tab3d:
 
 with tabaev:
     levels = np.arange(dem['floor'], dem['top'] + 1e-6, 0.5)
-    a_dem, v_dem = bt.aev(dem['arr'], dem['mask'], levels)
+    a_dem, v_dem = bt.aev(dem['arr'], dem['mask'], levels, dem['pixel_ha'])
     dc = bt.design_curve(name)
     uc = bt.updated_curve(name)
 
     colA, colV = st.columns(2)
     figA = go.Figure()
-    figA.add_scatter(x=a_dem, y=levels, name='SAR DEM', line=dict(color='#1565c0', width=3))
+    figA.add_scatter(x=a_dem, y=levels, name=dem_label, line=dict(color='#1565c0', width=3))
     if dc:
         figA.add_scatter(x=dc[0](levels), y=levels, name='Design (1960s)',
                          line=dict(color='black', dash='dash'))
@@ -127,7 +132,7 @@ with tabaev:
     colA.plotly_chart(figA, width='stretch')
 
     figV = go.Figure()
-    figV.add_scatter(x=v_dem, y=levels, name='SAR DEM', line=dict(color='#1565c0', width=3))
+    figV.add_scatter(x=v_dem, y=levels, name=dem_label, line=dict(color='#1565c0', width=3))
     if dc:
         v_des_rel = dc[1](levels) - float(dc[1](dem['floor']))
         figV.add_scatter(x=v_des_rel, y=levels, name='Design (rel.)',

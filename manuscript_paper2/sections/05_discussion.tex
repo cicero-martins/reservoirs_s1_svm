@@ -23,8 +23,12 @@ method.
 The area-to-perimeter ratio that predicts SAR water-area reliability
 \citep{PaperOne} also predicts bathymetric-reconstruction reliability: narrow,
 low-A/P reservoirs (Olivo, Ancipa) give noisy area series, poorly-constrained
-hypsometry, and, for Ancipa, degraded SWOT water level (RMSE $12$~m). A/P thus offers
-an a-priori screen for where the fully remote pipeline can be trusted.
+hypsometry, and, for Ancipa, degraded SWOT water level (RMSE $12$~m). The same signature
+appears in the cross-sensor comparison (Section~\ref{sec:res_xsensor}): the PlanetScope
+and SAR reconstructions agree to $1$--$2$~m at medium and high A/P but diverge to $5$~m
+at Ancipa. Three independent lines of evidence --- field survey, water-level source, and
+optical sensor --- therefore converge on the same conclusion, so A/P offers an a-priori
+screen for where the fully remote pipeline can be trusted.
 
 \subsection{Systematic bias and its correction}
 The elevation-dependent bias (Section~\ref{sec:res_garcia}) is intrinsic to the
@@ -34,9 +38,23 @@ as a partially-correctable systematic with a $\sim\pm8$~pp transfer uncertainty 
 than a universal correction; more field surveys would tighten it.
 
 \subsection{Limitations and future work}
-Limitations include the short SWOT record (2023 onward), the small validation sample,
-and the deep-zone blind spot. A complementary thread, not pursued here, is
-Sentinel-1 interferometry over the \emph{exposed margin} (coherence for waterline
-delineation, differential InSAR for sediment compaction); interferometry cannot
-retrieve open-water level because the surface decorrelates between passes, so it is
-not a water-level source. % [TODO: expand]
+Three limitations bound the present results. First, the SWOT record begins only in mid
+2023, so the fully-remote storage series is still short; this will lengthen with the
+mission. Second, the validation sample is small (nine reservoirs, one echo-sounder
+survey), although the cross-sensor and water-level-substitution experiments partly
+compensate by adding independent evidence on the same reservoirs. Third, and most
+fundamental, the deep permanently-wet zone is never exposed and so is invisible to any
+waterline method; where a modern survey exists it can be added to close the AEV curve,
+but in general the SAR estimate remains a lower bound on total capacity loss.
+
+Two avenues would strengthen the validation directly. A field campaign combining an
+uncrewed surface vehicle (echo-sounding the deep zone) with drone photogrammetry (the
+exposed margin) would yield a complete, independently-measured basin DEM --- turning the
+lower bound into a measured total and extending the bias calibration beyond the single
+Garcia survey; the low-A/P reservoirs (Ancipa) and a sedimenting mid-A/P case
+(Rosamarina) are the most informative targets. Separately, Sentinel-1 interferometry
+over the \emph{exposed margin} could refine waterline delineation (interferometric
+coherence) and probe compaction of freshly-exposed sediment (differential InSAR); we
+stress that interferometry cannot retrieve open-water level, because the water surface
+decorrelates between passes, so it is a complement to the margin geometry, not a
+water-level source.

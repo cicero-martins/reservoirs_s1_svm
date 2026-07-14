@@ -15,10 +15,17 @@ import rasterio
 from scipy.interpolate import interp1d
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-DEM_DIR   = REPO / 'analysis' / 'schwatke_output'
-CURVE_DIR = pathlib.Path('C:/Users/Unipa/Documents/GEE/Data/Curve aree-volumi')  # external; deploy → bundle
+DEM_DIR      = REPO / 'analysis' / 'schwatke_output'
+PLANET_DIR   = DEM_DIR / 'planet'
+CURVE_BUNDLE = REPO / 'tool' / 'data' / 'curves'                                    # bundled (deploy)
+CURVE_EXT    = pathlib.Path('C:/Users/Unipa/Documents/GEE/Data/Curve aree-volumi')  # local fallback
+NEWCURVE_EXT = pathlib.Path('C:/Users/Unipa/Documents/GEE/Data/NewCurves')
 UPDATED   = REPO / 'validation_data' / 'updated_curves'
 PIXEL_HA  = 0.01
+
+def _curve_xls(name):
+    b = CURVE_BUNDLE / f'{name}.xls'
+    return b if b.exists() else CURVE_EXT / f'{name}.xls'
 
 # design=(quota_col, area_col, vol_col, area_unit); ap from JRC max_extent polygon.
 RESERVOIRS = {
@@ -32,7 +39,12 @@ RESERVOIRS = {
 
 # ── DEM ────────────────────────────────────────────────────────────────────────
 def dem_file(name, period):
+    if period == 'Planet':
+        return PLANET_DIR / f'dem_{name}_Planet.tif'
     return DEM_DIR / f'dem_{name}_{period}.tif'
+
+def has_period(name, period):
+    return dem_file(name, period).exists()
 
 
 def load_dem(name, period):
@@ -47,12 +59,13 @@ def load_dem(name, period):
     if not mask.any():
         return None
     return dict(arr=arr, transform=tf, bounds=bounds, mask=mask,
+                pixel_ha=abs(tf.a) * abs(tf.e) / 1e4,
                 floor=float(arr[mask].min()), top=float(arr[mask].max()))
 
 
-def aev(arr, mask, levels):
+def aev(arr, mask, levels, pixel_ha=PIXEL_HA):
     """area(h)=pixels below h (ha); volume above first level via trapezoid (Mm3)."""
-    areas = np.array([np.sum((arr < h) & mask) * PIXEL_HA for h in levels])
+    areas = np.array([np.sum((arr < h) & mask) * pixel_ha for h in levels])
     vols = np.zeros_like(areas)
     for i in range(1, len(levels)):
         vols[i] = vols[i-1] + (areas[i] + areas[i-1]) / 2 * (levels[i] - levels[i-1]) * 0.01
@@ -64,7 +77,7 @@ def design_curve(name):
     """Return (area_ha_interp, vol_Mm3_interp) or None if the external file is missing."""
     cfg = RESERVOIRS[name]
     qc, ac, vc, unit = cfg['design']
-    fp = CURVE_DIR / f'{name}.xls'
+    fp = _curve_xls(name)
     if not fp.exists():
         return None
     df = pd.read_excel(fp, sheet_name=0, header=None, engine='xlrd')[[qc, ac, vc]]
@@ -80,7 +93,8 @@ def updated_curve(name):
     """Return (area_ha_interp_or_None, vol_Mm3_interp) for the updated survey, or None."""
     kind = RESERVOIRS[name]['updated']
     if kind == 'poma_new':
-        hits = sorted(glob.glob(str(pathlib.Path('C:/Users/Unipa/Documents/GEE/Data/NewCurves/POMA*.XLS'))), key=len)
+        hits = sorted(glob.glob(str(CURVE_BUNDLE / 'POMA*.XLS'))) or \
+               sorted(glob.glob(str(NEWCURVE_EXT / 'POMA*.XLS')), key=len)
         if not hits:
             return None
         u = pd.read_excel(hits[0], sheet_name='foglio1', header=None, engine='xlrd')[[0, 1]]
@@ -134,7 +148,7 @@ def capacity_change(name):
         return None
     dc = design_curve(name)
     levels = np.arange(B['floor'], B['top'] + 1e-6, 0.5)
-    _, v_dem = aev(B['arr'], B['mask'], levels)
+    _, v_dem = aev(B['arr'], B['mask'], levels, B['pixel_ha'])
     out = dict(floor=B['floor'], top=B['top'], vol_dem_rel=float(v_dem[-1]))
     if dc is None:
         return out

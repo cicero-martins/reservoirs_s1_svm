@@ -8,7 +8,16 @@ an independent modern ground truth and form the validation core: \emph{Garcia}
 (A/P~168~m; December-2025 echo-sounder survey), \emph{Poma} (190~m), \emph{Rosamarina}
 (187~m) and \emph{Arancio} (182~m), the latter three with recent official
 area--volume curves. \emph{Pozzillo} (240~m) and \emph{Ancipa} (90~m) extend the
-A/P range but lack a modern survey. % [TODO: study-area map figure]
+A/P range but lack a modern survey (Fig.~\ref{fig:studyarea}).
+
+\begin{figure}[htbp]\centering
+  \includegraphics[width=\linewidth]{study_area.png}
+  \caption{The nine validated Sicilian reservoirs, coloured by shoreline
+  area-to-perimeter class (the reliability axis). Star = independent survey ground
+  truth (Garcia echo-sounder; Poma, Rosamarina, Arancio survey curves); circle =
+  cross-sensor / scalar validation only.}
+  \label{fig:studyarea}
+\end{figure}
 
 \subsection{Sentinel-1 SAR water area}
 Water-surface area time series (2014--2026) are derived from the Sentinel-1 C-band
@@ -33,3 +42,11 @@ Garcia ($\sim$194{,}000 XYZ points, EPSG:32633); official updated centimetric
 area--volume curves for Poma, Rosamarina (2025 survey) and Arancio (2022
 topo-bathymetric survey); and the 1960s design AEV curves, used as the pre-existing
 baseline against which capacity change is measured.
+
+\subsection{PlanetScope optical imagery}
+For an independent cross-sensor check we use PlanetScope surface-reflectance imagery
+(3~m, four-band) over the four reservoirs it covers (Poma, Rosamarina, Pozzillo,
+Ancipa) for 2024--2025. Water is classified per scene by an NDWI threshold selected
+per image; the resulting ${\sim}130$ optical water masks feed the same reconstruction
+as the SAR masks (Section~\ref{sec:xsensor}). PlanetScope is the only modern
+independent reference available for Pozzillo and Ancipa.

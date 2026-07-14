@@ -6,9 +6,9 @@
 The waterline-stacked DEMs reconstruct the exposed basin of all five core reservoirs
 over Periods A (2014--2016) and B (2022--2026), yielding 2D/3D bathymetry and A-vs-B
 change maps. Relative to the 1960s design curve, the SAR-observable (band) capacity
-change is Ancipa $-32\%$, Pozzillo $-20\%$, Garcia $-16\%$, Poma $-10\%$ and
-Rosamarina $-9\%$ (Fig.~\ref{fig:change}). Where a modern survey exists, the
-\emph{total} loss is larger (Rosamarina $-17\%$; the deep zone, invisible to SAR,
+change is Ancipa $-38\%$, Pozzillo $-17\%$, Garcia $-25\%$, Poma $-15\%$ and
+Rosamarina $-12\%$ (Fig.~\ref{fig:change}). Where a modern survey exists, the
+\emph{total} loss can be larger (Rosamarina $-17\%$; the deep zone, invisible to SAR,
 carries the balance), confirming that the SAR band estimate is a lower bound.
 
 \begin{figure}[htbp]\centering
@@ -22,10 +22,11 @@ carries the balance), confirming that the SAR band estimate is a lower bound.
 \subsection{Field validation against an echo-sounder survey (Garcia)}
 \label{sec:res_garcia}
 Against the December-2025 echo-sounder survey, the Garcia DEM has an overall bias of
-$-0.62$~m and RMSE $2.44$~m in the SAR-observable range. The error is systematically
-elevation-dependent, from $+1.7$~m near the floor to $-3.1$~m near the top
-(Fig.~\ref{fig:garcia}). The survey reveals a $23\%$ storage loss versus design at
-full pool, of which the SAR DEM recovers $66\%$.
+$-0.32$~m and RMSE $2.42$~m in the SAR-observable range. A residual elevation
+dependence remains, from $+1.8$~m near the floor to $-2.3$~m near the top
+(Fig.~\ref{fig:garcia}). The survey reveals a $24.6\%$ storage loss versus design at
+full pool, of which the SAR DEM recovers $86\%$ --- the band capacity change
+($-25\%$) closely matching the surveyed loss.
 
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{garcia_validation_deep.png}
@@ -88,13 +89,12 @@ Reconstructing the bathymetry from PlanetScope 3~m optical masks
 (Section~\ref{sec:xsensor}; 7--41 masks per reservoir) and comparing to the Sentinel-1
 DEM, the two independent sensors agree closely at medium-to-high A/P: over the common
 observable band the per-pixel elevation RMSE is $1.0$~m (Pozzillo, A/P~240), $1.7$~m
-(Poma) and $2.0$~m (Rosamarina) --- of the same order as the Garcia \emph{field} RMSE
-($2.44$~m) --- and the reconstructed band storage differs by only $0.1$--$1.8$~\si{Mm^3}
-(Fig.~\ref{fig:planet}). The agreement is strongest precisely where no field survey
-exists: at \emph{Pozzillo} the optical and SAR storages match to $0.1$~\si{Mm^3}, giving
-this reservoir an independent near-truth. At \emph{Ancipa} (A/P~90) the two reconstructions
-diverge (RMSE $5.0$~m; storage $15.8$ vs $10.9$~\si{Mm^3}), confirming that the method is
-unreliable at low A/P --- the same geometric limit seen throughout. Because optical NDWI
+(Poma) and $2.5$~m (Rosamarina) --- of the order of the Garcia \emph{field} RMSE
+($2.4$~m) (Fig.~\ref{fig:planet}). The agreement is strongest precisely where no field
+survey exists: at \emph{Pozzillo} the optical and SAR band storages match to
+$0.7$~\si{Mm^3} ($36.9$ vs $37.6$), giving this reservoir an independent near-truth. At
+\emph{Ancipa} (A/P~90) the two reconstructions diverge (RMSE $6.5$~m), confirming that
+the method is unreliable at low A/P --- the same geometric limit seen throughout. Because optical NDWI
 and SAR backscatter fail under orthogonal conditions, agreement between them is strong
 evidence the reconstruction is not dominated by sensor-specific error.
 
@@ -109,10 +109,10 @@ evidence the reconstruction is not dominated by sensor-specific error.
 
 \subsection{Uncertainty}
 \label{sec:res_unc}
-The Garcia-derived normalised bias model transfers well to Rosamarina (residual
-$0.2\%$) but not to the anomalous Poma, so the dominant, systematic transfer
-uncertainty on the band capacity change is ${\approx}\pm8$ percentage points; the
-random per-pixel component averages out ($\pm0.5\%$) (Fig.~\ref{fig:uncertainty}).
+The Garcia-derived normalised bias model transfers only partially --- it is consistent
+with Rosamarina but not with the anomalous Poma --- so the dominant, systematic transfer
+uncertainty on the band capacity change is ${\approx}\pm10$ percentage points; the
+random per-pixel component averages out ($\pm0.6\%$) (Fig.~\ref{fig:uncertainty}).
 
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{bathymetry_uncertainty.png}

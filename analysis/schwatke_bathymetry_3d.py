@@ -292,42 +292,20 @@ def load_boletin_wl(cfg: dict) -> pd.Series:
     return daily.rename('wl_boletin')
 
 
+import sys as _sys, pathlib as _pl
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parent))
+from _dem_recon import build_dem as _recon_build   # shared bathtub reconstruction
+
 def build_dem_from_arrays(masks_raw: list, wls: list) -> np.ndarray:
-    """Reconstruct bathymetric DEM from sorted (mask, WL) pairs.
+    """Reconstruct the bathymetric DEM from (mask, WL) pairs (SAR grid = 10 m).
 
-    masks_raw : list of float32 arrays (binary 0/1), sorted ascending by WL
-    wls       : list of corresponding WL values (m), same order
-    Returns   : float32 DEM array (NaN outside lake boundary)
+    Delegates to the shared reconstruction in _dem_recon.build_dem: a persistence
+    footprint (keeps disconnected in-reservoir pools such as a near-dam pool, and
+    rejects external water), a max-WL rim, per-mask despeckling and masked smoothing —
+    replacing the earlier union + outside-min-fill that produced a spiky 'mountain
+    range' DEM with a dipped border.
     """
-    masks = [binary_fill_holes(m == 1).astype(np.float32) for m in masks_raw]
-    shape = masks[0].shape
-
-    dem = np.full(shape, np.nan, dtype=np.float32)
-    dem[masks[0] == 1] = wls[0]
-    for i in range(1, len(masks)):
-        newly_wet = (masks[i] == 1) & (masks[i - 1] == 0)
-        dem[newly_wet] = (wls[i - 1] + wls[i]) / 2.0
-
-    union_raw  = np.zeros(shape, dtype=bool)
-    for m in masks:
-        union_raw |= (m == 1)
-    union = binary_fill_holes(binary_closing(union_raw, iterations=5))
-
-    if np.any(np.isnan(dem) & union):
-        yi, xi = np.where(~np.isnan(dem) & union)
-        zi     = dem[yi, xi]
-        yq, xq = np.where(np.isnan(dem) & union)
-        if len(yi) >= 4 and len(yq) > 0:
-            zq = griddata(np.column_stack([xi, yi]), zi,
-                          np.column_stack([xq, yq]), method='linear')
-            dem[yq, xq] = zq
-            still_nan = np.isnan(dem) & union
-            if np.any(still_nan):
-                dem[still_nan] = np.nanmin(dem[~np.isnan(dem) & union])
-
-    dem_fill   = np.where(union, dem, np.nanmin(dem[union & ~np.isnan(dem)]))
-    dem_smooth = gaussian_filter(dem_fill.astype(np.float64), sigma=2.0)
-    return np.where(union, dem_smooth, np.nan).astype(np.float32)
+    return _recon_build(list(masks_raw), list(wls), pixel_m=10.0)
 
 
 def power_law(h, a, h0, b):
@@ -598,16 +576,11 @@ def phase2():
             # that overlaps the always-submerged core (≥50% of all masks).
             # Fixes GEE centroid-inside filter failures for elongated valley reservoirs.
             cfg = CONFIGS[res]
-            if cfg.get('fix_components'):
-                anchor = build_anchor_mask(res)
-                if anchor is not None:
-                    before = sum(int(np.sum(a == 1)) for a in raw_arrays)
-                    raw_arrays = [select_main_component(a, anchor) for a in raw_arrays]
-                    after = sum(int(np.sum(a == 1)) for a in raw_arrays)
-                    print(f'  Component fix: anchor from {int(np.sum(anchor))} px '
-                          f'(kept {after} px water, removed {before - after} px)')
-                else:
-                    print('  Component fix: skipped (anchor build failed)')
+            # Component fix (select_main_component) is now handled inside the shared
+            # reconstruction: _dem_recon.build_dem uses a persistence footprint that
+            # rejects external water AND keeps disconnected in-reservoir pools, so the
+            # old per-mask largest-component step (which dropped Ancipa's near-dam pool)
+            # is no longer applied.
 
             def _save_dem(arrays, wls_vals, suffix):
                 valid = [(a, w) for a, w in zip(arrays, wls_vals)

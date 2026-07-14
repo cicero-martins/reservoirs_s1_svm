@@ -20,15 +20,15 @@ import numpy as np
 import pandas as pd
 import rasterio
 from rasterio.warp import reproject, Resampling
-from scipy.ndimage import binary_fill_holes, binary_closing, gaussian_filter, label
-from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 warnings.filterwarnings('ignore')
 sys.stdout.reconfigure(encoding='utf-8')
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))          # analysis/ for _dem_recon
 sys.path.insert(0, str((pathlib.Path(__file__).resolve().parent.parent / 'tool')))
-import bathymetry as bt   # load_dem (SAR), aev, design_curve, updated_curve
+import bathymetry as bt          # load_dem (SAR), aev, design_curve, updated_curve
+from _dem_recon import build_dem  # shared waterline-stacking reconstruction (bathtub)
 
 REPO   = pathlib.Path('.')
 MASKS  = REPO / 'raw_data' / 'GEE_SicilyPlanetMasks'
@@ -91,49 +91,7 @@ def load_site_masks(site):
     return arrs, [pd.Timestamp(d) for d in dates], ref_tf, ref_crs
 
 
-# ── DEM reconstruction (level-slicing; same method as the SAR DEM) ─────────────
-def build_anchor(masks):
-    stack = np.stack([(m == 1) for m in masks]).mean(0)
-    return stack >= 0.5
-
-def main_component(binary, anchor):
-    lab, n = label(binary)
-    if n <= 1:
-        return binary
-    best, bov = 0, -1
-    for k in range(1, n + 1):
-        ov = np.sum((lab == k) & anchor)
-        if ov > bov:
-            bov, best = ov, k
-    return lab == best
-
-def build_dem(masks_raw, wls, pixel_m):
-    order = np.argsort(wls)
-    masks = [binary_fill_holes(masks_raw[i] == 1).astype(np.float32) for i in order]
-    wl = np.array(wls)[order]
-    shape = masks[0].shape
-    anchor = build_anchor(masks_raw)
-    masks = [main_component(m > 0, anchor).astype(np.float32) for m in masks]
-
-    dem = np.full(shape, np.nan, np.float32)
-    dem[masks[0] == 1] = wl[0]
-    for i in range(1, len(masks)):
-        newly = (masks[i] == 1) & (masks[i - 1] == 0)
-        dem[newly] = (wl[i - 1] + wl[i]) / 2.0
-
-    union = binary_fill_holes(binary_closing(np.any([m == 1 for m in masks], 0), iterations=5))
-    known = ~np.isnan(dem) & union
-    if known.sum() > 10:
-        yi, xi = np.where(known); zi = dem[known]
-        yq, xq = np.where(union & np.isnan(dem))
-        if len(xq):
-            zq = griddata(np.column_stack([xi, yi]), zi, np.column_stack([xq, yq]), method='linear')
-            dem[yq, xq] = zq
-        dem[np.isnan(dem) & union] = np.nanmin(dem[known])
-    sigma = max(1.0, 20.0 / pixel_m)     # ~20 m physical smoothing
-    fill = np.where(union, dem, np.nanmin(dem[known])).astype(np.float64)
-    sm = gaussian_filter(fill, sigma=sigma)
-    return np.where(union, sm, np.nan).astype(np.float32)
+# DEM reconstruction (bathtub level-slicing) is in _dem_recon.build_dem — shared with the SAR pipeline.
 
 
 def aev(elev, mask, levels, pixel_ha):

@@ -109,7 +109,7 @@ with tab3d:
         z=z, x=xs[::f], y=ys[::f], colorscale='Earth_r',
         colorbar=dict(title='Elev (m ASL)')))
     fig.update_layout(height=620, margin=dict(l=0, r=0, t=10, b=0),
-                      scene=dict(zaxis_title='Elev (m)', aspectratio=dict(x=1, y=1, z=0.4)))
+                      scene=dict(zaxis_title='Elev (m)', aspectratio=dict(x=1, y=1, z=0.2)))
     st.plotly_chart(fig, width='stretch')
 
 with tabaev:

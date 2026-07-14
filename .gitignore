@@ -64,3 +64,19 @@ raw_data/ee-chart_*.csv
 
 # Throwaway diagnostic logs
 analysis/_*_log.txt
+
+# Paper 2 LaTeX build artifacts (regenerable from .tex)
+manuscript_paper2/*.aux
+manuscript_paper2/*.bbl
+manuscript_paper2/*.blg
+manuscript_paper2/*.fdb_latexmk
+manuscript_paper2/*.fls
+manuscript_paper2/*.log
+manuscript_paper2/*.out
+manuscript_paper2/*.spl
+manuscript_paper2/*.synctex.gz
+manuscript_paper2/main.pdf
+
+# Large binary survey data + GEE/Drive exports (not committed; regenerable)
+raw_data/garcia_bat/
+raw_data/exportSicilyExtended/

@@ -1,0 +1,35 @@
+\section{Study area and data}
+\label{sec:data}
+
+\subsection{Reservoirs}
+We study nine reservoirs in Sicily, Italy, spanning a shoreline area-to-perimeter
+ratio (A/P) of ${\approx}50$--$240$~m and a range of sizes and dam ages. Four have
+an independent modern ground truth and form the validation core: \emph{Garcia}
+(A/P~168~m; December-2025 echo-sounder survey), \emph{Poma} (190~m), \emph{Rosamarina}
+(187~m) and \emph{Arancio} (182~m), the latter three with recent official
+area--volume curves. \emph{Pozzillo} (240~m) and \emph{Ancipa} (90~m) extend the
+A/P range but lack a modern survey. % [TODO: study-area map figure]
+
+\subsection{Sentinel-1 SAR water area}
+Water-surface area time series (2014--2026) are derived from the Sentinel-1 C-band
+GRD collection in Google Earth Engine using the scene-adaptive classifier of
+\citet{PaperOne} (per-scene VV Otsu, JRC-auto-trained), which yields one area value
+per acquisition after outlier removal and smoothing. For the spatial DEM the same
+pipeline exports binary water masks (10~m, EPSG:32633).
+
+\subsection{Water level: gauge, DAHITI, SWOT}
+Three water-level sources are used. (i) \emph{In-situ gauges} from the regional
+civil-protection network (AEGIS), daily, 2022--2026. (ii) \emph{DAHITI}
+\citep{Schwatke2015} nadir-altimetry water level. (iii) \emph{SWOT}
+\citep{Biancamaria2016} water-surface elevation from the \texttt{SWOT\_L2\_HR\_LakeSP}
+Prior-lake product, retrieved through the PO.DAAC Hydrocron API by prior-lake
+identifier, 2023-07 onward, quality-screened. We note (Section~\ref{sec:results})
+that for these small reservoirs DAHITI is itself SWOT-derived, so the independent
+comparison is gauge versus SWOT.
+
+\subsection{Ground truth}
+Independent references are: a December-2025 single-beam echo-sounder / GPS survey of
+Garcia ($\sim$194{,}000 XYZ points, EPSG:32633); official updated centimetric
+area--volume curves for Poma, Rosamarina (2025 survey) and Arancio (2022
+topo-bathymetric survey); and the 1960s design AEV curves, used as the pre-existing
+baseline against which capacity change is measured.

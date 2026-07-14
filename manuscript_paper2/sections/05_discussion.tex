@@ -1,0 +1,42 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Gauge-free, track-free storage}
+The water-level-substitution result (Section~\ref{sec:res_ladder}) shows that
+replacing the in-situ gauge with SWOT altimetry changes reconstructed storage by only
+$\sim$5\% relative to field truth. Because SWOT observes by swath rather than along a
+nadir track, this removes the two constraints that exclude most reservoirs from
+altimetry-based monitoring: the need for a gauge and the need for a satellite track to
+pass over the water body. Notably, DAHITI could add these small reservoirs only once
+SWOT existed, so wide-swath altimetry is what makes them observable at all.
+
+\subsection{What the method sees: the observability envelope}
+The reconstruction is bounded by the drawdown-exposed band. A reservoir that draws
+down close to its dead pool, or that is filling from empty, exposes most of its basin
+and can be reconstructed almost completely; a reservoir kept near full exposes only a
+thin upper band. Consequently, deep-zone sedimentation is invisible to SAR and the
+band capacity change is a lower bound on total loss (Section~\ref{sec:res_change}).
+The 2022--2025 Sicilian drought, by drawing reservoirs down, is favourable to the
+method.
+
+\subsection{Reliability scales with A/P}
+The area-to-perimeter ratio that predicts SAR water-area reliability
+\citep{PaperOne} also predicts bathymetric-reconstruction reliability: narrow,
+low-A/P reservoirs (Olivo, Ancipa) give noisy area series, poorly-constrained
+hypsometry, and, for Ancipa, degraded SWOT water level (RMSE $12$~m). A/P thus offers
+an a-priori screen for where the fully remote pipeline can be trusted.
+
+\subsection{Systematic bias and its correction}
+The elevation-dependent bias (Section~\ref{sec:res_garcia}) is intrinsic to the
+level-slicing reconstruction. A single field calibration transfers to a similarly
+sedimenting reservoir (Rosamarina) but not to an anomalous one (Poma), so we treat it
+as a partially-correctable systematic with a $\sim\pm8$~pp transfer uncertainty rather
+than a universal correction; more field surveys would tighten it.
+
+\subsection{Limitations and future work}
+Limitations include the short SWOT record (2023 onward), the small validation sample,
+and the deep-zone blind spot. A complementary thread, not pursued here, is
+Sentinel-1 interferometry over the \emph{exposed margin} (coherence for waterline
+delineation, differential InSAR for sediment compaction); interferometry cannot
+retrieve open-water level because the surface decorrelates between passes, so it is
+not a water-level source. % [TODO: expand]

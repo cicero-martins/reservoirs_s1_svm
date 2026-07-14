@@ -1,0 +1,59 @@
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Waterline stacking to a bathymetric DEM}
+\label{sec:dem}
+Let $\{M_i\}$ be the Sentinel-1 binary water masks and $\{h_i\}$ their water levels,
+sorted ascending by $h_i$. Pixels wet in the smallest mask (the always-wet core) are
+assigned the lowest level $h_0$. A pixel that first becomes wet between consecutive
+levels is a shoreline exposed in that increment and is assigned the mid-level
+$(h_{i-1}+h_i)/2$. The resulting elevation field is closed over the union footprint,
+interior gaps are filled by linear interpolation (\texttt{scipy.griddata}), and the
+DEM is smoothed with a Gaussian filter ($\sigma=2$ px, $=20$~m). This adapts
+\citet{Schwatke2020} to Sentinel-1 waterlines. The DEM reconstructs only the
+drawdown-\emph{exposed} band $[\,\text{floor},\text{max}\,]$; the permanently wet
+deep zone is not observed.
+
+\subsection{Scalar hypsometry and storage}
+\label{sec:scalar}
+As an alternative that needs only the area series, each SAR area is paired with the
+nearest water level (within $\pm10$ days) and a power-law hypsometry is fitted,
+\begin{equation}
+  A(h) = a\,(h-h_0)^{b},
+\label{eq:powerlaw}
+\end{equation}
+which is integrated to storage $V(h)=\int A\,\mathrm{d}h$. The DEM (Section~\ref{sec:dem})
+gives the spatial bathymetry and change maps; the scalar fit gives a robust storage
+curve where the observed level range is wide. Both see only the exposed band.
+
+\subsection{Water-level-substitution ladder}
+\label{sec:ladder}
+To test a fully remote pipeline we keep the SAR area and the reconstruction fixed and
+swap the water-level source between two independent tiers: the in-situ \emph{gauge}
+and \emph{SWOT} altimetry. For each source we fit Eq.~\eqref{eq:powerlaw} and
+integrate over the common observed band, then compare the resulting storage to each
+other and to the field/survey truth. DAHITI is reported as a reprocessed-SWOT
+cross-check (Section~\ref{sec:results}), not as an independent tier.
+
+\subsection{Capacity change: observable band versus total}
+\label{sec:bandtotal}
+Capacity change relative to the design curve is quantified two ways: \emph{band}
+(relative to the DEM floor, i.e.\ the SAR-observable exposed zone, the fair
+comparison against survey truth) and \emph{total} (the full design curve, including
+the deep zone below the floor that SAR cannot see). Because sedimentation concentrates
+in the deep zone, the SAR band change is a validated \emph{lower bound} on total loss.
+
+\subsection{Uncertainty and bias}
+\label{sec:uncertainty}
+The one field-validated reservoir (Garcia) yields a normalised, elevation-dependent
+bias model $\mathrm{bias}(f)$, $f=(z-\text{floor})/(\text{max}-\text{floor})$, which
+is applied to the other reservoirs and propagated through a coherent Monte-Carlo to
+put a confidence interval on the storage estimate. Because per-pixel error averages
+out at reservoir scale, the dominant uncertainty is the systematic bias-transfer term.
+
+\subsection{Interactive tool}
+\label{sec:tool}
+The pipeline is released as an interactive application (Streamlit + Earth-Engine
+Python) that, for a selected reservoir, displays the reconstructed 2D/3D bathymetry,
+the AEV curves against design and survey references, the multi-period change map, and
+a downloadable DEM.

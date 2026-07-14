@@ -1,0 +1,4 @@
+reservoir,ap_m,n_gauge,n_dahiti,r2_gauge,r2_dahiti,wl_bias_dahiti_m,wl_rmse_dahiti_m,hyps_dahiti_vs_gauge_rmse_ha,vol_gauge_Mm3,vol_dahiti_Mm3,vol_survey_Mm3,vol_dahiti_minus_gauge_Mm3,vol_dahiti_vs_survey_Mm3
+Garcia,167.7,177,116,0.822,0.72,0.97,1.86,28.1,36.46,32.92,36.77,-3.54,-3.84
+Poma,190.1,178,108,0.847,0.972,-1.62,1.62,21.6,37.04,40.3,41.25,3.26,-0.95
+Rosamarina,187.4,174,116,0.967,0.965,-2.05,3.0,8.7,41.13,40.77,42.35,-0.36,-1.58

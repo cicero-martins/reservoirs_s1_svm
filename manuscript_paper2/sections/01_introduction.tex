@@ -1,0 +1,44 @@
+\section{Introduction}
+\label{sec:intro}
+
+% [TODO prose] Expand each paragraph; this is a structured draft with the key claims.
+
+Reservoirs regulate water supply, irrigation, hydropower and flood risk, and their
+management depends on knowing how much water they store as a function of level,
+i.e.\ the area--elevation--volume (AEV) relationship. For many dams the operational
+AEV curve dates to construction, decades ago, and no longer reflects the basin's
+present geometry after prolonged sedimentation \citep{BrunoEtAl2003}. Repeating the
+bathymetric surveys that produced those curves is costly and infrequent, so most
+reservoirs are monitored, if at all, with a stage record and an obsolete curve.
+
+Satellite remote sensing offers a route to updating this information without field
+campaigns. Two complementary signals are available. Satellite radar altimetry, as
+compiled in databases such as DAHITI \citep{Schwatke2015}, and now the wide-swath
+mission SWOT \citep{Biancamaria2016}, measures water-surface elevation; Synthetic
+Aperture Radar (SAR) such as Sentinel-1 \citep{Torres2012} measures water-surface
+\emph{area} directly, independently of any altimetry track and with a reliability
+that a companion study shows is predictable a priori from shoreline geometry
+\citep{PaperOne}. \citet{Schwatke2020} combined optical/SAR water masks with
+altimetry to reconstruct hypsometry for large lakes. Here we adapt that idea to
+the reservoir-monitoring problem and, crucially, to the many reservoirs that have
+\emph{neither} an in-situ gauge \emph{nor} a nadir altimetry track over them.
+
+Our premise is that the shoreline exposed as a reservoir draws down is a sequence
+of contour lines at known water levels: stacking Sentinel-1 waterlines ordered by
+level reconstructs a digital elevation model (DEM) of the emerged basin, from which
+an updated AEV curve and storage follow by integration. The water level needed to
+label each waterline is the linchpin. Where a gauge exists it is trivial; where it
+does not, the level must itself come from remote sensing. We therefore test whether
+the in-situ gauge can be replaced, first by nadir altimetry (DAHITI) and then by
+SWOT swath altimetry, which observes reservoirs regardless of track and so answers
+the ungauged, track-missed case.
+
+The contributions of this paper are: (i) a fully remote-sensing pipeline that
+reconstructs updated reservoir bathymetry and storage from Sentinel-1 waterlines
+and a remote water level; (ii) a validation against a December~2025 echo-sounder
+survey and recent official bathymetric curves on nine Sicilian reservoirs;
+(iii) a water-level-substitution experiment showing that SWOT altimetry yields
+storage equivalent to an in-situ gauge and to field truth; (iv) an uncertainty and
+observability analysis linking reconstruction reliability to shoreline
+area-to-perimeter ratio and to drawdown amplitude; and (v) an open, interactive
+tool that runs the pipeline.

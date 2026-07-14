@@ -1,0 +1,6 @@
+reservoir,ap_m,sar_raw_pct,sar_corr_pct,truth_band_pct,err_raw_pct,err_corr_pct,mc_ci5_pct,mc_ci95_pct,mc_halfwidth_pct
+Ancipa,90.5,-30.4,-32.5,,,,-33.1,-32.0,0.5
+Garcia,167.7,-14.7,-16.7,-23.2,8.5,6.5,-17.3,-16.2,0.5
+Rosamarina,187.4,-5.6,-7.2,-7.4,1.8,0.2,-7.7,-6.7,0.5
+Poma,190.1,-7.6,-9.9,0.9,-8.5,-10.7,-10.3,-9.4,0.5
+Pozzillo,240.5,-12.3,-17.7,,,,-19.0,-16.5,1.3

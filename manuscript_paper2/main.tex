@@ -1,0 +1,105 @@
+%% Paper 2 — reservoir bathymetry & storage from SAR waterlines + satellite altimetry
+%% elsarticle, author-year (Harvard). Review mode: double-spaced, line numbers.
+%% Reuses the Paper 1 preamble (manuscript/main.tex).
+\documentclass[review,12pt,authoryear]{elsarticle}
+
+%% --- Encoding & fonts ---
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+
+%% --- Math ---
+\usepackage{amsmath,amssymb}
+
+%% --- Graphics & tables ---
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+
+%% --- Hyperlinks ---
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+
+%% --- Units ---
+\usepackage{siunitx}
+\sisetup{detect-all, group-separator={,}}
+
+%% --- Misc ---
+\usepackage{microtype}
+\usepackage{lineno}
+\usepackage{setspace}
+\usepackage[margin=2.5cm]{geometry}
+
+\biboptions{authoryear,round,semicolon}
+
+% -----------------------------------------------------------------------
+\begin{document}
+\begin{frontmatter}
+
+\title{Fully remote-sensing bathymetry and storage of reservoirs from
+       Sentinel-1 waterlines and SWOT altimetry, validated by field surveys}
+
+\author[unipa]{Cicero Martins Jr.\corref{cor1}}
+\ead{cicero.martinsjr@unipa.it}
+\author[unipa]{Fulvio Capodici}
+\author[unipa]{Mauro De Marchis}
+\author[unipa]{Giuseppe Ciraolo}
+\cortext[cor1]{Corresponding author}
+\affiliation[unipa]{organization={Dipartimento di Ingegneria,
+                    Università degli Studi di Palermo},
+                    city={Palermo}, country={Italy}}
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+% DRAFT abstract (~150 words). Numbers from the Jul-2026 analysis; see project memory.
+Reservoir storage assessment relies on area--elevation--volume (AEV) curves that,
+for many dams, date to construction and no longer reflect decades of sedimentation.
+We present a fully remote-sensing method that reconstructs updated reservoir
+bathymetry and storage by pairing Sentinel-1 SAR water area with a remote water
+level, requiring neither in-situ gauges nor a nadir altimetry track. Waterlines
+exposed during drawdown are stacked by water level into a digital elevation model
+of the emerged basin, and storage follows by integration. We validate the method
+on nine Sicilian reservoirs against a December~2025 echo-sounder survey
+(RMSE~$2.44$~m) and recent official bathymetric curves. Replacing the in-situ gauge
+with SWOT swath altimetry changes the reconstructed storage by a mean of
+$2.2$~\si{Mm^3} (${\approx}5\%$) relative to field truth, demonstrating gauge-free,
+track-free volume. Reliability scales with the shoreline area-to-perimeter ratio.
+We release an interactive tool that runs the pipeline.
+\end{abstract}
+
+\begin{keyword}
+Reservoir bathymetry \sep Reservoir storage \sep Sentinel-1 SAR \sep
+SWOT altimetry \sep Sedimentation \sep Area--elevation--volume curve
+\end{keyword}
+
+\end{frontmatter}
+
+\linenumbers
+
+% -----------------------------------------------------------------------
+\input{sections/01_introduction}
+\input{sections/02_study_area_data}
+\input{sections/03_methods}
+\input{sections/04_results}
+\input{sections/05_discussion}
+\input{sections/06_conclusions}
+
+% -----------------------------------------------------------------------
+\section*{Acknowledgements}
+The authors acknowledge ESA for open-access Sentinel-1 SAR data under the
+Copernicus Programme, NASA/CNES for SWOT data and the PO.DAAC Hydrocron service,
+DGFI-TUM for the DAHITI database, and the Sicilian water authority
+(Dipartimento Regionale dell'Acqua e dei Rifiuti) for gauge records and official
+bathymetric surveys.
+
+\section*{Data Availability Statement}
+The interactive bathymetry-explorer tool and all analysis scripts are available at
+\url{https://github.com/cicero-martins/reservoirs_s1_svm}.
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{references}
+
+\end{document}

@@ -56,11 +56,27 @@ def build_dem(masks_raw, wls, pixel_m, min_blob_m2=250.0, persist_frac=0.15,
     footprint = _keep_major(binary_fill_holes(binary_closing(persist >= persist_frac, iterations=3)))
     cln = [binary_fill_holes(_remove_small(m & footprint, min_px)) for m in masks]
 
+    # Bed elevation via a per-pixel OPTIMAL WATER-LEVEL THRESHOLD. A pixel is wet whenever
+    # WL > bed, so ideally it is dry in every mask below its bed and wet in every mask
+    # above. Real masks are non-nested (SAR mis-classifies the narrow deep channel as land
+    # at low water, then sees it again higher up), so we pick, per pixel, the split level k
+    # that minimises the disagreement — wet-below-bed plus dry-above-bed — instead of the
+    # naive last dry→wet transition, which overwrote deep pixels with shallow elevations
+    # (the bug that sank Ancipa's near-dam pool in Period A). Robust to flicker in BOTH
+    # directions; reduces to the plain level-slice when the masks are nested.
+    W = np.stack(cln).astype(np.int32)                    # (n, H, W), WL-sorted ascending
+    n = len(cln)
+    wet_cum = np.concatenate([np.zeros((1,) + W.shape[1:], np.int32),
+                              np.cumsum(W, axis=0)], 0)    # wet_cum[k] = wet count in levels < k
+    kk = np.arange(n + 1, dtype=np.int32).reshape(-1, 1, 1)
+    kbest = np.argmin(2 * wet_cum - kk, axis=0)            # dry levels below the bed, per pixel
+    ever = W.any(0)
+    bed_of_k = np.empty(n + 1, float)                      # k dry levels below -> bed elevation
+    bed_of_k[0] = wl[0]                                    # wet from the bottom -> deepest
+    bed_of_k[1:n] = (wl[:-1] + wl[1:]) / 2.0              # bed between levels k-1 and k
+    bed_of_k[n] = wl[-1]                                   # dry throughout -> shallowest
     dem = np.full(footprint.shape, np.nan, np.float32)
-    if cln[0].any():
-        dem[cln[0]] = wl[0]
-    for i in range(1, len(cln)):
-        dem[cln[i] & ~cln[i - 1]] = (wl[i - 1] + wl[i]) / 2.0
+    dem[ever] = bed_of_k[kbest][ever].astype(np.float32)
 
     # bathtub rim: the reservoir max-extent boundary is the highest shoreline
     dem[footprint & ~binary_erosion(footprint)] = wl[-1]

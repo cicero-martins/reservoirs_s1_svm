@@ -13,10 +13,12 @@ import numpy as np
 import pandas as pd
 import rasterio
 from scipy.interpolate import interp1d
+from scipy.ndimage import binary_erosion, distance_transform_edt
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 DEM_DIR      = REPO / 'analysis' / 'schwatke_output'
 PLANET_DIR   = DEM_DIR / 'planet'
+TERRAIN_DIR  = DEM_DIR / 'terrain'
 CURVE_BUNDLE = REPO / 'tool' / 'data' / 'curves'                                    # bundled (deploy)
 CURVE_EXT    = pathlib.Path('C:/Users/Unipa/Documents/GEE/Data/Curve aree-volumi')  # local fallback
 NEWCURVE_EXT = pathlib.Path('C:/Users/Unipa/Documents/GEE/Data/NewCurves')
@@ -61,6 +63,46 @@ def load_dem(name, period):
     return dict(arr=arr, transform=tf, bounds=bounds, mask=mask,
                 pixel_ha=abs(tf.a) * abs(tf.e) / 1e4,
                 floor=float(arr[mask].min()), top=float(arr[mask].max()))
+
+
+# ── Topo-bathymetry: reconstructed basin merged into the real surrounding terrain ──
+def has_terrain(name):
+    return (TERRAIN_DIR / f'terrain_{name}.tif').exists()
+
+
+def topobathy(name, period):
+    """Merge the reconstructed bathymetry into the real GLO-30 surrounding terrain for
+    the 3D view: our bathymetry below the max shoreline, real terrain above it. The two
+    are joined at the shoreline by a single vertical offset (terrain median at the rim
+    aligned to the reconstructed max water level), so no geoid/datum conversion is
+    needed. Returns dict(arr, bounds, maxwl) on the buffered terrain grid, or None if
+    the terrain tile is missing or does not cover this DEM (caller falls back to the
+    basin-only view). Display-only — never used for AEV or the download."""
+    d = load_dem(name, period)
+    tfp = TERRAIN_DIR / f'terrain_{name}.tif'
+    if d is None or not tfp.exists():
+        return None
+    with rasterio.open(tfp) as s:
+        T = s.read(1).astype(np.float64)
+        Ttf, Tbounds = s.transform, s.bounds
+    if not np.isfinite(T).all():                       # gap-free terrain (no ragged edge)
+        fin = np.isfinite(T); _, idx = distance_transform_edt(~fin, return_indices=True)
+        T = T[tuple(idx)]
+    px = abs(Ttf.a)
+    col0 = int(round((d['bounds'].left - Tbounds.left) / px))
+    row0 = int(round((Tbounds.top - d['bounds'].top) / px))
+    dh, dw = d['arr'].shape
+    if row0 < 0 or col0 < 0 or row0 + dh > T.shape[0] or col0 + dw > T.shape[1]:
+        return None                                    # DEM outside the terrain buffer
+    Dg = np.full(T.shape, np.nan)
+    Dg[row0:row0 + dh, col0:col0 + dw] = d['arr']
+    finD = np.isfinite(Dg)
+    maxwl = float(np.nanmax(Dg))
+    rim = finD & ~binary_erosion(finD)
+    offset = float(np.nanmedian(T[rim])) - maxwl       # align terrain to the shoreline
+    Ta = np.maximum(T - offset, maxwl)                 # terrain sits at/above the max shoreline
+    merged = np.where(finD, Dg, Ta)
+    return dict(arr=merged, bounds=Tbounds, maxwl=maxwl)
 
 
 def aev(arr, mask, levels, pixel_ha=PIXEL_HA):

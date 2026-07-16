@@ -20,16 +20,18 @@ Improvements over a naive level-slice:
 """
 import numpy as np
 from scipy.ndimage import (binary_fill_holes, binary_closing, binary_erosion,
-                           gaussian_filter, label)
+                           gaussian_filter, median_filter, distance_transform_edt, label)
 from scipy.interpolate import griddata
 
 
-def _largest(binary):
+def _keep_major(binary, frac=0.05):
+    """Keep every connected component >= frac of the largest — retains disconnected
+    in-reservoir pools (both Ancipa basins) while dropping small spurious blobs."""
     lab, n = label(binary)
     if n <= 1:
         return binary
     sizes = np.bincount(lab.ravel()); sizes[0] = 0
-    return lab == int(sizes.argmax())
+    return np.isin(lab, np.where(sizes >= sizes.max() * frac)[0])
 
 
 def _remove_small(binary, min_px):
@@ -41,7 +43,7 @@ def _remove_small(binary, min_px):
 
 
 def build_dem(masks_raw, wls, pixel_m, min_blob_m2=250.0, persist_frac=0.15,
-              smooth_m=12.0):
+              smooth_m=18.0, median_px=3):
     """masks_raw: list of 0/1 arrays; wls: matching water levels; pixel_m: grid size (m).
     Returns a float32 DEM (NaN outside the reservoir footprint)."""
     order = np.argsort(wls)
@@ -49,8 +51,9 @@ def build_dem(masks_raw, wls, pixel_m, min_blob_m2=250.0, persist_frac=0.15,
     masks = [binary_fill_holes(np.asarray(masks_raw[i]) == 1) for i in order]
     min_px = max(4, int(min_blob_m2 / (pixel_m ** 2)))
 
+    # footprint from persistence, keeping ALL major pools (not just the largest)
     persist = np.mean(np.stack(masks).astype(np.float32), 0)
-    footprint = _largest(binary_fill_holes(binary_closing(persist >= persist_frac, iterations=3)))
+    footprint = _keep_major(binary_fill_holes(binary_closing(persist >= persist_frac, iterations=3)))
     cln = [binary_fill_holes(_remove_small(m & footprint, min_px)) for m in masks]
 
     dem = np.full(footprint.shape, np.nan, np.float32)
@@ -74,8 +77,12 @@ def build_dem(masks_raw, wls, pixel_m, min_blob_m2=250.0, persist_frac=0.15,
             dem[ys, xs] = griddata(np.column_stack([xk, yk]), zk,
                                    np.column_stack([xs, ys]), method='nearest')
 
-    sigma = max(1.0, smooth_m / pixel_m)
-    field = np.where(footprint, np.nan_to_num(dem), 0.0).astype(np.float64)
-    w = footprint.astype(np.float64)
-    sm = gaussian_filter(field, sigma) / (gaussian_filter(w, sigma) + 1e-9)
-    return np.where(footprint, sm, np.nan).astype(np.float32)
+    # De-spike (median) + smooth (Gaussian), extending nearest footprint values outward
+    # first so neither filter sees an artificial low edge (avoids the border dip).
+    inside = footprint & np.isfinite(dem)
+    _, idx = distance_transform_edt(~inside, return_distances=True, return_indices=True)
+    ext = dem[tuple(idx)]                                  # nearest footprint value everywhere
+    if median_px and median_px >= 2:
+        ext = median_filter(ext, size=int(median_px))     # kill isolated 'mountain-range' spikes
+    ext = gaussian_filter(ext, max(1.0, smooth_m / pixel_m))
+    return np.where(footprint, ext, np.nan).astype(np.float32)

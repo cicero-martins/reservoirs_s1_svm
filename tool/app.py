@@ -104,10 +104,13 @@ with tab2d:
 
 with tab3d:
     f = downsample
-    z = dem['arr'][::f, ::f]
+    # block-MEAN downsample (not slicing) so noise is averaged out, not aliased into spikes
+    a = dem['arr']
+    H2, W2 = (a.shape[0] // f) * f, (a.shape[1] // f) * f
+    z = np.nanmean(a[:H2, :W2].reshape(H2 // f, f, W2 // f, f), axis=(1, 3))
     fig = go.Figure(go.Surface(
-        z=z, x=xs[::f], y=ys[::f], colorscale='Earth_r',
-        colorbar=dict(title='Elev (m ASL)')))
+        z=z, x=xs[:W2].reshape(W2 // f, f).mean(1), y=ys[:H2].reshape(H2 // f, f).mean(1),
+        colorscale='Earth_r', colorbar=dict(title='Elev (m ASL)')))
     fig.update_layout(height=620, margin=dict(l=0, r=0, t=10, b=0),
                       scene=dict(zaxis_title='Elev (m)', aspectratio=dict(x=1, y=1, z=0.2)))
     st.plotly_chart(fig, width='stretch')

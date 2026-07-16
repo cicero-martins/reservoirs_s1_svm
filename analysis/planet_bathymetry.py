@@ -61,15 +61,33 @@ def load_wl(site, cfg):
     swot = _wl(pd.read_csv(sp), 'datetime', 'wse') if sp.exists() else None
     return gauge, swot
 
-def pair_wl(date, gauge, swot):
-    for src, df in (('gauge', gauge), ('SWOT', swot)):
-        if df is None or not len(df):
-            continue
-        dt = (df.date - date).abs()
-        i = dt.idxmin()
-        if dt[i] <= pd.Timedelta(f'{MAX_DT}D'):
-            return float(df.wl[i]), src
-    return None, None
+def pair_series(dates, df):
+    """Nearest WL (within MAX_DT) for each mask date; None where no WL is close."""
+    if df is None or not len(df):
+        return [None] * len(dates)
+    out = []
+    for d in dates:
+        dt = (df.date - d).abs(); i = dt.idxmin()
+        out.append(float(df.wl[i]) if dt[i] <= pd.Timedelta(f'{MAX_DT}D') else None)
+    return out
+
+def _iqr(vals):
+    """Robust vertical-signal measure: interquartile range. Unlike the full span it is not
+    inflated by a couple of far-apart outlier dates (e.g. Rosamarina's 2022/2023 masks make
+    the flat 2024--25 gauge *look* like an 18 m span), and not deflated by SWOT spikes."""
+    v = [x for x in vals if x is not None]
+    return float(np.subtract(*np.percentile(v, [75, 25]))) if len(v) >= 4 else -1.0
+
+def choose_wl(dates, gauge, swot):
+    """Pick a SINGLE water-level source per site (no datum mixing). Prefer the in-situ gauge,
+    but fall back to SWOT ONLY when the gauge is degenerate over the mask window — flat to
+    < 0.5 m IQR, i.e. a stuck/dead sensor. Rosamarina's gauge reads 145.72 m to the cm for
+    ~10 months in 2024--25 (IQR ~0.01 m) while SWOT and the optical masks both show ~17 m of
+    drawdown, so SWOT recovers the hypsometry the dead gauge lost; every well-behaved gauge
+    (Pozzillo, Poma, Ancipa) is kept, avoiding a needless SWOT datum shift."""
+    g, s = pair_series(dates, gauge), pair_series(dates, swot)
+    use_swot = _iqr(g) < 0.5 and _iqr(s) > 1.0   # gauge stuck AND SWOT has real spread
+    return (s, 'SWOT') if use_swot else (g, 'gauge')
 
 
 # ── Load + align masks of a site onto one grid ────────────────────────────────
@@ -107,11 +125,11 @@ for site, cfg in SITES.items():
     arrs, dates, tf, crs = load_site_masks(site)
     pix_m = abs(tf.a); pix_ha = pix_m * pix_m / 1e4
     gauge, swot = load_wl(site, cfg)
+    chosen, wl_src = choose_wl(dates, gauge, swot)
     wls, keep, srcs = [], [], []
-    for a, d in zip(arrs, dates):
-        wl, src = pair_wl(d, gauge, swot)
-        if wl is not None:
-            wls.append(wl); keep.append(a); srcs.append(src)
+    for a, w in zip(arrs, chosen):
+        if w is not None:
+            wls.append(w); keep.append(a); srcs.append(wl_src)
     if len(keep) < 4:
         print(f'{site}: only {len(keep)} masks with WL, skipping'); continue
 

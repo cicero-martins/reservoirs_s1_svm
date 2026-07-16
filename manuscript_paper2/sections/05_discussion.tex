@@ -8,7 +8,12 @@ $\sim$5\% relative to field truth. Because SWOT observes by swath rather than al
 nadir track, this removes the two constraints that exclude most reservoirs from
 altimetry-based monitoring: the need for a gauge and the need for a satellite track to
 pass over the water body. Notably, DAHITI could add these small reservoirs only once
-SWOT existed, so wide-swath altimetry is what makes them observable at all.
+SWOT existed, so wide-swath altimetry is what makes them observable at all. Rosamarina
+makes the case concretely: its gauge flat-lined at its telemetry floor ($145.72$~m) for
+${\sim}10$ months of 2024--2025, and only the SWOT level --- corroborated by the optical
+masks --- recovered the true ${\sim}17$~m drawdown, without which the optical
+reconstruction collapsed to a flat, unphysical surface (Section~\ref{sec:res_xsensor}).
+Here the satellite source is not merely as good as the gauge but strictly better.
 
 \subsection{What the method sees: the observability envelope}
 The reconstruction is bounded by the drawdown-exposed band. A reservoir that draws
@@ -25,8 +30,8 @@ The area-to-perimeter ratio that predicts SAR water-area reliability
 low-A/P reservoirs (Olivo, Ancipa) give noisy area series, poorly-constrained
 hypsometry, and, for Ancipa, degraded SWOT water level (RMSE $12$~m). The same signature
 appears in the cross-sensor comparison (Section~\ref{sec:res_xsensor}): the PlanetScope
-and SAR reconstructions agree to $1$--$2.5$~m at medium and high A/P but diverge to
-$6.5$~m at Ancipa. Three independent lines of evidence --- field survey, water-level source, and
+and SAR reconstructions agree to ${\sim}1$--$2.4$~m at Pozzillo, Poma and Rosamarina but
+diverge ($6.9$~m) at the low-A/P Ancipa. Three independent lines of evidence --- field survey, water-level source, and
 optical sensor --- therefore converge on the same conclusion, so A/P offers an a-priori
 screen for where the fully remote pipeline can be trusted.
 

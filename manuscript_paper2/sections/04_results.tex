@@ -6,8 +6,8 @@
 The waterline-stacked DEMs reconstruct the exposed basin of all five core reservoirs
 over Periods A (2014--2016) and B (2022--2026), yielding 2D/3D bathymetry and A-vs-B
 change maps. Relative to the 1960s design curve, the SAR-observable (band) capacity
-change is Ancipa $-38\%$, Pozzillo $-17\%$, Garcia $-25\%$, Poma $-15\%$ and
-Rosamarina $-12\%$ (Fig.~\ref{fig:change}). Where a modern survey exists, the
+change is Ancipa $-40\%$, Pozzillo $-15\%$, Garcia $-22\%$, Poma $-16\%$ and
+Rosamarina $-13\%$ (Fig.~\ref{fig:change}). Where a modern survey exists, the
 \emph{total} loss can be larger (Rosamarina $-17\%$; the deep zone, invisible to SAR,
 carries the balance), confirming that the SAR band estimate is a lower bound.
 
@@ -22,11 +22,11 @@ carries the balance), confirming that the SAR band estimate is a lower bound.
 \subsection{Field validation against an echo-sounder survey (Garcia)}
 \label{sec:res_garcia}
 Against the December-2025 echo-sounder survey, the Garcia DEM has an overall bias of
-$-0.32$~m and RMSE $2.42$~m in the SAR-observable range. A residual elevation
-dependence remains, from $+1.8$~m near the floor to $-2.3$~m near the top
-(Fig.~\ref{fig:garcia}). The survey reveals a $24.6\%$ storage loss versus design at
-full pool, of which the SAR DEM recovers $86\%$ --- the band capacity change
-($-25\%$) closely matching the surveyed loss.
+$-0.24$~m and RMSE $2.4$~m in the SAR-observable range. A residual elevation
+dependence remains, from $+1.7$~m near the floor to $-2.3$~m near the top
+(Fig.~\ref{fig:garcia}). The survey reveals a $24.3\%$ storage loss versus design at
+full pool, of which the SAR DEM recovers $88\%$ --- the band capacity change
+($-22\%$) closely matching the surveyed loss.
 
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{garcia_validation_deep.png}
@@ -86,17 +86,24 @@ area-monitoring reliability pattern of \citet{PaperOne} (Fig.~\ref{fig:extended}
 \subsection{Cross-sensor validation: PlanetScope optical reconstruction}
 \label{sec:res_xsensor}
 Reconstructing the bathymetry from PlanetScope 3~m optical masks
-(Section~\ref{sec:xsensor}; 7--41 masks per reservoir) and comparing to the Sentinel-1
-DEM, the two independent sensors agree closely at medium-to-high A/P: over the common
-observable band the per-pixel elevation RMSE is $1.0$~m (Pozzillo, A/P~240), $1.7$~m
-(Poma) and $2.5$~m (Rosamarina) --- of the order of the Garcia \emph{field} RMSE
-($2.4$~m) (Fig.~\ref{fig:planet}). The agreement is strongest precisely where no field
-survey exists: at \emph{Pozzillo} the optical and SAR band storages match to
-$0.7$~\si{Mm^3} ($36.9$ vs $37.6$), giving this reservoir an independent near-truth. At
-\emph{Ancipa} (A/P~90) the two reconstructions diverge (RMSE $6.5$~m), confirming that
-the method is unreliable at low A/P --- the same geometric limit seen throughout. Because optical NDWI
-and SAR backscatter fail under orthogonal conditions, agreement between them is strong
-evidence the reconstruction is not dominated by sensor-specific error.
+(Section~\ref{sec:xsensor}; 5--39 masks per reservoir) and comparing to the Sentinel-1
+DEM, the two independent sensors agree closely across the observable band: the per-pixel
+elevation RMSE is $0.9$~m (Pozzillo, A/P~240), $1.5$~m (Poma, A/P~190) and $2.4$~m
+(Rosamarina, A/P~187) --- of the order of the Garcia \emph{field} RMSE ($2.4$~m)
+(Fig.~\ref{fig:planet}). The agreement is strongest precisely where no modern field
+survey exists: the optical and SAR band storages match to $1.2$~\si{Mm^3} at
+\emph{Pozzillo} ($38.7$ vs $39.9$) and to $0.7$~\si{Mm^3} at \emph{Rosamarina}
+($10.3$ vs $11.0$), giving these reservoirs an independent near-truth. Rosamarina also
+illustrates why the water-level source matters: its in-situ gauge was stuck at
+$145.72$~m to the centimetre for ${\sim}10$ months of the 2024--2025 optical window,
+collapsing the level-slice to a single flat elevation; substituting SWOT --- which, like
+the optical masks, records the real ${\sim}17$~m drawdown --- restores a physical
+bathymetry and the $2.4$~m cross-sensor agreement. The two reconstructions diverge
+(RMSE $6.9$~m) only at \emph{Ancipa} (A/P~90), where the narrow, low-A/P geometry
+degrades both the optical masks and the SWOT water level --- the same A/P limit
+identified throughout. Because optical NDWI and SAR backscatter fail under orthogonal
+conditions, agreement between them is strong evidence the reconstruction is not dominated
+by sensor-specific error.
 
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{planet_vs_sar.png}

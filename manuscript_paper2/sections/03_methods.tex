@@ -46,8 +46,11 @@ compare it, pixel-wise and in AEV, to the Sentinel-1 reconstruction over the fou
 reservoirs PlanetScope covers (2024--2025). Water is delineated per scene by a
 normalised difference water index,
 $\mathrm{NDWI}=(\rho_\text{green}-\rho_\text{NIR})/(\rho_\text{green}+\rho_\text{NIR})$,
-thresholded per scene, and the same gauge/SWOT water levels label the resulting
-waterlines. This provides an independent, higher-resolution optical check and, for
+thresholded per scene, and the same water levels label the resulting waterlines ---
+the in-situ gauge by default, or SWOT where the gauge is degenerate over the optical
+window (a single source per site, to avoid datum mixing; the choice is made
+automatically from the gauge's interquartile range over the mask dates, $<0.5$~m
+indicating a stuck sensor). This provides an independent, higher-resolution optical check and, for
 \emph{Ancipa} and \emph{Pozzillo} (which lack a modern bathymetric survey), an
 independent near-truth. Because optical detection carries error modes orthogonal to
 SAR (surface algae and macrophytes, turbidity, sun glint), agreement between the two

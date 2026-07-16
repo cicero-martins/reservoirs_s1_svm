@@ -1,6 +1,6 @@
 reservoir,ap_m,floor_m,max_m,obs_range_m,vol_dem_rel_Mm3,vol_design_rel_Mm3,sar_change_band_pct,truth_change_band_pct,truth_change_total_pct,indep_ref,field_rmse_m
-Ancipa,90.5,916.52,945.56,29.0,13.13,21.03,-37.6,,,—,
-Garcia,167.7,176.3,189.29,13.0,31.48,41.86,-24.8,-24.6,,echosounder,2.44
-Rosamarina,187.4,142.95,161.65,18.7,42.0,47.99,-12.5,-7.4,-17.1,2025 survey,
-Poma,190.1,177.52,194.27,16.8,42.59,49.99,-14.8,1.0,2.7,updated curve,
-Pozzillo,240.5,344.85,355.59,10.7,38.69,46.69,-17.1,,,—,
+Ancipa,90.5,916.53,945.75,29.2,12.83,21.25,-39.6,,,—,
+Garcia,167.7,176.3,189.45,13.2,32.92,42.48,-22.5,-24.3,,echosounder,2.44
+Rosamarina,187.4,142.95,162.1,19.2,43.3,49.65,-12.8,-7.2,-16.8,2025 survey,
+Poma,190.1,177.52,194.43,16.9,42.34,50.64,-16.4,1.2,2.8,updated curve,
+Pozzillo,240.5,344.85,355.88,11.0,40.94,48.36,-15.3,,,—,

@@ -15,8 +15,26 @@ import io
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
+from scipy.ndimage import distance_transform_edt, gaussian_filter
 
 import bathymetry as bt
+
+
+def _closed_surface(a):
+    """Close the NaN exterior of a masked DEM for the 3D view only.
+
+    The reservoir's steep walls meet a transparent NaN exterior along a 1-px ragged
+    boundary; plotly then draws every protruding edge pixel as a vertical spike, which
+    reads as a 'sawtooth' top margin (the elevation data itself is smooth — the rim is
+    uniform). Filling the outside with the nearest rim value makes the surface
+    continuous, so the basin renders as a smooth depression in a plane at the
+    max-shoreline level. Display only: the DEM, 2D map, AEV curves and GeoTIFF download
+    keep the true NaN mask and are unchanged."""
+    fin = np.isfinite(a)
+    if not fin.any():
+        return a
+    _, idx = distance_transform_edt(~fin, return_indices=True)
+    return gaussian_filter(a[tuple(idx)], 1.2)   # nearest-fill + light de-facet smooth
 
 st.set_page_config(page_title='Reservoir SAR Bathymetry Explorer', layout='wide')
 
@@ -104,10 +122,12 @@ with tab2d:
 
 with tab3d:
     f = downsample
-    # block-MEAN downsample (not slicing) so noise is averaged out, not aliased into spikes
-    a = dem['arr']
+    # Close the ragged NaN exterior first (see _closed_surface) so the steep walls do
+    # not render as a sawtooth top margin, THEN block-mean downsample. With no NaN left
+    # the mean is plain (no boundary aliasing from nanmean over partly-empty blocks).
+    a = _closed_surface(dem['arr'])
     H2, W2 = (a.shape[0] // f) * f, (a.shape[1] // f) * f
-    z = np.nanmean(a[:H2, :W2].reshape(H2 // f, f, W2 // f, f), axis=(1, 3))
+    z = a[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))
     fig = go.Figure(go.Surface(
         z=z, x=xs[:W2].reshape(W2 // f, f).mean(1), y=ys[:H2].reshape(H2 // f, f).mean(1),
         colorscale='Earth_r', colorbar=dict(title='Elev (m ASL)')))

@@ -49,6 +49,16 @@ def _topo_colorscale(zmin, zmax, nmax):
     return [[0.0, '#08306b'], [f * 0.45, '#2171b5'], [f * 0.8, '#89c0e0'], [f, '#f7fbff'],
             [min(f + 1e-3, 0.999), '#e8d6ac'], [f + (1 - f) * 0.5, '#b5843f'], [1.0, '#5a3410']]
 
+
+def _scene3d(x, y, zlo, zhi, z_exag):
+    """A plotly 3D scene with a true horizontal aspect and the z-axis fixed to the common
+    [zlo, zhi] window (so A/B/Planet share one scale). The vertical relief is the real
+    terrain scale multiplied by z_exag — no hidden per-view exaggeration."""
+    x_m = float(abs(x[-1] - x[0])); y_m = float(abs(y[-1] - y[0])); D = max(x_m, y_m, 1e-6)
+    az = (max(zhi - zlo, 1e-6) / D) * z_exag
+    return dict(aspectmode='manual', aspectratio=dict(x=x_m / D, y=y_m / D, z=az),
+                zaxis=dict(title='Elev (m)', range=[zlo, zhi]))
+
 st.set_page_config(page_title='Reservoir SAR Bathymetry Explorer', layout='wide')
 
 AP_COLORS = {'low': '#f88f4d', 'med': '#d64a02', 'high': '#8a2d04'}
@@ -72,6 +82,10 @@ def get_capacity(name):
 def get_topobathy(name, period):
     return bt.topobathy(name, period)
 
+@st.cache_data(show_spinner=False)
+def get_vrange(name):
+    return bt.vertical_range(name)
+
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 st.sidebar.title('SAR Bathymetry Explorer')
@@ -88,6 +102,9 @@ show_terrain = st.sidebar.toggle('Surrounding terrain (3D)', value=True,
                                  help='On: reservoir seated in its real GLO-30 valley '
                                       '(white marks the max shoreline). Off: only the '
                                       'basin — terrain above the waterline is clipped away.')
+z_exag = st.sidebar.slider('3D vertical exaggeration', 1.0, 20.0, 3.0, 0.5,
+                           help='Same base scale as the surrounding terrain; increase '
+                                'to amplify the vertical relief (e.g. to inspect the basin).')
 st.sidebar.markdown(f"**A/P** = {cfg['ap']:.0f} m &nbsp; "
                     f"<span style='background:{AP_COLORS[ap_band(cfg['ap'])]};color:white;"
                     f"padding:2px 8px;border-radius:4px'>{ap_band(cfg['ap']).upper()}</span>",
@@ -146,30 +163,25 @@ with tab3d:
     tb = get_topobathy(name, period) if bt.has_terrain(name) else None
     if tb is not None:
         # Continuous topo-bathymetry grid (bathymetry below the shoreline, real GLO-30
-        # terrain above); gap-free, so no ragged edge / sawtooth in either mode.
+        # terrain above); gap-free, so no ragged edge / sawtooth in either mode. Works
+        # for the 10 m SAR periods and the 3 m PlanetScope one (reprojected onto it).
         a, tbounds, nmax = tb['arr'], tb['bounds'], tb['maxwl']
         x3 = np.linspace(tbounds.left, tbounds.right, a.shape[1])
         y3 = np.linspace(tbounds.top, tbounds.bottom, a.shape[0])
     else:
         a, x3, y3, nmax = _closed_surface(dem['arr']), xs, ys, dem['top']
-    floor, zmax = float(np.nanmin(a)), float(np.nanmax(a))
+    # one common elevation window across A/B/Planet, so the periods are comparable
+    vr = get_vrange(name)
+    zlo, basin_hi, terr_hi = vr if vr else (float(np.nanmin(a)), nmax, float(np.nanmax(a)))
+    zhi = terr_hi if (show_terrain and tb is not None) else basin_hi   # basin view clips terrain
     H2, W2 = (a.shape[0] // f) * f, (a.shape[1] // f) * f
-    # no NaN left, so a plain block-mean downsample (no nanmean boundary aliasing)
-    z = a[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))
-    if show_terrain and tb is not None:
-        cmin, cmax, zrange, zasp = floor, zmax, None, 0.2       # full valley: blue->white->brown
-    else:
-        # Basin detail: clip the z-axis at the max shoreline so terrain above the
-        # waterline is cut away (no sawtooth — the surface stays continuous below).
-        cmin, cmax, zrange, zasp = floor, nmax, [floor, nmax], 0.25
+    z = a[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))   # plain block-mean (no NaN)
+    xd = x3[:W2].reshape(W2 // f, f).mean(1); yd = y3[:H2].reshape(H2 // f, f).mean(1)
     fig = go.Figure(go.Surface(
-        z=z, x=x3[:W2].reshape(W2 // f, f).mean(1), y=y3[:H2].reshape(H2 // f, f).mean(1),
-        colorscale=_topo_colorscale(cmin, cmax, nmax), cmin=cmin, cmax=cmax,
-        colorbar=dict(title='m ASL')))
-    scene = dict(aspectratio=dict(x=1, y=1, z=zasp), zaxis=dict(title='Elev (m)'))
-    if zrange is not None:
-        scene['zaxis']['range'] = zrange
-    fig.update_layout(height=620, margin=dict(l=0, r=0, t=10, b=0), scene=scene)
+        z=z, x=xd, y=yd, colorscale=_topo_colorscale(zlo, zhi, nmax),
+        cmin=zlo, cmax=zhi, colorbar=dict(title='m ASL')))
+    fig.update_layout(height=620, margin=dict(l=0, r=0, t=10, b=0),
+                      scene=_scene3d(xd, yd, zlo, zhi, z_exag))
     st.plotly_chart(fig, width='stretch')
 
 with tabaev:
@@ -210,19 +222,32 @@ with tabaev:
 
 with tabchg:
     chg = get_change(name)
-    if chg is None:
+    B = get_dem(name, 'B')
+    if chg is None or B is None:
         st.info(f'A-vs-B change map needs both Period-A and Period-B DEMs for {name}.')
     else:
+        # 3D of the most recent (Period-B) basin, coloured by the B−A elevation change.
+        surf = _closed_surface(B['arr'])
+        diff = np.where(np.isfinite(chg['diff']), chg['diff'], 0.0)   # neutral where unobserved
+        b = B['bounds']
+        xB = np.linspace(b.left, b.right, surf.shape[1]); yB = np.linspace(b.top, b.bottom, surf.shape[0])
+        f = downsample
+        H2, W2 = (surf.shape[0] // f) * f, (surf.shape[1] // f) * f
+        zc = surf[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))
+        dc = diff[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))
+        xd = xB[:W2].reshape(W2 // f, f).mean(1); yd = yB[:H2].reshape(H2 // f, f).mean(1)
         vmax = float(np.nanpercentile(np.abs(chg['diff']), 95)) or 1.0
-        fig = go.Figure(go.Heatmap(
-            z=chg['diff'], x=xs, y=ys, colorscale='RdBu', zmid=0, zmin=-vmax, zmax=vmax,
-            colorbar=dict(title='B−A (m)'), hovertemplate='%{z:+.2f} m<extra></extra>'))
-        fig.update_layout(height=560, margin=dict(l=0, r=0, t=10, b=0),
-                          yaxis=dict(scaleanchor='x', scaleratio=1))
+        vr = get_vrange(name)
+        zlo, basin_hi = (vr[0], vr[1]) if vr else (B['floor'], B['top'])
+        fig = go.Figure(go.Surface(
+            z=zc, x=xd, y=yd, surfacecolor=dc, colorscale='RdBu_r', cmid=0, cmin=-vmax, cmax=vmax,
+            colorbar=dict(title='B−A (m)'), hovertemplate='%{surfacecolor:+.2f} m<extra></extra>'))
+        fig.update_layout(height=620, margin=dict(l=0, r=0, t=10, b=0),
+                          scene=_scene3d(xd, yd, zlo, basin_hi, z_exag))
         st.plotly_chart(fig, width='stretch')
-        st.caption('Elevation difference B − A over the co-observed range '
-                   f"(≥ {chg['lo']:.1f} m). Positive (red) = higher lakebed in Period B "
-                   '= net deposition / sedimentation proxy.')
+        st.caption('Period-B bathymetry in 3D, coloured by the B − A elevation change '
+                   f"over the co-observed band (≥ {chg['lo']:.1f} m). Red = higher lakebed "
+                   'in Period B = net deposition (sedimentation proxy); blue = deepening.')
 
 # ── Download ────────────────────────────────────────────────────────────────────
 with open(bt.dem_file(name, period), 'rb') as fh:

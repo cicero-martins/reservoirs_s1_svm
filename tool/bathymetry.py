@@ -12,6 +12,7 @@ import pathlib, glob
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.warp import reproject, Resampling
 from scipy.interpolate import interp1d
 from scipy.ndimage import binary_erosion, distance_transform_edt
 
@@ -75,9 +76,10 @@ def topobathy(name, period):
     the 3D view: our bathymetry below the max shoreline, real terrain above it. The two
     are joined at the shoreline by a single vertical offset (terrain median at the rim
     aligned to the reconstructed max water level), so no geoid/datum conversion is
-    needed. Returns dict(arr, bounds, maxwl) on the buffered terrain grid, or None if
-    the terrain tile is missing or does not cover this DEM (caller falls back to the
-    basin-only view). Display-only — never used for AEV or the download."""
+    needed. The period DEM is reprojected onto the terrain grid, so it works for the
+    10 m SAR periods and the 3 m PlanetScope one alike. Returns dict(arr, bounds, maxwl,
+    floor) on the buffered terrain grid, or None if the terrain tile is missing.
+    Display-only — never used for AEV or the download."""
     d = load_dem(name, period)
     tfp = TERRAIN_DIR / f'terrain_{name}.tif'
     if d is None or not tfp.exists():
@@ -88,21 +90,40 @@ def topobathy(name, period):
     if not np.isfinite(T).all():                       # gap-free terrain (no ragged edge)
         fin = np.isfinite(T); _, idx = distance_transform_edt(~fin, return_indices=True)
         T = T[tuple(idx)]
-    px = abs(Ttf.a)
-    col0 = int(round((d['bounds'].left - Tbounds.left) / px))
-    row0 = int(round((Tbounds.top - d['bounds'].top) / px))
-    dh, dw = d['arr'].shape
-    if row0 < 0 or col0 < 0 or row0 + dh > T.shape[0] or col0 + dw > T.shape[1]:
-        return None                                    # DEM outside the terrain buffer
+    # reproject the DEM onto the terrain grid (handles SAR 10 m and Planet 3 m)
     Dg = np.full(T.shape, np.nan)
-    Dg[row0:row0 + dh, col0:col0 + dw] = d['arr']
+    reproject(d['arr'], Dg, src_transform=d['transform'], src_crs='EPSG:32633',
+              dst_transform=Ttf, dst_crs='EPSG:32633',
+              src_nodata=np.nan, dst_nodata=np.nan, resampling=Resampling.nearest)
     finD = np.isfinite(Dg)
+    if finD.sum() < 20:
+        return None                                    # DEM outside the terrain buffer
     maxwl = float(np.nanmax(Dg))
     rim = finD & ~binary_erosion(finD)
     offset = float(np.nanmedian(T[rim])) - maxwl       # align terrain to the shoreline
     Ta = np.maximum(T - offset, maxwl)                 # terrain sits at/above the max shoreline
     merged = np.where(finD, Dg, Ta)
-    return dict(arr=merged, bounds=Tbounds, maxwl=maxwl)
+    return dict(arr=merged, bounds=Tbounds, maxwl=maxwl, floor=float(np.nanmin(Dg)))
+
+
+def vertical_range(name):
+    """Common elevation window across the reconstructions (A/B/Planet) so the 3D views
+    share one z-scale and are directly comparable, plus the terrain top. Returns
+    (basin_lo, basin_hi, terrain_hi) or None."""
+    los, his = [], []
+    for p in ('A', 'B', 'Planet'):
+        d = load_dem(name, p)
+        if d is not None:
+            los.append(d['floor']); his.append(d['top'])
+    if not los:
+        return None
+    lo, hi = min(los), max(his)
+    terr_hi = hi
+    tfp = TERRAIN_DIR / f'terrain_{name}.tif'
+    if tfp.exists():
+        with rasterio.open(tfp) as s:
+            terr_hi = float(np.nanmax(s.read(1)))
+    return lo, hi, terr_hi
 
 
 def aev(arr, mask, levels, pixel_ha=PIXEL_HA):

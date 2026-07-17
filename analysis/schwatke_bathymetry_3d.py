@@ -132,6 +132,54 @@ CONFIGS = {
             'bias_corr':  -0.93,  # limited validation (9 months only)
         },
     },
+    # --- Extended set (Fase 3, 2026-07): full DEM reconstruction added for the 3
+    # reservoirs that previously only had scalar hypsometry (schwatke_extended.py).
+    # h0_bound_lo/gauge_min set conservatively ~15m below each design curve's own
+    # zero-area quota (Arancio 157m, Castello 250m, Olivo 408m -- see
+    # C:/Users/Unipa/Documents/GEE/Data/Curve aree-volumi/{name}.xls); bias_corr left
+    # at 0.0 (unvalidated -- no V->h-vs-gauge check done yet for these 3, unlike the
+    # original 5). sar_csv points at the VV-Otsu area series from
+    # exportSicilyExtended.js (different folder than the other 5's GlobalPilotV2a,
+    # but same date/area_ha schema). Masks use SVM (exportSicilyMasks.js pipeline,
+    # via analysis/export_extended_masks.py) for consistency with the 5 core
+    # reservoirs -- NOT the VV-Otsu masks that produced this sar_csv, which is used
+    # here only for Period-A SAR<->gauge model-fit pairing, same role as the other 5.
+    'Arancio': {
+        'gauge_csv':    GAUGE_DIR / 'arancio_wl.csv',
+        'gauge_min':    160.0,
+        'sar_csv':      REPO / 'raw_data' / 'exportSicilyExtended' / 'GEE_SicilyExtended_VVotsu' / 'SAR_area_Arancio.csv',
+        'h0_bound_lo':  145.0,
+        'boletin_cfg':  {
+            'cod':        'dig-02',
+            'curve_xls':  CURVE_DIR / 'Arancio.xls',
+            'curve_cols': ('quota', 'area_km2', 'vol_Mm3'),
+            'bias_corr':  0.0,  # unvalidated
+        },
+    },
+    'Castello': {
+        'gauge_csv':    GAUGE_DIR / 'castello_wl.csv',
+        'gauge_min':    260.0,
+        'sar_csv':      REPO / 'raw_data' / 'exportSicilyExtended' / 'GEE_SicilyExtended_VVotsu' / 'SAR_area_Castello.csv',
+        'h0_bound_lo':  245.0,
+        'boletin_cfg':  {
+            'cod':        'dig-03',
+            'curve_xls':  CURVE_DIR / 'Castello.xls',
+            'curve_cols': ('quota', 'area_km2', 'vol_Mm3'),
+            'bias_corr':  0.0,  # unvalidated
+        },
+    },
+    'Olivo': {
+        'gauge_csv':    GAUGE_DIR / 'olivo_wl.csv',
+        'gauge_min':    415.0,
+        'sar_csv':      REPO / 'raw_data' / 'exportSicilyExtended' / 'GEE_SicilyExtended_VVotsu' / 'SAR_area_Olivo.csv',
+        'h0_bound_lo':  400.0,
+        'boletin_cfg':  {
+            'cod':        'dig-15',
+            'curve_xls':  CURVE_DIR / 'Olivo.xls',
+            'curve_cols': ('quota', 'area_km2', 'area_ha', 'vol_Mm3'),
+            'bias_corr':  0.0,  # unvalidated
+        },
+    },
     'Garcia': {
         'gauge_csv':    GAUGE_DIR / 'garcia_idrometro_radar.csv',
         'gauge_min':    170.0,

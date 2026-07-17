@@ -45,7 +45,14 @@ MAX_DT  = 7   # days for SAR↔gauge pairing
 EXT = {
     'Arancio':   dict(ap=182.2, gauge='arancio_wl.csv',
                       updated=('ARANCIO*', 'BASE', 'openpyxl', 'single', (0, 2))),
-    'Castello':  dict(ap=126.7, gauge='castello_wl.csv', updated=None),
+    # CASTELLO.xlsx sheet 'Quota_V_S' has ~60 duplicate (Quota/Volume/Superficie)
+    # scratch blocks tiled across 256 columns (leftovers from an iterative build),
+    # but ONE of them (cols F:H, pandas idx 5:7) is the complete, monotonic master
+    # table alone: 3001 rows, quota 267.20-297.20 m, fully populated -- confirmed by
+    # scanning every block's non-null extent (all others are ~33-row fragments
+    # already covered by this one). No need to merge blocks.
+    'Castello':  dict(ap=126.7, gauge='castello_wl.csv',
+                      updated=('CASTELLO*', 'Quota_V_S', 'openpyxl', 'single', (5, 7))),
     'Nicoletti': dict(ap=119.7, gauge='nicoletti_wl.csv',
                       updated=('NICOLETTI*', 'Dati Aree-Volumi', 'openpyxl', 'single', (0, 2))),
     'Olivo':     dict(ap=50.7,  gauge='olivo_wl.csv',

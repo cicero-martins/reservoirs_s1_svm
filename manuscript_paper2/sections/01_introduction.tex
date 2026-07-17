@@ -5,13 +5,12 @@ Reservoirs regulate water supply, irrigation, hydropower and flood risk, and the
 operation depends on knowing how much water is stored as a function of level, i.e.\ the
 area--elevation--volume (AEV) relationship. That relationship is not static: sediment
 delivered by the contributing basin accumulates on the reservoir floor, progressively
-reducing capacity. In Sicily, for example, the AEV curves still in operational use for
-several major reservoirs date to their construction decades ago and no longer reflect
-the present basin geometry \citep{BrunoEtAl2003}. Because repeating the bathymetric
-survey that produced such a curve is expensive and logistically demanding, re-surveys
-are rare wherever they are undertaken, so many reservoirs continue to be managed with a
-stage record and a design-era curve --- if they are monitored at all --- and any
-resulting over-estimation of available storage typically goes unquantified.
+reducing capacity. Yet updating it requires a bathymetric survey, and in-situ lake and
+reservoir records worldwide are sparse, have if anything decreased in recent years, and,
+even where they exist, are often not freely available for strategic or commercial
+reasons \citep{BuskerEtAl2019}. Between one survey and the next, a reservoir is managed
+with a stage record and whatever curve was last available, and any resulting
+over-estimation of storage typically goes unquantified.
 
 Satellite remote sensing offers a way to update this information without field
 campaigns, because two complementary and freely available signals together contain
@@ -19,18 +18,19 @@ everything the AEV relationship requires. Satellite altimetry measures water-sur
 \emph{elevation}: nadir radar missions, harmonised in databases such as DAHITI
 \citep{Schwatke2015}, and, since 2022, the wide-swath mission SWOT
 \citep{Biancamaria2016}. Synthetic Aperture Radar (SAR) measures water-surface
-\emph{area} directly and is, unlike optical sensors, unaffected by cloud cover or solar
-illumination \citep{Torres2012, Mullissa2021} --- a material advantage given how much
-cloud contamination can reduce the temporal availability of optical observations
-\citep{Pekel2016}. The free, twice-weekly Sentinel-1 archive \citep{Torres2012} delivers
-this signal with a reliability that a companion study shows can be predicted
-\emph{a priori} from shoreline geometry \citep{PaperOne}. Optical imagery remains
-useful, though, precisely because its failure modes (sun glint, turbidity, algae) are
-different from SAR's, which is why we also use it below as an independent cross-check
-rather than as the primary signal. \citet{Schwatke2020} combined water masks with
-altimetry to reconstruct the hypsometry of lakes. Here we adapt that principle to the
-reservoir problem and, decisively, to the large population of reservoirs that have
-\emph{neither} an in-situ gauge \emph{nor} an altimetry ground track passing over them.
+\emph{area} directly and, unlike optical sensors, is not affected by cloud cover or
+solar illumination \citep{Torres2012, Mullissa2021}, a critical advantage in
+Mediterranean and tropical contexts where cloud contamination can severely reduce the
+temporal availability of optical observations \citep{Pekel2016}. The free, twice-weekly
+Sentinel-1 archive \citep{Torres2012} delivers this signal with a reliability that a
+companion study shows can be predicted \emph{a priori} from shoreline geometry
+\citep{PaperOne}. Optical imagery remains just as fundamental, though, since its failure
+modes (sun glint, turbidity, algae) are different from SAR's, giving an independent
+perspective on the same water surface. \citet{Schwatke2020} combined optical water masks
+with altimetry to reconstruct lake hypsometry; an optical implementation of the same
+idea could in principle also reach reservoirs with neither an in-situ gauge nor an
+altimetry ground track. Here we contribute a SAR-based route to that same large
+population, adapting \citet{Schwatke2020}'s principle to Sentinel-1 waterlines.
 
 The idea we pursue is that the shoreline exposed as a reservoir draws down is a sequence
 of contour lines at known water levels: stacking Sentinel-1 waterlines ordered by level
@@ -48,10 +48,7 @@ from nadir altimetry.
 The contributions of this paper are: (i) a fully remote-sensing pipeline, adapting
 \citet{Schwatke2020} to reservoirs with neither an in-situ gauge nor an altimetry
 ground track, that reconstructs updated bathymetry and storage for the SAR-observable,
-drawdown-exposed band --- on average $80\%$ of a reservoir's total design-curve
-volume, so the permanently wet zone this leaves out of reach is a minority of total
-storage, not the majority --- from Sentinel-1 waterlines and a remote water level;
-(ii) three
+drawdown-exposed band from Sentinel-1 waterlines and a remote water level; (ii) three
 converging lines of validation evidence for that reconstruction's accuracy: a
 nine-reservoir comparison against a December-2025 echo-sounder survey and recent
 official bathymetric curves, a water-level-substitution experiment showing SWOT
@@ -60,3 +57,14 @@ optical cross-sensor reconstruction; and (iii) an uncertainty and observability 
 linking reconstruction reliability to shoreline geometry and drawdown amplitude,
 released together with open-source code that makes the method and its limits usable in
 practice.
+
+The remainder of the paper is organised as follows. Section~\ref{sec:data} describes
+the nine Sicilian reservoirs and the SAR, water-level, ground-truth and optical data
+used. Section~\ref{sec:methods} details the waterline-stacking reconstruction, the
+water-level- and mask-substitution validation experiments, the capacity-change and
+uncertainty quantification, and the released code. Section~\ref{sec:results} presents
+the reconstructed bathymetry and capacity change, the field and reference-curve
+validation, the water-level-substitution and cross-sensor results, and the uncertainty
+budget. Section~\ref{sec:discussion} discusses the gauge-free, track-free implications,
+the observability envelope, the role of shoreline geometry, and current limitations.
+Section~\ref{sec:conclusions} summarises the main conclusions.

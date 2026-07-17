@@ -5,15 +5,19 @@
 The water-level-substitution result (Section~\ref{sec:res_ladder}) shows that
 replacing the in-situ gauge with SWOT altimetry changes reconstructed storage by only
 $\sim$5\% relative to field truth. Because SWOT observes by swath rather than along a
-nadir track, this removes the two constraints that exclude most reservoirs from
-altimetry-based monitoring: the need for a gauge and the need for a satellite track to
-pass over the water body. Notably, DAHITI could add these small reservoirs only once
-SWOT existed, so wide-swath altimetry is what makes them observable at all. Rosamarina
-makes the case concretely: its gauge flat-lined at its telemetry floor ($145.72$~m) for
-${\sim}10$ months of 2024--2025, and only the SWOT level --- corroborated by the optical
-masks --- recovered the true ${\sim}17$~m drawdown, without which the optical
-reconstruction collapsed to a flat, unphysical surface (Section~\ref{sec:res_xsensor}).
-Here the satellite source is not merely as good as the gauge but strictly better.
+nadir track, it removes the two constraints that keep small reservoirs off nadir
+altimetry's map: the need for a gauge, and the need for a satellite ground track to
+actually cross the water body. Notably, DAHITI could add these small reservoirs only
+once SWOT existed, so wide-swath altimetry is what makes them observable at all.
+Rosamarina makes the case concretely: its gauge flat-lined at its telemetry floor
+($145.72$~m) for ${\sim}10$ months of 2024--2025, and only the SWOT level ---
+corroborated by the optical masks --- recovered the true ${\sim}17$~m drawdown,
+without which the optical reconstruction collapsed to a flat, unphysical surface
+(Section~\ref{sec:res_xsensor}). For this specific reservoir, the satellite source was
+not merely as good as the gauge but strictly better; the reverse can also hold,
+however, since at the low-A/P Ancipa the SWOT water level itself degrades (RMSE
+$12$~m, Section~\ref{sec:res_ladder}) --- so which source is more reliable is
+reservoir-dependent, not a general property of SWOT over gauges.
 
 \subsection{What the method sees: the observability envelope}
 The reconstruction is bounded by the drawdown-exposed band. A reservoir that draws
@@ -31,15 +35,22 @@ low-A/P reservoirs (Olivo, Ancipa) give noisy area series, poorly-constrained
 hypsometry, and, for Ancipa, degraded SWOT water level (RMSE $12$~m). The same signature
 appears in the cross-sensor comparison (Section~\ref{sec:res_xsensor}): the PlanetScope
 and SAR reconstructions agree to ${\sim}1$--$2.6$~m at Pozzillo, Poma and Rosamarina but
-diverge ($5.5$~m) at the low-A/P Ancipa. Three independent lines of evidence --- field survey, water-level source, and
-optical sensor --- therefore converge on the same conclusion, so A/P offers an a-priori
-screen for where the fully remote pipeline can be trusted.
+diverge ($5.5$~m) at the low-A/P Ancipa. This divergence fell from $6.9$~m once a
+reconstruction defect that had collapsed Ancipa's near-dam pool was corrected, but it
+did not close, consistent with a genuine A/P-driven ceiling on reconstruction quality
+rather than a leftover artifact of that bug. It is also unlikely to be a classifier
+artifact: every reservoir here is masked with the same per-scene VV-Otsu classifier
+(Section~\ref{sec:data}), whose dual-polarisation SVM alternative performs comparably
+overall \citep{PaperOne}, though we have not tested SVM masks specifically at Ancipa.
+Two independent lines of evidence --- degraded SWOT water level and PlanetScope
+cross-sensor divergence --- therefore converge on the same low-A/P reservoir, so A/P
+offers an a-priori screen for where the fully remote pipeline can be trusted.
 
 \subsection{Systematic bias and its correction}
 The elevation-dependent bias (Section~\ref{sec:res_garcia}) is intrinsic to the
 level-slicing reconstruction. A single field calibration transfers to a similarly
 sedimenting reservoir (Rosamarina) but not to an anomalous one (Poma), so we treat it
-as a partially-correctable systematic with a $\sim\pm8$~pp transfer uncertainty rather
+as a partially-correctable systematic with a $\sim\pm10$~pp transfer uncertainty rather
 than a universal correction; more field surveys would tighten it.
 
 \subsection{Limitations and future work}

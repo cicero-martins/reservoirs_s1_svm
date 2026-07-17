@@ -37,11 +37,17 @@ that for these small reservoirs DAHITI is itself SWOT-derived, so the independen
 comparison is gauge versus SWOT.
 
 \subsection{Ground truth}
-Independent references are: a December-2025 single-beam echo-sounder / GPS survey of
-Garcia ($\sim$194{,}000 XYZ points, EPSG:32633); official updated centimetric
-area--volume curves for Poma, Rosamarina (2025 survey) and Arancio (2022
-topo-bathymetric survey); and the 1960s design AEV curves, used as the pre-existing
-baseline against which capacity change is measured.
+Independent references are of two different kinds. Garcia has a genuine field survey
+--- a December-2025 single-beam echo-sounder / GPS survey ($\sim$194{,}000 XYZ points,
+EPSG:32633) whose acquisition we control and describe in full (Section~\ref{sec:res_garcia})
+--- which we treat as \emph{ground truth}. Poma, Rosamarina (2025) and Arancio (2022)
+instead have updated centimetric area--volume curves supplied by the regional water
+authority: the best available reference for those reservoirs, but with a surveying
+methodology not documented to us, so we report them as a secondary reference rather
+than ground truth. The design AEV curves --- predating each reservoir's operational
+history, not uniformly from the 1960s --- serve as the pre-existing baseline against
+which the SAR-observable \emph{band} capacity change is compared; the corresponding
+\emph{total} change is not directly measured (Section~\ref{sec:uncertainty}).
 
 \subsection{PlanetScope optical imagery}
 For an independent cross-sensor check we use PlanetScope surface-reflectance imagery

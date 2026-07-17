@@ -3,29 +3,34 @@
 
 Reservoirs regulate water supply, irrigation, hydropower and flood risk, and their
 operation depends on knowing how much water is stored as a function of level, i.e.\ the
-area--elevation--volume (AEV) relationship. That relationship is not static. Sediment
+area--elevation--volume (AEV) relationship. That relationship is not static: sediment
 delivered by the contributing basin accumulates on the reservoir floor, progressively
-reducing capacity, yet for a large fraction of the world's dams the AEV curve in
-operational use still dates to construction, decades ago, and no longer reflects the
-present geometry of the basin \citep{BrunoEtAl2003}. The consequence is a systematic,
-and usually unquantified, over-estimation of available storage. Correcting it by
-repeating the bathymetric surveys that produced the original curves is expensive and
-logistically demanding, so re-surveys are rare and most reservoirs continue to be
-managed with a stage record and an obsolete curve --- if they are monitored at all.
+reducing capacity. In Sicily, for example, the AEV curves still in operational use for
+several major reservoirs date to their construction decades ago and no longer reflect
+the present basin geometry \citep{BrunoEtAl2003}. Because repeating the bathymetric
+survey that produced such a curve is expensive and logistically demanding, re-surveys
+are rare wherever they are undertaken, so many reservoirs continue to be managed with a
+stage record and a design-era curve --- if they are monitored at all --- and any
+resulting over-estimation of available storage typically goes unquantified.
 
 Satellite remote sensing offers a way to update this information without field
 campaigns, because two complementary and freely available signals together contain
 everything the AEV relationship requires. Satellite altimetry measures water-surface
 \emph{elevation}: nadir radar missions, harmonised in databases such as DAHITI
 \citep{Schwatke2015}, and, since 2022, the wide-swath mission SWOT
-\citep{Biancamaria2016}. Synthetic Aperture Radar (SAR), and in particular the
-free, twice-weekly Sentinel-1 archive \citep{Torres2012}, measures water-surface
-\emph{area} directly, day or night and through cloud, with a reliability that a
-companion study shows can be predicted \emph{a priori} from shoreline geometry
-\citep{PaperOne}. \citet{Schwatke2020} combined water masks with altimetry to
-reconstruct the hypsometry of lakes. Here we adapt that principle to the reservoir
-problem and, decisively, to the large population of reservoirs that have \emph{neither}
-an in-situ gauge \emph{nor} an altimetry ground track passing over them.
+\citep{Biancamaria2016}. Synthetic Aperture Radar (SAR) measures water-surface
+\emph{area} directly and is, unlike optical sensors, unaffected by cloud cover or solar
+illumination \citep{Torres2012, Mullissa2021} --- a material advantage given how much
+cloud contamination can reduce the temporal availability of optical observations
+\citep{Pekel2016}. The free, twice-weekly Sentinel-1 archive \citep{Torres2012} delivers
+this signal with a reliability that a companion study shows can be predicted
+\emph{a priori} from shoreline geometry \citep{PaperOne}. Optical imagery remains
+useful, though, precisely because its failure modes (sun glint, turbidity, algae) are
+different from SAR's, which is why we also use it below as an independent cross-check
+rather than as the primary signal. \citet{Schwatke2020} combined water masks with
+altimetry to reconstruct the hypsometry of lakes. Here we adapt that principle to the
+reservoir problem and, decisively, to the large population of reservoirs that have
+\emph{neither} an in-situ gauge \emph{nor} an altimetry ground track passing over them.
 
 The idea we pursue is that the shoreline exposed as a reservoir draws down is a sequence
 of contour lines at known water levels: stacking Sentinel-1 waterlines ordered by level
@@ -35,17 +40,20 @@ label each waterline is the single indispensable ingredient. Where a gauge exist
 is trivial; where it does not, the level must itself be remotely sensed. We therefore
 treat the water-level source as a variable to be substituted: keeping the SAR area and
 the reconstruction fixed, we replace the in-situ gauge first with nadir altimetry and
-then with SWOT, whose swath geometry observes reservoirs regardless of track and thus
-addresses precisely the ungauged, track-missed case that has excluded most reservoirs
-from altimetry-based monitoring.
+then with SWOT. Nadir altimetry, by construction, only reaches the reservoirs a ground
+track happens to cross; SWOT's wide swath observes a reservoir regardless of track,
+addressing precisely the ungauged, track-missed case that orbit geometry alone excludes
+from nadir altimetry.
 
-The contributions of this paper are: (i) a fully remote-sensing pipeline that
-reconstructs updated reservoir bathymetry and storage from Sentinel-1 waterlines and a
-remote water level; (ii) a validation on nine Sicilian reservoirs against a
-December-2025 echo-sounder survey and recent official bathymetric curves; (iii) a
-water-level-substitution experiment showing that SWOT altimetry yields storage
-equivalent to an in-situ gauge and to field truth; (iv) an independent, cross-sensor
-corroboration using PlanetScope optical waterlines; and (v) an uncertainty and
-observability analysis, together with an open interactive tool, that links
-reconstruction reliability to shoreline geometry and drawdown amplitude and makes the
-approach usable in practice.
+The contributions of this paper are: (i) a fully remote-sensing pipeline, adapting
+\citet{Schwatke2020} to reservoirs with neither an in-situ gauge nor an altimetry
+ground track, that reconstructs updated bathymetry and storage for the SAR-observable,
+drawdown-exposed band from Sentinel-1 waterlines and a remote water level; (ii) three
+converging lines of validation evidence for that reconstruction's accuracy: a
+nine-reservoir comparison against a December-2025 echo-sounder survey and recent
+official bathymetric curves, a water-level-substitution experiment showing SWOT
+altimetry reproduces gauge-based and field-truth storage, and an independent PlanetScope
+optical cross-sensor reconstruction; and (iii) an uncertainty and observability analysis
+linking reconstruction reliability to shoreline geometry and drawdown amplitude,
+released together with open-source code that makes the method and its limits usable in
+practice.

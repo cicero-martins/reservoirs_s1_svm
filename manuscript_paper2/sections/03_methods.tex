@@ -1,7 +1,7 @@
 \section{Methods}
 \label{sec:methods}
 
-\subsection{Waterline stacking to a bathymetric DEM}
+\subsection{Bathymetric reconstruction: DEM and scalar hypsometry}
 \label{sec:dem}
 Let $\{M_i\}$ be the Sentinel-1 binary water masks and $\{h_i\}$ their water levels,
 sorted ascending by $h_i$. Pixels wet in the smallest mask (the always-wet core) are
@@ -17,64 +17,71 @@ optical sensor (Section~\ref{sec:xsensor}). The DEM reconstructs only the
 drawdown-\emph{exposed} band $[\,\text{floor},\text{max}\,]$; the permanently wet
 deep zone is not observed.
 
-\subsection{Scalar hypsometry and storage}
-\label{sec:scalar}
-As an alternative that needs only the area series, each SAR area is paired with the
-nearest water level (within $\pm10$ days) and a power-law hypsometry is fitted,
+As an alternative that needs only the area series, each SAR area is instead paired
+with the nearest water level (within $\pm10$ days) and a power-law hypsometry is
+fitted,
 \begin{equation}
   A(h) = a\,(h-h_0)^{b},
 \label{eq:powerlaw}
 \end{equation}
-which is integrated to storage $V(h)=\int A\,\mathrm{d}h$. The DEM (Section~\ref{sec:dem})
-gives the spatial bathymetry and change maps; the scalar fit gives a robust storage
-curve where the observed level range is wide. Both see only the exposed band.
+which is integrated to storage $V(h)=\int A\,\mathrm{d}h$. The DEM gives the spatial
+bathymetry and change maps; the scalar fit gives a robust storage curve where the
+observed level range is wide. Both see only the exposed band.
 
-\subsection{Water-level-substitution ladder}
-\label{sec:ladder}
-To test a fully remote pipeline we keep the SAR area and the reconstruction fixed and
-swap the water-level source between two independent tiers: the in-situ \emph{gauge}
-and \emph{SWOT} altimetry. For each source we fit Eq.~\eqref{eq:powerlaw} and
-integrate over the common observed band, then compare the resulting storage to each
-other and to the field/survey truth. DAHITI is reported as a reprocessed-SWOT
-cross-check (Section~\ref{sec:results}), not as an independent tier.
-
-\subsection{Cross-sensor validation with PlanetScope optical masks}
+\subsection{Independent validation of the water-level and mask inputs}
 \label{sec:xsensor}
+Two further experiments test whether the reconstruction is robust to substituting
+each of its two inputs in turn: the water level, and the water mask.
+
+Keeping the SAR area and the reconstruction fixed, we swap the water-level source
+between two independent tiers, the in-situ \emph{gauge} and \emph{SWOT} altimetry,
+refit Eq.~\eqref{eq:powerlaw} for each, and integrate over the common observed band
+to compare the resulting storage to each other and to the field/survey truth.
+
 Because the reconstruction (Section~\ref{sec:dem}) is agnostic to the mask source, we
 independently rebuild the bathymetry from PlanetScope 3~m optical water masks and
 compare it, pixel-wise and in AEV, to the Sentinel-1 reconstruction over the four
 reservoirs PlanetScope covers (2024--2025). Water is delineated per scene by a
 normalised difference water index,
 $\mathrm{NDWI}=(\rho_\text{green}-\rho_\text{NIR})/(\rho_\text{green}+\rho_\text{NIR})$,
-thresholded per scene, and the same water levels label the resulting waterlines ---
-the in-situ gauge by default, or SWOT where the gauge is degenerate over the optical
-window (a single source per site, to avoid datum mixing; the choice is made
-automatically from the gauge's interquartile range over the mask dates, $<0.5$~m
-indicating a stuck sensor). This provides an independent, higher-resolution optical check and, for
-\emph{Ancipa} and \emph{Pozzillo} (which lack a modern bathymetric survey), an
-independent near-truth. Because optical detection carries error modes orthogonal to
-SAR (surface algae and macrophytes, turbidity, sun glint), agreement between the two
-reconstructions is strong evidence that neither is dominated by sensor-specific error.
+thresholded per scene. As with the water-level ladder above, each site is labelled
+from one of two deliberately independent tiers --- the in-situ gauge by default, or
+SWOT where the gauge is degenerate over the optical window (chosen automatically from
+the gauge's interquartile range over the mask dates, $<0.5$~m indicating a stuck
+sensor) --- to avoid mixing datums within a single reconstruction. This provides an
+independent, higher-resolution optical check and, for \emph{Ancipa} and
+\emph{Pozzillo} (which lack a modern bathymetric survey), an independent near-truth.
+Because optical detection carries error modes orthogonal to SAR (surface algae and
+macrophytes, turbidity, sun glint), agreement between the two reconstructions is
+strong evidence that neither is dominated by sensor-specific error.
 
-\subsection{Capacity change: observable band versus total}
-\label{sec:bandtotal}
+\subsection{Capacity-change metrics and uncertainty}
+\label{sec:uncertainty}
 Capacity change relative to the design curve is quantified two ways: \emph{band}
 (relative to the DEM floor, i.e.\ the SAR-observable exposed zone, the fair
 comparison against survey truth) and \emph{total} (the full design curve, including
 the deep zone below the floor that SAR cannot see). Because sedimentation concentrates
 in the deep zone, the SAR band change is a validated \emph{lower bound} on total loss.
 
-\subsection{Uncertainty and bias}
-\label{sec:uncertainty}
 The one field-validated reservoir (Garcia) yields a normalised, elevation-dependent
-bias model $\mathrm{bias}(f)$, $f=(z-\text{floor})/(\text{max}-\text{floor})$, which
-is applied to the other reservoirs and propagated through a coherent Monte-Carlo to
-put a confidence interval on the storage estimate. Because per-pixel error averages
-out at reservoir scale, the dominant uncertainty is the systematic bias-transfer term.
+bias model $\mathrm{bias}(f)$, $f=(z-\text{floor})/(\text{max}-\text{floor})$, applied
+to the other reservoirs. Two distinct uncertainties follow from it. The first is
+calibration uncertainty in the bias model itself: we draw 500 samples of its two
+regression coefficients from their joint covariance and propagate each through the
+band-capacity-change calculation, giving a 5th--95th-percentile confidence interval
+that is narrow ($\pm0.6\%$) because it reflects only the fitted line's own
+uncertainty, not independent per-pixel noise. The second, larger, uncertainty is
+whether the bias model \emph{transfers} to other reservoirs at all: the RMS of the
+bias-corrected error against independent truth at Rosamarina and Poma (excluding the
+self-calibrated Garcia) is ${\approx}\pm10$ percentage points, the dominant term in
+the overall budget.
 
-\subsection{Interactive tool}
+\subsection{Implementation and code release}
 \label{sec:tool}
-The pipeline is released as an interactive application (Streamlit + Earth-Engine
-Python) that, for a selected reservoir, displays the reconstructed 2D/3D bathymetry,
-the AEV curves against design and survey references, the multi-period change map, and
-a downloadable DEM.
+The full pipeline --- Earth Engine mask export, water-level ingestion, DEM
+reconstruction, and AEV/storage integration --- is released as open-source Python
+code, together with a Streamlit application that displays, for a selected reservoir,
+the reconstructed 2D/3D bathymetry, the AEV curves against design and survey
+references, and the multi-period change map, and offers the DEM for download. The
+application currently runs locally from the released code rather than as a hosted
+service.

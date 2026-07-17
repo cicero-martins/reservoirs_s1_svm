@@ -268,7 +268,7 @@ def slide3_dem():
     # uniformly, and the terrain's true relief here vastly exceeds the basin's, so
     # left alone it swamps the basin and reads as "tall" on its own account).
     TERRAIN_EXAG = 0.12   # compress the true ~500 m surrounding relief to a subdued backdrop
-    BASIN_EXAG = 3.0      # the lake bed should read as deep, the hills as a flat-ish backdrop
+    BASIN_EXAG = 0.5      # the lake bed should read as deep, the hills as a flat-ish backdrop
     z = np.where(a <= nmax, nmax - (nmax - a) * BASIN_EXAG, nmax + (a - nmax) * TERRAIN_EXAG)
     zlo_disp, zhi_disp = float(np.nanmin(z)), float(np.nanmax(z))
     # the transform is continuous at a==nmax (both branches evaluate to nmax there),

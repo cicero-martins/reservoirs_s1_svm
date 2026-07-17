@@ -100,12 +100,12 @@ INTRO_SLIDES = [
             "This application accompanies Martins Jr. et al. (in preparation), "
             "*\"Fully remote-sensing bathymetry and storage of reservoirs from Sentinel-1 "
             "waterlines and SWOT altimetry\"* — a method for reconstructing reservoir "
-            "**bathymetry** — the submerged terrain — from satellite observations alone, "
-            "without echo-sounder survey or field access.",
-            "Input: Sentinel-1 SAR acquisitions per reservoir, sampled across the observed "
-            "range between drought and flood periods, combined with SWOT satellite altimetry "
-            "for water level; all-weather, day/night SAR acquisition keeps the record dense "
-            "even in persistently cloudy regions.",
+            "**bathymetry** from satellite observations alone, without echo-sounder survey "
+            "or field access.",
+            "The input combines Sentinel-1 SAR acquisitions per reservoir, sampled across "
+            "the observed range between drought and flood periods, with SWOT satellite "
+            "altimetry for water level. All-weather, day/night SAR acquisition keeps the "
+            "record dense even in persistently cloudy regions.",
         ],
     ),
     dict(

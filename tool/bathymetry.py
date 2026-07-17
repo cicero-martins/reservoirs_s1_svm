@@ -152,6 +152,28 @@ def design_curve(name):
             interp1d(df.quota, df.vol, bounds_error=False, fill_value='extrapolate'))
 
 
+def deepzone_split(name, period='B'):
+    """Split the design curve's total volume into the SAR-observable band [floor, top]
+    and the deep zone below the floor, using the design curve's own low-elevation
+    branch as the deep-zone anchor (every core reservoir's curve is tabulated down to
+    at or near zero volume, i.e. its own lowest surveyed point is effectively the
+    pre-impoundment valley floor -- no separate terrain source is needed). Returns
+    dict(floor, deep_min, band_pct, deepzone_pct) or None if the design curve or DEM
+    is unavailable. Estimate, not a measurement: only the band is SAR-observed."""
+    dc = design_curve(name)
+    d = load_dem(name, period)
+    if dc is None or d is None:
+        return None
+    _, vol_i = dc
+    v_floor = float(vol_i(d['floor']))
+    v_top = float(vol_i(d['top']))
+    if v_top <= 0:
+        return None
+    band_pct = 100 * (v_top - v_floor) / v_top
+    return dict(floor=d['floor'], deep_min=float(vol_i.x.min()),
+                band_pct=band_pct, deepzone_pct=100 - band_pct)
+
+
 def updated_curve(name):
     """Return (area_ha_interp_or_None, vol_Mm3_interp) for the updated survey, or None."""
     kind = RESERVOIRS[name]['updated']

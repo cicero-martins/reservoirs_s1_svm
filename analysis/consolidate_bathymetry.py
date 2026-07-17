@@ -14,7 +14,7 @@ band [floor_B, max_B], so capacity change is measured TWO ways:
 The gap between them is the deep-zone sedimentation the SAR misses → the method
 gives a validated LOWER BOUND on total capacity loss.
 
-Sign convention: change_pct < 0  ==>  less storage than the 1960s design.
+Sign convention: change_pct < 0  ==>  less storage than the design.
 
 Independent references (from the E4 outputs): Garcia echosounder survey,
 Poma updated centimetric curve, Rosamarina 2025 survey curve.
@@ -91,9 +91,19 @@ for name, cfg in RES.items():
 
     a_dem, v_dem = aev_from_dem(dem, mask, levels)
     des_vol = load_design_vol(name, cfg)
-    vdes_rel_max = float(des_vol(top) - des_vol(floor))
+    vdes_floor_abs = float(des_vol(floor))
     vdes_abs_max = float(des_vol(top))
+    vdes_rel_max = vdes_abs_max - vdes_floor_abs
     vdem_rel_max = float(v_dem[-1])
+
+    # Observability envelope: what fraction of the design curve's TOTAL volume (down to
+    # its own lowest tabulated point, which for every core reservoir is at or near true
+    # zero storage, i.e. the pre-impoundment valley floor) falls inside the SAR-observable
+    # band [floor, top] versus the invisible deep zone below floor. Ancipa's curve bottoms
+    # out at a small residual area (17.8 ha, not exactly 0) rather than a true zero point,
+    # so its deep-zone share is a slight underestimate.
+    band_observable_pct = 100 * vdes_rel_max / vdes_abs_max if vdes_abs_max else np.nan
+    deepzone_pct = 100 - band_observable_pct if vdes_abs_max else np.nan
 
     # SAR-detected change vs design, BAND-relative (the SAR-observable capacity change)
     sar_band = (vdem_rel_max - vdes_rel_max) / vdes_rel_max * 100 if vdes_rel_max else np.nan
@@ -122,6 +132,7 @@ for name, cfg in RES.items():
         'reservoir': name, 'ap_m': cfg['ap'],
         'floor_m': round(floor, 2), 'max_m': round(top, 2), 'obs_range_m': round(top - floor, 1),
         'vol_dem_rel_Mm3': round(vdem_rel_max, 2), 'vol_design_rel_Mm3': round(vdes_rel_max, 2),
+        'band_observable_pct': round(band_observable_pct, 1), 'deepzone_pct': round(deepzone_pct, 1),
         'sar_change_band_pct':   round(sar_band, 1),
         'truth_change_band_pct': None if np.isnan(truth_band)  else round(truth_band, 1),
         'truth_change_total_pct':None if np.isnan(truth_total) else round(truth_total, 1),
@@ -159,7 +170,7 @@ for i, r in df.iterrows():
 ax.plot([], [], 'D', color='#8a2d04', ms=8, label='Total loss incl. deep zone (full curve)')
 ax.set_xticks(x)
 ax.set_xticklabels([f'{r.reservoir}\nA/P {r.ap_m:.0f}' for _, r in df.iterrows()], fontsize=9)
-ax.set_ylabel('Capacity change vs 1960s design (%)   (negative = loss)')
+ax.set_ylabel('Capacity change vs design (%)   (negative = loss)')
 ax.set_title('Paper 2 — SAR-detected reservoir capacity loss and independent validation\n'
              '5 core Sicilian reservoirs, Period B (2022–2026), ordered by A/P')
 ax.legend(loc='upper right', fontsize=8)

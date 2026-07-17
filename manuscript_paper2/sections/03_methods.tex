@@ -62,6 +62,12 @@ Capacity change relative to the design curve is quantified two ways: \emph{band}
 comparison against survey truth) and \emph{total} (the full design curve, including
 the deep zone below the floor that SAR cannot see). Because sedimentation concentrates
 in the deep zone, the SAR band change is a validated \emph{lower bound} on total loss.
+We additionally quantify how much of each reservoir's total capacity the exposed band
+represents, using the design curve's own volume at the DEM floor as the deep-zone
+estimate: every core reservoir's design curve is tabulated down to at or near zero
+volume, i.e.\ its own lowest surveyed point is effectively the pre-impoundment valley
+floor, so this estimate is read directly from data already in use rather than requiring
+a new terrain source.
 
 The one field-validated reservoir (Garcia) yields a normalised, elevation-dependent
 bias model $\mathrm{bias}(f)$, $f=(z-\text{floor})/(\text{max}-\text{floor})$, applied

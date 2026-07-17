@@ -189,13 +189,23 @@ with tabaev:
     a_dem, v_dem = bt.aev(dem['arr'], dem['mask'], levels, dem['pixel_ha'])
     dc = bt.design_curve(name)
     uc = bt.updated_curve(name)
+    dz = bt.deepzone_split(name, period)
 
     colA, colV = st.columns(2)
     figA = go.Figure()
     figA.add_scatter(x=a_dem, y=levels, name=dem_label, line=dict(color='#1565c0', width=3))
     if dc:
-        figA.add_scatter(x=dc[0](levels), y=levels, name='Design (1960s)',
+        figA.add_scatter(x=dc[0](levels), y=levels, name='Design curve',
                          line=dict(color='black', dash='dash'))
+        if dz and dz['deep_min'] < dem['floor']:
+            # Symbolic deep-zone extension: the design curve's OWN low-elevation branch
+            # (not a separate terrain source, not a historical minimum level) down to its
+            # lowest surveyed point -- an extrapolation, clearly dashed/greyed, not a
+            # SAR observation.
+            deep_levels = np.linspace(dz['deep_min'], dem['floor'], 40)
+            figA.add_scatter(x=dc[0](deep_levels), y=deep_levels,
+                             name='Design curve (extrapolated, unobserved deep zone)',
+                             line=dict(color='#b5843f', dash='dot', width=2))
     if uc and cfg['updated'] in ('poma_new', 'rosamarina_2025'):
         figA.add_scatter(x=uc[0](levels), y=levels, name='Updated survey',
                          line=dict(color='#2e7d32', width=2))
@@ -206,9 +216,16 @@ with tabaev:
     figV = go.Figure()
     figV.add_scatter(x=v_dem, y=levels, name=dem_label, line=dict(color='#1565c0', width=3))
     if dc:
-        v_des_rel = dc[1](levels) - float(dc[1](dem['floor']))
-        figV.add_scatter(x=v_des_rel, y=levels, name='Design (rel.)',
+        floor_vol = float(dc[1](dem['floor']))
+        v_des_rel = dc[1](levels) - floor_vol
+        figV.add_scatter(x=v_des_rel, y=levels, name='Design curve (rel.)',
                          line=dict(color='black', dash='dash'))
+        if dz and dz['deep_min'] < dem['floor']:
+            deep_levels = np.linspace(dz['deep_min'], dem['floor'], 40)
+            v_deep_rel = dc[1](deep_levels) - floor_vol   # negative: volume below the floor
+            figV.add_scatter(x=v_deep_rel, y=deep_levels,
+                             name='Design curve (extrapolated, unobserved deep zone)',
+                             line=dict(color='#b5843f', dash='dot', width=2))
     if uc and cfg['updated'] in ('poma_new', 'rosamarina_2025'):
         v_upd_rel = uc[1](levels) - float(uc[1](dem['floor']))
         figV.add_scatter(x=v_upd_rel, y=levels, name='Updated survey (rel.)',
@@ -219,6 +236,11 @@ with tabaev:
     if dc is None:
         st.info('Design/updated curves are external files not found on this machine — '
                 'showing the SAR DEM only. (Bundle the curves for deployment.)')
+    elif dz:
+        st.caption(f"Observable band ≈ **{dz['band_pct']:.0f}%** of this reservoir's total "
+                   f"design-curve volume; the dotted extension below the DEM floor "
+                   f"({dz['deepzone_pct']:.0f}%) is an estimate from the design curve's own "
+                   f"low-elevation geometry, not a SAR observation.")
 
 with tabchg:
     chg = get_change(name)

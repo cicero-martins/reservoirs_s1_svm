@@ -12,12 +12,15 @@ reconstruction of an arbitrary global reservoir is future work (see project plan
 """
 
 import io
+import pathlib
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 from scipy.ndimage import distance_transform_edt, gaussian_filter
 
 import bathymetry as bt
+
+INTRO_DIR = pathlib.Path(__file__).resolve().parent / 'intro_assets'
 
 
 def _closed_surface(a):
@@ -87,13 +90,111 @@ def get_vrange(name):
     return bt.vertical_range(name)
 
 
+# ── Onboarding (3-slide intro, shown once per session) ──────────────────────────
+INTRO_SLIDES = [
+    dict(
+        title='Reservoir bathymetry from SAR and SWOT',
+        subtitle='Companion tool',
+        image=INTRO_DIR / 'sar_stack.gif',
+        body=[
+            "This application accompanies Martins Jr. et al. (in preparation), "
+            "*\"Fully remote-sensing bathymetry and storage of reservoirs from Sentinel-1 "
+            "waterlines and SWOT altimetry\"* — a method for reconstructing reservoir "
+            "**bathymetry** — the submerged terrain — from satellite observations alone, "
+            "without echo-sounder survey or field access.",
+            "Input: Sentinel-1 SAR acquisitions per reservoir, sampled across the observed "
+            "range between drought and flood periods, combined with SWOT satellite altimetry "
+            "for water level; all-weather, day/night SAR acquisition keeps the record dense "
+            "even in persistently cloudy regions.",
+        ],
+    ),
+    dict(
+        title='Method',
+        image=INTRO_DIR / 'waterlines_swot.gif',
+        body=[
+            "Each SAR scene is classified into water and non-water classes, delineating the "
+            "reservoir's instantaneous **shoreline**.",
+            "As the reservoir fills and drains, successive shorelines expose different "
+            "elevation bands of the submerged slope; stacking these observations, following "
+            "Schwatke et al. (2020), reconstructs a digital elevation model of the exposed "
+            "basin.",
+            "Each shoreline requires a co-located water-level estimate. Satellite altimetry "
+            "— **SWOT** and the DAHITI database — serves as the primary elevation source; "
+            "in-situ gauge records, where available and reliable, provide independent "
+            "validation.",
+        ],
+    ),
+    dict(
+        title='Results',
+        image=INTRO_DIR / 'dem_result.gif',
+        body=[
+            "Across 9 Sicilian reservoirs, reconstructed capacity change is consistent with "
+            "independent references — echo-sounder survey, updated design curves, "
+            "PlanetScope optical imagery, and SWOT altimetry — within a few percent bias.",
+            "Because the satellite record only ever observes the drawdown-exposed band, each "
+            "reconstruction covers a **fraction of total design volume**: 71–93% across the "
+            "5 core reservoirs (mean ≈ 80%), depending on drawdown amplitude and basin slope.",
+            "The residual deep pool below the lowest observed waterline is extrapolated from "
+            "the design curve's low-elevation branch and displayed as a distinct, dashed "
+            "**estimate** — not a measurement.",
+        ],
+    ),
+]
+
+
+def _intro_wizard():
+    """Renders the 3-slide onboarding sequence; returns True while it is still showing
+    (caller should st.stop() after it) and False once the user has entered the tool."""
+    if st.session_state.get('intro_done'):
+        return False
+    step = st.session_state.get('intro_step', 0)
+    n = len(INTRO_SLIDES)
+    s = INTRO_SLIDES[step]
+
+    _, skip_col = st.columns([5, 1])
+    with skip_col:
+        if st.button('Skip intro ›', key='intro_skip'):
+            st.session_state.intro_done = True
+            st.rerun()
+
+    img_col, txt_col = st.columns([1, 1], gap='large')
+    with img_col:
+        st.image(str(s['image']), use_container_width=True)
+    with txt_col:
+        st.markdown(f"## {s['title']}")
+        if s.get('subtitle'):
+            st.caption(s['subtitle'])
+        for p in s['body']:
+            st.markdown(p)
+        st.progress((step + 1) / n, text=f'Step {step + 1} of {n}')
+        st.write('')
+        nav_l, nav_r = st.columns([1, 1])
+        with nav_l:
+            if step > 0 and st.button('‹ Back', key='intro_back'):
+                st.session_state.intro_step = step - 1
+                st.rerun()
+        with nav_r:
+            label = 'Enter the tool →' if step == n - 1 else 'Continue →'
+            if st.button(label, key='intro_next', type='primary'):
+                if step == n - 1:
+                    st.session_state.intro_done = True
+                else:
+                    st.session_state.intro_step = step + 1
+                st.rerun()
+    return True
+
+
+if _intro_wizard():
+    st.stop()
+
+
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 st.sidebar.title('SAR Bathymetry Explorer')
 st.sidebar.caption('SAR-waterline reservoir bathymetry · Sicily')
 name = st.sidebar.selectbox('Reservoir', list(bt.RESERVOIRS.keys()), index=3)
 cfg = bt.RESERVOIRS[name]
 PLABEL = {'B': 'B — 2022–2026', 'A': 'A — 2014–2016', 'Planet': 'PlanetScope (optical, 3 m)'}
-periods = ['B', 'A'] + (['Planet'] if bt.has_period(name, 'Planet') else [])
+periods = ['B', 'A']  # PlanetScope reconstruction hidden for now (confusing in demos)
 period = st.sidebar.radio('Reconstruction', periods,
                           format_func=lambda p: PLABEL[p], horizontal=True)
 downsample = st.sidebar.slider('3D detail (downsample factor)', 1, 6, 3,
@@ -206,8 +307,9 @@ with tabaev:
             figA.add_scatter(x=dc[0](deep_levels), y=deep_levels,
                              name='Design curve (extrapolated, unobserved deep zone)',
                              line=dict(color='#b5843f', dash='dot', width=2))
-    if uc and cfg['updated'] in ('poma_new', 'rosamarina_2025'):
-        figA.add_scatter(x=uc[0](levels), y=levels, name='Updated survey',
+    if uc and cfg['updated'] in ('poma_new', 'rosamarina_2025', 'garcia_survey'):
+        uc_label = 'Echo-sounder survey' if cfg['updated'] == 'garcia_survey' else 'Updated survey'
+        figA.add_scatter(x=uc[0](levels), y=levels, name=uc_label,
                          line=dict(color='#2e7d32', width=2))
     figA.update_layout(title='Area–elevation', xaxis_title='Area (ha)',
                        yaxis_title='Water level (m ASL)', height=460, margin=dict(t=40))
@@ -226,9 +328,10 @@ with tabaev:
             figV.add_scatter(x=v_deep_rel, y=deep_levels,
                              name='Design curve (extrapolated, unobserved deep zone)',
                              line=dict(color='#b5843f', dash='dot', width=2))
-    if uc and cfg['updated'] in ('poma_new', 'rosamarina_2025'):
+    if uc and cfg['updated'] in ('poma_new', 'rosamarina_2025', 'garcia_survey'):
+        uc_label = 'Echo-sounder survey (rel.)' if cfg['updated'] == 'garcia_survey' else 'Updated survey (rel.)'
         v_upd_rel = uc[1](levels) - float(uc[1](dem['floor']))
-        figV.add_scatter(x=v_upd_rel, y=levels, name='Updated survey (rel.)',
+        figV.add_scatter(x=v_upd_rel, y=levels, name=uc_label,
                          line=dict(color='#2e7d32', width=2))
     figV.update_layout(title='Volume above floor', xaxis_title='Volume (Mm³)',
                        yaxis_title='Water level (m ASL)', height=460, margin=dict(t=40))

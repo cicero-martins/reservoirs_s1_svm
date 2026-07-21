@@ -86,10 +86,10 @@ def select_best_orbit(col, aoi):
     def with_stats(img):
         mean_angle = img.select('angle').reduceRegion(
             reducer=ee.Reducer.mean(), geometry=aoi, scale=100,
-            maxPixels=1e7, bestEffort=True).getNumber('angle')
+            maxPixels=1e7, bestEffort=True, tileScale=4).getNumber('angle')
         pct = (img.select('VV').mask().multiply(ee.Image.pixelArea())
                .reduceRegion(reducer=ee.Reducer.sum(), geometry=aoi,
-                             scale=100, maxPixels=1e7, bestEffort=True)
+                             scale=100, maxPixels=1e7, bestEffort=True, tileScale=4)
                .getNumber('VV').divide(aoi.area(1)).multiply(100))
         return img.set({
             '_relOrbit': img.getNumber('relativeOrbitNumber_start'),
@@ -241,6 +241,17 @@ def classify_image(img, svm, lake_poly):
     return filled.updateMask(kept_mask).rename('WaterCleaned')
 
 
+# Both reservoirs' best orbit was already independently confirmed (angle-based
+# select_best_orbit, run separately for each): Ancipa n=571, Pozzillo n=572, both
+# orbit 117 / ASCENDING. Filtering directly to it (a plain, cheap ee.Filter.eq, no
+# reduceRegion) instead of re-running select_best_orbit skips the expensive
+# per-image angle/coverage scoring entirely -- which is what was hitting "User
+# memory limit exceeded" for Pozzillo (AOI ~706 ha vs Ancipa's ~126 ha, over the
+# same ~1708-image raw collection).
+CONFIRMED_ORBIT = 117
+CONFIRMED_PASS = 'ASCENDING'
+
+
 def process_reservoir(name, hylak_id, dry_run=False):
     lake_poly = get_lake_poly(hylak_id)
     aoi = lake_poly.buffer(100)
@@ -251,13 +262,9 @@ def process_reservoir(name, hylak_id, dry_run=False):
         .filter(ee.Filter.eq('resolution_meters', 10))
         .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
         .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH')))
-    best_raw = select_best_orbit(s1_raw, aoi)
-    # single combined round-trip (was 3 separate .getInfo() calls -> hit Pozzillo's
-    # larger AOI memory limit); also drops the largely-diagnostic float(angle) reduce.
-    diag = ee.Dictionary({
-        'n': best_raw.size(),
-        'orbit': ee.Number(best_raw.first().get('relativeOrbitNumber_start')),
-    }).getInfo()
+    best_raw = s1_raw.filter(ee.Filter.eq('relativeOrbitNumber_start', CONFIRMED_ORBIT)) \
+                     .filter(ee.Filter.eq('orbitProperties_pass', CONFIRMED_PASS))
+    diag = {'n': best_raw.size().getInfo(), 'orbit': CONFIRMED_ORBIT}
     print(f"{name}: best orbit = {diag['orbit']}  n={diag['n']}")
 
     print(f'  {name}: computing quick Otsu area series for date stratification...')
@@ -318,7 +325,7 @@ def process_reservoir(name, hylak_id, dry_run=False):
         )
         task.start()
         submitted += 1
-    print(f'  {name}: submitted {submitted} export tasks (orbit {orbit_num})')
+    print(f"  {name}: submitted {submitted} export tasks (orbit {diag['orbit']})")
     return submitted
 
 

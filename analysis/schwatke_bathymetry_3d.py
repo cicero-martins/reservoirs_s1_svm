@@ -180,6 +180,18 @@ CONFIGS = {
             'bias_corr':  0.0,  # unvalidated
         },
     },
+    'Nicoletti': {
+        'gauge_csv':    GAUGE_DIR / 'nicoletti_wl.csv',
+        'gauge_min':    370.0,
+        'sar_csv':      REPO / 'raw_data' / 'exportSicilyExtended' / 'GEE_SicilyExtended_VVotsu' / 'SAR_area_Nicoletti.csv',
+        'h0_bound_lo':  355.0,
+        'boletin_cfg':  {
+            'cod':        'dig-13',
+            'curve_xls':  CURVE_DIR / 'Nicoletti.xls',
+            'curve_cols': ('quota', 'area_km2', 'area_ha', 'vol_Mm3'),
+            'bias_corr':  0.0,  # unvalidated
+        },
+    },
     'Garcia': {
         'gauge_csv':    GAUGE_DIR / 'garcia_idrometro_radar.csv',
         'gauge_min':    170.0,
@@ -470,8 +482,12 @@ def phase1():
                         wl_m   = window.iloc[closest]
                         source = 'gauge'
 
-                # Period A: try boletin V->h before model inversion (independent source)
-                if np.isnan(wl_m) and period == 'A' and len(boletin) > 0:
+                # Try boletin V->h before model inversion (independent source). Used for
+                # both periods: Period A always lacks a gauge, and a reservoir's gauge can
+                # also start mid-way through Period B (e.g. Nicoletti, gauge from 2023-11),
+                # leaving earlier B-period dates with neither a gauge reading nor enough
+                # gauge-matched pairs to fit the power-law model at all.
+                if np.isnan(wl_m) and len(boletin) > 0:
                     win_b = boletin.loc[
                         (boletin.index >= dt - pd.Timedelta(days=15)) &
                         (boletin.index <= dt + pd.Timedelta(days=15))

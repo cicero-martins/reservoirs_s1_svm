@@ -1,21 +1,39 @@
 \section{Methods}
 \label{sec:methods}
 
+\subsection{Validation of the SAR area and water-level inputs}
+\label{sec:inputvalid}
+The reconstruction below rests on two remotely sensed inputs, and both are validated
+before use rather than assumed. Sentinel-1 water-surface area comes from the
+scene-adaptive classifier of \citet{PaperOne}, whose reliability against independent
+truth, and its dependence on shoreline area-to-perimeter ratio (A/P), is established
+there; we do not re-derive it here, only apply it (Section~\ref{sec:data}).
+
+The water level is the other required input, and where a gauge is unavailable it must
+itself be remotely sensed. We test this substitution directly: keeping the SAR area
+fixed, we pair it with the in-situ \emph{gauge} and, separately, with \emph{SWOT}
+altimetry, fit the power-law hypsometry of Eq.~\eqref{eq:powerlaw} to each, and compare
+the resulting water levels and integrated storage to each other and to field/survey
+truth. Because SWOT's wide swath observes a reservoir regardless of ground track,
+whereas nadir altimetry only reaches the reservoirs a track happens to cross, this
+validates the water-level substitution that later lets the whole pipeline run without
+either a gauge or an altimetry ground track.
+
 \subsection{Bathymetric reconstruction: DEM and scalar hypsometry}
 \label{sec:dem}
-Let $\{M_i\}$ be the Sentinel-1 binary water masks and $\{h_i\}$ their water levels,
-sorted ascending by $h_i$. Pixels wet in the smallest mask (the always-wet core) are
-assigned the lowest level $h_0$. A pixel that first becomes wet between consecutive
-levels is a shoreline exposed in that increment and is assigned the mid-level
-$(h_{i-1}+h_i)/2$. The resulting elevation field is closed over the union footprint,
-interior gaps are filled by linear interpolation (\texttt{scipy.griddata}), and the
-DEM is smoothed with a Gaussian filter ($\sigma=2$ px, $=20$~m). This adapts
-\citet{Schwatke2020} to Sentinel-1 waterlines. The procedure is agnostic to the mask
-source: any sequence of binary water masks with associated water levels stacks
-identically, which we exploit to cross-validate the reconstruction with an independent
-optical sensor (Section~\ref{sec:xsensor}). The DEM reconstructs only the
-drawdown-\emph{exposed} band $[\,\text{floor},\text{max}\,]$; the permanently wet
-deep zone is not observed.
+With both inputs validated, the reconstruction follows. Let $\{M_i\}$ be the Sentinel-1
+binary water masks and $\{h_i\}$ their water levels, sorted ascending by $h_i$. Pixels
+wet in the smallest mask (the always-wet core) are assigned the lowest level $h_0$. A
+pixel that first becomes wet between consecutive levels is a shoreline exposed in that
+increment and is assigned the mid-level $(h_{i-1}+h_i)/2$. The resulting elevation field
+is closed over the union footprint, interior gaps are filled by linear interpolation
+(\texttt{scipy.griddata}), and the DEM is smoothed with a Gaussian filter ($\sigma=2$
+px, $=20$~m). This adapts \citet{Schwatke2020} to Sentinel-1 waterlines. The procedure
+is agnostic to the mask source: any sequence of binary water masks with associated
+water levels stacks identically, which we exploit to cross-validate the reconstruction
+with an independent optical sensor (Section~\ref{sec:xsensor}). The DEM reconstructs
+only the drawdown-\emph{exposed} band $[\,\text{floor},\text{max}\,]$; the permanently
+wet deep zone is not observed.
 
 As an alternative that needs only the area series, each SAR area is instead paired
 with the nearest water level (within $\pm10$ days) and a power-law hypsometry is
@@ -28,27 +46,26 @@ which is integrated to storage $V(h)=\int A\,\mathrm{d}h$. The DEM gives the spa
 bathymetry and change maps; the scalar fit gives a robust storage curve where the
 observed level range is wide. Both see only the exposed band.
 
-\subsection{Independent validation of the water-level and mask inputs}
+\subsection{Validation of the reconstructed curves and bathymetry}
 \label{sec:xsensor}
-Two further experiments test whether the reconstruction is robust to substituting
-each of its two inputs in turn: the water level, and the water mask.
-
-Keeping the SAR area and the reconstruction fixed, we swap the water-level source
-between two independent tiers, the in-situ \emph{gauge} and \emph{SWOT} altimetry,
-refit Eq.~\eqref{eq:powerlaw} for each, and integrate over the common observed band
-to compare the resulting storage to each other and to the field/survey truth.
+The reconstruction itself is then checked against two further independent references.
+The scalar AEV curve is compared, over the common observed range, to the most recent
+official area--volume curve for each reservoir, as an area RMSE; the DEM is compared to
+Garcia's echo-sounder survey, the one genuine field ground truth, as an elevation-wise
+bias and RMSE. Both comparisons are restricted to the SAR-observable band, the only
+part either reference and the reconstruction can be compared over.
 
 Because the reconstruction (Section~\ref{sec:dem}) is agnostic to the mask source, we
-independently rebuild the bathymetry from PlanetScope 3~m optical water masks and
+additionally rebuild the bathymetry from PlanetScope 3~m optical water masks and
 compare it, pixel-wise and in AEV, to the Sentinel-1 reconstruction over the four
 reservoirs PlanetScope covers (2024--2025). Water is delineated per scene by a
 normalised difference water index,
 $\mathrm{NDWI}=(\rho_\text{green}-\rho_\text{NIR})/(\rho_\text{green}+\rho_\text{NIR})$,
-thresholded per scene. As with the water-level ladder above, each site is labelled
-from one of two deliberately independent tiers --- the in-situ gauge by default, or
-SWOT where the gauge is degenerate over the optical window (chosen automatically from
-the gauge's interquartile range over the mask dates, $<0.5$~m indicating a stuck
-sensor) --- to avoid mixing datums within a single reconstruction. This provides an
+thresholded per scene. As with the water-level substitution above, each site is
+labelled from one of two deliberately independent tiers, the in-situ gauge by default,
+or SWOT where the gauge is degenerate over the optical window (chosen automatically
+from the gauge's interquartile range over the mask dates, $<0.5$~m indicating a stuck
+sensor), to avoid mixing datums within a single reconstruction. This provides an
 independent, higher-resolution optical check and, for \emph{Ancipa} and
 \emph{Pozzillo} (which lack a modern bathymetric survey), an independent near-truth.
 Because optical detection carries error modes orthogonal to SAR (surface algae and
@@ -80,14 +97,21 @@ uncertainty, not independent per-pixel noise. The second, larger, uncertainty is
 whether the bias model \emph{transfers} to other reservoirs at all: the RMS of the
 bias-corrected error against independent truth at Rosamarina and Poma (excluding the
 self-calibrated Garcia) is ${\approx}\pm10$ percentage points, the dominant term in
-the overall budget.
+the overall budget. This error, consistent with the shoreline-geometry dependence
+already established for the SAR area input itself, is what any operational use of the
+reconstruction must budget for.
 
-\subsection{Implementation and code release}
+\subsection{Application: updating the monitoring tool}
 \label{sec:tool}
-The full pipeline --- Earth Engine mask export, water-level ingestion, DEM
-reconstruction, and AEV/storage integration --- is released as open-source Python
-code, together with a Streamlit application that displays, for a selected reservoir,
-the reconstructed 2D/3D bathymetry, the AEV curves against design and survey
-references, and the multi-period change map, and offers the DEM for download. The
-application currently runs locally from the released code rather than as a hosted
-service.
+With the inputs, the reconstruction and its outputs all validated within a stated
+uncertainty, the resulting AEV curves replace the design curve, over the
+SAR-observable band, in a reservoir-monitoring tool. The full pipeline (Earth Engine
+mask export, water-level ingestion, DEM reconstruction, and AEV/storage integration)
+is released as open-source Python code, together with a Streamlit
+application that displays, for a selected reservoir, the reconstructed 2D/3D
+bathymetry, the AEV curves against design and survey references, and the multi-period
+change map, and offers the DEM for download. The application currently runs locally
+from the released code rather than as a hosted service. Because every step, from SAR
+classification to water-level substitution, runs on freely available satellite data,
+the same pipeline is directly transferable to any reservoir with a comparable
+drawdown-exposed range, without field access.

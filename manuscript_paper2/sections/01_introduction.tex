@@ -27,10 +27,12 @@ companion study shows can be predicted \emph{a priori} from shoreline geometry
 \citep{PaperOne}. Optical imagery remains just as fundamental, though, since its failure
 modes (sun glint, turbidity, algae) are different from SAR's, giving an independent
 perspective on the same water surface. \citet{Schwatke2020} combined optical water masks
-with altimetry to reconstruct lake hypsometry; an optical implementation of the same
-idea could in principle also reach reservoirs with neither an in-situ gauge nor an
-altimetry ground track. Here we contribute a SAR-based route to that same large
-population, adapting \citet{Schwatke2020}'s principle to Sentinel-1 waterlines.
+with altimetry to reconstruct lake hypsometry, an approach so far demonstrated only
+where cloud-free optical imagery and a nadir altimetry ground track coincide. This
+raises a specific question: can the same waterline-stacking principle be adapted to
+SAR-derived water masks and wide-swath altimetry, removing both constraints at once, and
+with what accuracy? We answer it here, adapting \citet{Schwatke2020} to Sentinel-1
+waterlines and SWOT.
 
 The idea we pursue is that the shoreline exposed as a reservoir draws down is a sequence
 of contour lines at known water levels: stacking Sentinel-1 waterlines ordered by level
@@ -45,10 +47,11 @@ track happens to cross; SWOT's wide swath observes a reservoir regardless of tra
 addressing precisely the ungauged, track-missed case that orbit geometry alone excludes
 from nadir altimetry.
 
-The contributions of this paper are: (i) a fully remote-sensing pipeline, adapting
-\citet{Schwatke2020} to reservoirs with neither an in-situ gauge nor an altimetry
-ground track, that reconstructs updated bathymetry and storage for the SAR-observable,
-drawdown-exposed band from Sentinel-1 waterlines and a remote water level; (ii) three
+The contributions of this paper are: (i) a SAR-based adaptation of
+\citet{Schwatke2020}'s waterline-stacking principle, substituting Sentinel-1 water masks
+for optical imagery and SWOT for nadir altimetry, that reconstructs updated bathymetry
+and storage for the SAR-observable, drawdown-exposed band without an in-situ gauge or
+altimetry ground track; (ii) three
 converging lines of validation evidence for that reconstruction's accuracy: a
 nine-reservoir comparison against a December-2025 echo-sounder survey and recent
 official bathymetric curves, a water-level-substitution experiment showing SWOT
@@ -60,9 +63,11 @@ practice.
 
 The remainder of the paper is organised as follows. Section~\ref{sec:data} describes
 the nine Sicilian reservoirs and the SAR, water-level, ground-truth and optical data
-used. Section~\ref{sec:methods} details the waterline-stacking reconstruction, the
-water-level- and mask-substitution validation experiments, the capacity-change and
-uncertainty quantification, and the released code. Section~\ref{sec:results} presents
+used. Section~\ref{sec:methods} first validates the SAR area and water-level inputs,
+then details the waterline-stacking reconstruction, validates the resulting curves and
+bathymetry against independent references, quantifies capacity-change and uncertainty,
+and describes how the validated curves are applied in the released code.
+Section~\ref{sec:results} presents
 the reconstructed bathymetry and capacity change, the field and reference-curve
 validation, the water-level-substitution and cross-sensor results, and the uncertainty
 budget. Section~\ref{sec:discussion} discusses the gauge-free, track-free implications,

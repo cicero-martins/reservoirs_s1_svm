@@ -115,7 +115,7 @@ INTRO_SLIDES = [
             "Each SAR scene is classified into water and non-water classes, delineating the "
             "reservoir's instantaneous **shoreline**.",
             "As the reservoir fills and drains, successive shorelines expose different "
-            "elevation bands of the submerged slope; stacking these observations, following "
+            "elevation bands of the submerged slope. Stacking these observations, adapting "
             "Schwatke et al. (2020), reconstructs a digital elevation model of the exposed "
             "basin.",
             "Each shoreline requires a co-located water-level estimate. Satellite altimetry "

@@ -3,19 +3,55 @@
 
 \subsection{Reservoirs}
 We study nine reservoirs in Sicily, Italy, spanning a shoreline area-to-perimeter
-ratio (A/P) of ${\approx}50$--$240$~m and a range of sizes and dam ages. Four have
-an independent modern ground truth and form the validation core: \emph{Garcia}
-(A/P~168~m; December-2025 echo-sounder survey), \emph{Poma} (190~m), \emph{Rosamarina}
-(187~m) and \emph{Arancio} (182~m), the latter three with recent official
-area--volume curves. \emph{Pozzillo} (240~m) and \emph{Ancipa} (90~m) extend the
-A/P range but lack a modern survey (Fig.~\ref{fig:studyarea}).
+ratio (A/P) of ${\approx}50$--$240$~m and a range of sizes and dam ages: \emph{Olivo},
+\emph{Ancipa}, \emph{Nicoletti}, \emph{Castello}, \emph{Garcia}, \emph{Arancio},
+\emph{Rosamarina}, \emph{Poma} and \emph{Pozzillo} (Fig.~\ref{fig:studyarea}). Coverage
+is heterogeneous by design rather than by omission: Table~\ref{tab:coverage} makes this
+explicit rather than leaving it implicit. \emph{Garcia} has a genuine field survey
+(December-2025 echo-sounder) and is our only true ground truth. Six reservoirs ---
+\emph{Poma}, \emph{Rosamarina}, \emph{Arancio}, \emph{Castello}, \emph{Olivo} and
+\emph{Nicoletti} --- have a recent official area--volume curve from the regional water
+authority, our secondary reference. \emph{Ancipa} and \emph{Pozzillo} lack any modern
+survey or curve and rely solely on the PlanetScope cross-sensor check
+(Section~\ref{sec:xsensor}), which also covers Poma and Rosamarina as a second,
+independent line of evidence.
+
+\begin{table}[htbp]\centering\small
+\caption{Validation coverage by reservoir, ordered by shoreline area-to-perimeter
+ratio (A/P) --- the reliability axis established in \citet{PaperOne}. Every reservoir
+has both a Period-A (2014--2016) and Period-B (2022--2026) SAR-reconstructed DEM;
+``ground truth'' distinguishes a controlled field survey from an official curve of
+undocumented survey methodology (Section~\ref{sec:data} below).}
+\label{tab:coverage}
+\begin{tabular}{lrll}
+\toprule
+Reservoir & A/P (m) & Independent reference & PlanetScope \\
+\midrule
+Olivo       &  50.7 & Updated curve            & --- \\
+Ancipa      &  90.5 & ---                       & \checkmark \\
+Nicoletti   & 119.7 & Updated curve\textsuperscript{a} & --- \\
+Castello    & 126.7 & Updated curve            & --- \\
+Garcia      & 167.7 & Echo-sounder survey (ground truth) & --- \\
+Arancio     & 182.2 & Updated curve            & --- \\
+Rosamarina  & 187.4 & Updated curve (2025 survey) & \checkmark \\
+Poma        & 190.1 & Updated curve            & \checkmark \\
+Pozzillo    & 240.5 & ---                       & \checkmark \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize\textsuperscript{a}Nicoletti's Period-A and Period-B water-level ranges
+share only a narrow overlap band (${\sim}12\%$ of the change-map pixels), so its
+capacity-change estimate is reported over a correspondingly narrow elevation window
+(Section~\ref{sec:results}).}
+\end{table}
 
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{study_area.png}
   \caption{The nine validated Sicilian reservoirs, coloured by shoreline
   area-to-perimeter class (the reliability axis). Star = independent survey ground
-  truth (Garcia echo-sounder; Poma, Rosamarina, Arancio survey curves); circle =
-  cross-sensor / scalar validation only.}
+  truth (Garcia echo-sounder; Poma, Rosamarina, Arancio, Castello, Olivo, Nicoletti
+  survey curves); circle = cross-sensor / scalar validation only (Ancipa, Pozzillo).}
   \label{fig:studyarea}
 \end{figure}
 
@@ -36,18 +72,34 @@ identifier, 2023-07 onward, quality-screened. We note (Section~\ref{sec:results}
 that for these small reservoirs DAHITI is itself SWOT-derived, so the independent
 comparison is gauge versus SWOT.
 
+Three of the nine gauges have a documented malfunction window during which the
+recorded level is not usable at face value: Rosamarina's sensor froze at two
+different flat readings (2024-01-24--2025-04-02 and 2025-07-24--2026-01-29);
+Garcia's sensor reads the dry lakebed floor (${\sim}176$~m) rather than the true
+water level whenever the reservoir empties below that elevation
+(2025-08-06--2026-02-03, confirmed against a real decline to ${\sim}172$~m in SWOT
+over the same window); and Nicoletti's sensor was inoperative until late 2025. In
+each case we substitute SWOT (Rosamarina, Garcia) or the design curve inverted from
+official monthly volumes (Nicoletti, and as a fallback elsewhere) for the affected
+dates rather than discarding them --- the water-level source actually used for every
+paired date is recorded and reported per reservoir (Section~\ref{sec:results}). This
+recurring, independently-confirmed gauge failure mode is itself an argument for
+pairing SAR imagery with a gauge-independent altimetry source rather than relying on
+in-situ networks alone.
+
 \subsection{Ground truth}
 Independent references are of two different kinds. Garcia has a genuine field survey
 --- a December-2025 single-beam echo-sounder / GPS survey ($\sim$194{,}000 XYZ points,
 EPSG:32633) whose acquisition we control and describe in full (Section~\ref{sec:res_garcia})
---- which we treat as \emph{ground truth}. Poma, Rosamarina (2025) and Arancio (2022)
-instead have updated centimetric area--volume curves supplied by the regional water
-authority: the best available reference for those reservoirs, but with a surveying
-methodology not documented to us, so we report them as a secondary reference rather
-than ground truth. The design AEV curves --- predating each reservoir's operational
-history, not uniformly from the 1960s --- serve as the pre-existing baseline against
-which the SAR-observable \emph{band} capacity change is compared; the corresponding
-\emph{total} change is not directly measured (Section~\ref{sec:uncertainty}).
+--- which we treat as \emph{ground truth}. Poma, Rosamarina (2025), Arancio (2022),
+Castello, Olivo and Nicoletti instead have updated centimetric area--volume curves
+supplied by the regional water authority: the best available reference for those
+reservoirs, but with a surveying methodology not documented to us, so we report them
+as a secondary reference rather than ground truth. The design AEV curves --- predating
+each reservoir's operational history, not uniformly from the 1960s --- serve as the
+pre-existing baseline against which the SAR-observable \emph{band} capacity change is
+compared; the corresponding \emph{total} change is not directly measured
+(Section~\ref{sec:uncertainty}).
 
 \subsection{PlanetScope optical imagery}
 For an independent cross-sensor check we use PlanetScope surface-reflectance imagery

@@ -103,6 +103,13 @@ CONFIGS = {
         'sar_csv':      SAR_DIR / 'SAR_area_Rosamarina.csv',
         'h0_bound_lo':  95.0,
         'dahiti_csv':   DAHITI_DIR / '42122_Rosamarina_wl.csv',
+        'swot_csv':     REPO / 'validation_data' / 'SWOT' / 'Rosamarina_swot.csv',
+        # 2026-07-21: the gauge has TWO separate multi-month stuck episodes, each at a
+        # different flat value (a recurring sensor fault, not a one-off): 2024-01-24 to
+        # 2025-04-02 (~145.71 m, the originally-known stuck period) and 2025-07-24 to
+        # 2026-01-29 (~145.13 m, found when the new windowed Period-B masks landed
+        # mostly inside it). SWOT is used in both.
+        'gauge_bad_window': [('2024-01-24', '2025-04-02'), ('2025-07-24', '2026-01-29')],
         'boletin_cfg':  {
             'cod':        'dig-22',
             'curve_xls':  CURVE_DIR / 'Rosamarina.xls',
@@ -115,7 +122,20 @@ CONFIGS = {
         'gauge_min':    330.0,
         'sar_csv':      SAR_DIR / 'SAR_area_Pozzillo.csv',
         'h0_bound_lo':  310.0,
-        # No boletin_cfg: V->h unreliable at low volumes (R²=-0.24); use model inversion
+        # boletin_cfg added 2026-07-21: the model-inversion fallback, fit on only 9
+        # B-period pairs all <=356 m, was being asked to extrapolate Period-A's large-area
+        # dates (360-590 ha) and inverting to 377-392 m -- ABOVE the dam's own design-curve
+        # max of 366.5 m (790 ha), a physically impossible level. The earlier "V->h
+        # unreliable at low volumes (R2=-0.24)" finding concerned LOW volumes specifically;
+        # these large-area dates sit well inside the design curve's own tabulated range
+        # (interpolation, not extrapolation), so boletin is a safer source for them than
+        # the wildly-extrapolated model. bias_corr unvalidated (no independent check yet).
+        'boletin_cfg':  {
+            'cod':        'dig-19',
+            'curve_xls':  CURVE_DIR / 'Pozzillo.xls',
+            'curve_cols': ('quota', 'area_km2', 'area_ha', 'vol_Mm3'),
+            'bias_corr':  0.0,
+        },
     },
     'Ancipa': {
         'gauge_csv':    GAUGE_DIR / 'ancipa_livello_secca.csv',
@@ -197,6 +217,13 @@ CONFIGS = {
         'gauge_min':    170.0,
         'sar_csv':      SAR_DIR / 'SAR_area_Garcia.csv',
         'h0_bound_lo':  155.0,
+        'swot_csv':     REPO / 'validation_data' / 'SWOT' / 'Garcia_swot.csv',
+        # 2026-07-21: the gauge reads a corrupted, noisy dry-lakebed floor
+        # (~176.0-176.5 m regardless of true level) from 2025-08-06 to 2026-02-03 --
+        # confirmed against SWOT, which shows a real decline to ~172 m over the same
+        # window; the gauge then recovers and tracks a real 176.5->189.8 m refill from
+        # 2026-02-04 on. Dates in this window use SWOT instead of the gauge.
+        'gauge_bad_window': ('2025-08-06', '2026-02-03'),
         # V->h validation vs AEGIS gauge: n=44, bias=-0.10 m, RMSE=1.04 m, R2=0.954
         # Bias essentially zero — no significant sedimentation signal in design curve.
         'boletin_cfg':  {
@@ -257,6 +284,43 @@ def load_dahiti(path: Path) -> pd.Series:
     df = df.dropna(subset=['_dt', '_wl'])
     daily = df.set_index('_dt')['_wl'].resample('D').mean().dropna()
     return daily.rename('wl_dahiti')
+
+
+def interp_wl(series: pd.Series, dt: pd.Timestamp, max_gap_days: float) -> float:
+    """Water level at dt, linearly interpolated by time between the nearest real
+    observation before and the nearest after dt (each within max_gap_days),
+    rather than snapped to whichever single observation happens to be closest.
+    Matters most for sparse sources like SWOT (~10-21 day revisit): nearest-
+    neighbour can be many days off dt, while the two real bracketing passes
+    let us estimate the level actually reached in between. Falls back to
+    whichever single side is available if only one exists in range."""
+    if len(series) == 0:
+        return np.nan
+    before = series.loc[series.index <= dt]
+    after  = series.loc[series.index > dt]
+    have_b = len(before) > 0 and (dt - before.index[-1]).days <= max_gap_days
+    have_a = len(after)  > 0 and (after.index[0] - dt).days <= max_gap_days
+    if have_b and have_a:
+        t0, t1 = before.index[-1], after.index[0]
+        v0, v1 = float(before.iloc[-1]), float(after.iloc[0])
+        frac = (dt - t0) / (t1 - t0)
+        return v0 + (v1 - v0) * frac
+    if have_b:
+        return float(before.iloc[-1])
+    if have_a:
+        return float(after.iloc[0])
+    return np.nan
+
+
+def load_swot(path: Path) -> pd.Series:
+    """Load SWOT LakeSP CSV -> daily mean WSE Series (date index), quality-screened."""
+    df = pd.read_csv(path, parse_dates=['datetime'])
+    df = df[df['quality_f'].isin([0, 1])]
+    df['_dt'] = df['datetime'].dt.tz_localize(None)
+    df['_wl'] = pd.to_numeric(df['wse'], errors='coerce')
+    df = df.dropna(subset=['_dt', '_wl'])
+    daily = df.set_index('_dt')['_wl'].resample('D').mean().dropna()
+    return daily.rename('wl_swot')
 
 
 def build_anchor_mask(res: str) -> np.ndarray | None:
@@ -434,6 +498,27 @@ def phase1():
             except Exception as e:
                 print(f'  DAHITI: UNAVAILABLE ({e})')
 
+        # Load SWOT if configured (used to replace the gauge inside a known bad window)
+        swot = pd.Series(dtype=float, name='wl_swot')
+        if 'swot_csv' in cfg and cfg['swot_csv'].exists():
+            try:
+                swot = load_swot(cfg['swot_csv'])
+                print(f'  SWOT: {swot.index.min().date()} to {swot.index.max().date()}'
+                      f'  ({len(swot)} obs)  WL {swot.min():.1f}-{swot.max():.1f} m')
+            except Exception as e:
+                print(f'  SWOT: UNAVAILABLE ({e})')
+        # gauge_bad_window: one (start, end) pair, or a list of them for reservoirs
+        # with more than one stuck episode (e.g. Rosamarina: two separate multi-month
+        # stuck runs at two different flat values -- a recurring sensor fault, not a
+        # one-off).
+        gauge_bad = cfg.get('gauge_bad_window')
+        bad_windows = []
+        if gauge_bad:
+            raw_windows = gauge_bad if isinstance(gauge_bad[0], (tuple, list)) else [gauge_bad]
+            for lo, hi in raw_windows:
+                bad_windows.append((pd.Timestamp(lo), pd.Timestamp(hi)))
+                print(f'  Gauge known-bad window: {lo} to {hi} (using SWOT there)')
+
         # Load boletin V->h (Period A independent WL source)
         try:
             boletin = load_boletin_wl(cfg)
@@ -468,19 +553,24 @@ def phase1():
                 area_ha  = entry['area_ha']
                 dt       = pd.Timestamp(date_str)
 
-                # Try gauge match within ±MAX_DT days (always first priority)
+                # Try gauge match within ±MAX_DT days (always first priority) -- unless
+                # this date falls inside a known gauge-bad window (e.g. Garcia's
+                # dry-lakebed floor reading), in which case skip the gauge entirely and
+                # try SWOT first instead.
                 wl_m   = np.nan
                 source = 'none'
-                if len(gauge) > 0:
-                    window = gauge.loc[
-                        (gauge.index >= dt - pd.Timedelta(days=MAX_DT)) &
-                        (gauge.index <= dt + pd.Timedelta(days=MAX_DT))
-                    ]
-                    if len(window) > 0:
-                        deltas  = np.abs((window.index - dt).total_seconds().values)
-                        closest = int(np.argmin(deltas))
-                        wl_m   = window.iloc[closest]
+                in_bad_window = any(lo <= dt <= hi for lo, hi in bad_windows)
+                if len(gauge) > 0 and not in_bad_window:
+                    val = interp_wl(gauge, dt, MAX_DT)
+                    if not np.isnan(val):
+                        wl_m   = val
                         source = 'gauge'
+
+                if np.isnan(wl_m) and in_bad_window and len(swot) > 0:
+                    val = interp_wl(swot, dt, MAX_DT)
+                    if not np.isnan(val):
+                        wl_m   = val
+                        source = 'swot'
 
                 # Try boletin V->h before model inversion (independent source). Used for
                 # both periods: Period A always lacks a gauge, and a reservoir's gauge can
@@ -541,11 +631,13 @@ def phase1():
         out_path = OUT_DIR / f'mask_wl_pairs_{res}.csv'
         out_df.to_csv(out_path, index=False, float_format='%.4f')
 
-        n_gauge = (out_df['wl_source'] == 'gauge').sum()
-        n_model = (out_df['wl_source'] == 'model').sum()
-        n_none  = (out_df['wl_source'] == 'none').sum()
+        n_gauge  = (out_df['wl_source'] == 'gauge').sum()
+        n_boletin= (out_df['wl_source'] == 'boletin').sum()
+        n_swot   = (out_df['wl_source'] == 'swot').sum()
+        n_model  = (out_df['wl_source'] == 'model').sum()
+        n_none   = (out_df['wl_source'] == 'none').sum()
         print(f'  Pairs saved → {out_path.name}'
-              f'  (gauge={n_gauge}, model={n_model}, none={n_none})')
+              f'  (gauge={n_gauge}, boletin={n_boletin}, swot={n_swot}, model={n_model}, none={n_none})')
         if len(out_df.dropna(subset=['wl_m'])) > 0:
             print(f'  WL range (all): '
                   f'{out_df["wl_m"].min():.2f}–{out_df["wl_m"].max():.2f} m')

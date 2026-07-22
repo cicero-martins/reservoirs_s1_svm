@@ -44,6 +44,16 @@ RES = {
     'Rosamarina': dict(design=(2, 3, 5, 'ha'),  ap=187.4, updated='rosamarina_2025'),
     'Poma':       dict(design=(2, 4, 5, 'ha'),  ap=190.1, updated='poma_new'),
     'Pozzillo':   dict(design=(2, 4, 5, 'ha'),  ap=240.5, updated=None),
+    # --- Fase 3 extended set (2026-07): design cols read straight off each
+    # reservoir's own design-curve xls (verified against schwatke_bathymetry_3d.py's
+    # boletin_cfg, same files); 'updated' points at a real official survey curve
+    # (NewCurves/, the same files schwatke_extended.py validates the scalar
+    # hypsometry against) that -- unlike Poma/Rosamarina's -- carries its own
+    # volume column directly (no area->volume integration needed).
+    'Arancio':    dict(design=(2, 3, 4, 'km2'), ap=182.2, updated='arancio_2022'),
+    'Castello':   dict(design=(2, 3, 4, 'km2'), ap=126.7, updated='castello_updated'),
+    'Olivo':      dict(design=(2, 4, 5, 'ha'),  ap=50.7,  updated='olivo_2021'),
+    'Nicoletti':  dict(design=(2, 4, 5, 'ha'),  ap=119.7, updated='nicoletti_updated'),
 }
 
 
@@ -64,6 +74,21 @@ def load_design_vol(name, cfg):
     return interp1d(df.quota, df.vol_Mm3, bounds_error=False, fill_value='extrapolate')
 
 
+NEW_CURVES = 'C:/Users/Unipa/Documents/GEE/Data/NewCurves/'
+
+# Fase 3 extended reservoirs: each official survey curve (from the same NewCurves/
+# files schwatke_extended.py validates the scalar hypsometry against) carries its
+# own volume column directly -- (pattern, sheet, quota_col, vol_col) per block, no
+# area->volume integration needed. Olivo has 4 duplicate quota/vol/area blocks
+# tiled across the sheet; concatenated below.
+EXT_CURVE_SPEC = {
+    'arancio_2022':     ('ARANCIO*', 'BASE', [(0, 1)]),
+    'castello_updated': ('CASTELLO*', 'Quota_V_S', [(5, 6)]),
+    'nicoletti_updated':('NICOLETTI*', 'Dati Aree-Volumi', [(0, 1)]),
+    'olivo_2021':       ('OLIVO*', 'Tabella centimetrica 2021', [(1, 2), (5, 6), (9, 10), (13, 14)]),
+}
+
+
 def load_updated_vol(kind):
     """Return interp h->absolute volume (Mm3) for the updated survey curve, or None."""
     if kind == 'poma_new':
@@ -75,6 +100,18 @@ def load_updated_vol(kind):
     if kind == 'rosamarina_2025':
         u = pd.read_csv(REPO / 'validation_data' / 'updated_curves' / 'rosamarina_2025.csv')
         return interp1d(u.quota_m, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate')
+    if kind in EXT_CURVE_SPEC:
+        pat, sheet, blocks = EXT_CURVE_SPEC[kind]
+        f = [h for h in glob.glob(NEW_CURVES + pat) if h.lower().endswith(('.xls', '.xlsx'))][0]
+        raw = pd.read_excel(f, sheet_name=sheet, header=None, engine='openpyxl')
+        parts = []
+        for qc, vc in blocks:
+            p = raw[[qc, vc]].apply(pd.to_numeric, errors='coerce').dropna()
+            p.columns = ['quota', 'vol_m3']
+            parts.append(p)
+        u = pd.concat(parts)
+        u = u[(u.quota > 50) & (u.quota < 1000)].sort_values('quota')
+        return interp1d(u.quota, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate')
     return None
 
 
@@ -100,9 +137,13 @@ for name, cfg in RES.items():
     # its own lowest tabulated point, which for every core reservoir is at or near true
     # zero storage, i.e. the pre-impoundment valley floor) falls inside the SAR-observable
     # band [floor, top] versus the invisible deep zone below floor. Ancipa's curve bottoms
-    # out at a small residual area (17.8 ha, not exactly 0) rather than a true zero point,
-    # so its deep-zone share is a slight underestimate.
-    band_observable_pct = 100 * vdes_rel_max / vdes_abs_max if vdes_abs_max else np.nan
+    # out at a small residual area (17.8 ha, not exactly 0) rather than a true zero point;
+    # its lowest tabulated quota also sits ABOVE the SAR-observed floor (898.46 m) after
+    # the corrected AOI/mask fix, so the raw ratio can exceed 100% (extrapolation below
+    # the curve's valid domain, not a real deep zone). Clip to [0, 100] and flag it.
+    band_observable_pct_raw = 100 * vdes_rel_max / vdes_abs_max if vdes_abs_max else np.nan
+    extrapolated_below_curve = bool(vdes_abs_max) and band_observable_pct_raw > 100
+    band_observable_pct = min(band_observable_pct_raw, 100.0) if vdes_abs_max else np.nan
     deepzone_pct = 100 - band_observable_pct if vdes_abs_max else np.nan
 
     # SAR-detected change vs design, BAND-relative (the SAR-observable capacity change)
@@ -120,7 +161,7 @@ for name, cfg in RES.items():
             s2 = pd.read_csv(st)
             r = s2.loc[s2['analysis'] == 'shallow_pixel', 'rmse_m']
             if len(r): field_rmse = float(r.iloc[0])
-    elif cfg['updated'] in ('poma_new', 'rosamarina_2025'):
+    elif cfg['updated'] in ('poma_new', 'rosamarina_2025') or cfg['updated'] in EXT_CURVE_SPEC:
         ref_lbl = '2025 survey' if cfg['updated'] == 'rosamarina_2025' else 'updated curve'
         upd_vol = load_updated_vol(cfg['updated'])
         vupd_rel_max = float(upd_vol(top) - upd_vol(floor))
@@ -133,6 +174,7 @@ for name, cfg in RES.items():
         'floor_m': round(floor, 2), 'max_m': round(top, 2), 'obs_range_m': round(top - floor, 1),
         'vol_dem_rel_Mm3': round(vdem_rel_max, 2), 'vol_design_rel_Mm3': round(vdes_rel_max, 2),
         'band_observable_pct': round(band_observable_pct, 1), 'deepzone_pct': round(deepzone_pct, 1),
+        'band_pct_capped': extrapolated_below_curve,
         'sar_change_band_pct':   round(sar_band, 1),
         'truth_change_band_pct': None if np.isnan(truth_band)  else round(truth_band, 1),
         'truth_change_total_pct':None if np.isnan(truth_total) else round(truth_total, 1),
@@ -172,7 +214,7 @@ ax.set_xticks(x)
 ax.set_xticklabels([f'{r.reservoir}\nA/P {r.ap_m:.0f}' for _, r in df.iterrows()], fontsize=9)
 ax.set_ylabel('Capacity change vs design (%)   (negative = loss)')
 ax.set_title('Paper 2 — SAR-detected reservoir capacity loss and independent validation\n'
-             '5 core Sicilian reservoirs, Period B (2022–2026), ordered by A/P')
+             'Nine Sicilian reservoirs, Period B (2022–2026), ordered by A/P')
 ax.legend(loc='upper right', fontsize=8)
 ax.grid(True, alpha=0.3, axis='y')
 fig.tight_layout()

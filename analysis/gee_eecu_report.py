@@ -216,7 +216,7 @@ if {'svm_dual', 'vv_otsu'}.issubset(piv.columns):
     import matplotlib.pyplot as plt
 
     OUT_PNG = Path('analysis/method_comparison_output/eecu_svm_vs_vv.png')
-    fig, ax = plt.subplots(figsize=(8, 7.5))
+    fig, ax = plt.subplots(figsize=(9, 8.5))
     cl, fl = hh[~hh['flag']], hh[hh['flag']]
     ax.scatter(cl['vv_otsu'], cl['svm_dual'], s=55, color='#1f77b4',
                edgecolors='white', linewidths=0.6, zorder=4, label='reservoir')
@@ -228,9 +228,10 @@ if {'svm_dual', 'vv_otsu'}.issubset(piv.columns):
     med = clean['ratio'].median()
     ax.plot([lo, hi], [lo * med, hi * med], color='#2ca02c', lw=1.3, alpha=0.8,
             zorder=3, label=f'median SVM/VV = {med:.2f}')
-    for name, r in cl.iterrows():
-        ax.annotate(name.replace('_', ' '), (r['vv_otsu'], r['svm_dual']),
-                    fontsize=5.5, xytext=(3, 2), textcoords='offset points', color='#555')
+    # No per-point labels here: with 76 reservoirs (only ~half in the 62-set
+    # registry, the rest Sicilian or cost-audit-only exploratory candidates) any
+    # labelling scheme reads as clutter on a plot this dense; the point is the
+    # overall below-1:1 pattern and the median line, not individual reservoirs.
     ax.set_xscale('log'); ax.set_yscale('log')
     ax.set_xlim(lo, hi); ax.set_ylim(lo, hi); ax.set_aspect('equal')
     ax.set_xlabel('VV-only Otsu cost (EECU-seconds)', fontsize=10)

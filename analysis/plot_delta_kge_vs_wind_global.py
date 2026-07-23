@@ -37,6 +37,8 @@ def wind_p90(name):
 df['wind_p90'] = df['name'].apply(wind_p90)
 d = df.dropna(subset=['delta', 'wind_p90', 'ap_m']).reset_index(drop=True)
 print(f"N with wind data = {len(d)} of {len(df)}")
+ids = pd.read_csv('analysis/reservoir_ids.csv')[['name', 'id']].set_index('name')
+d['id'] = d['name'].map(ids['id']).fillna(d['name'].str.replace('_', ' '))
 
 r, p = stats.pearsonr(d['wind_p90'], d['delta'])
 rho, p_rho = stats.spearmanr(d['wind_p90'], d['delta'])
@@ -52,17 +54,20 @@ print(f"Spearman(A/P, wind_p90) = {rho_ap_wind:+.3f}  (confound check)")
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from adjustText import adjust_text
 
-fig, ax = plt.subplots(figsize=(9.5, 6.5))
+fig, ax = plt.subplots(figsize=(11, 7.5))
 sc = ax.scatter(d['wind_p90'], d['delta'], c=d['ap_m'], cmap='viridis',
                  s=70, edgecolors='white', linewidths=0.6, zorder=4)
 xf = np.linspace(d['wind_p90'].min(), d['wind_p90'].max(), 50)
 ax.plot(xf, slope * xf + icpt, 'k-', lw=1.6, alpha=0.8, zorder=3,
         label=f'linear: r={r:.2f}, p={p:.2f}')
 ax.axhline(0, color='gray', lw=1, ls=':', zorder=2)
-for _, row in d.iterrows():
-    ax.annotate(row['name'].replace('_', ' '), (row['wind_p90'], row['delta']),
-                fontsize=6, xytext=(4, 3), textcoords='offset points', color='#444')
+texts = [ax.text(row['wind_p90'], row['delta'], row['id'], fontsize=8,
+                  color='#444', zorder=10) for _, row in d.iterrows()]
+adjust_text(texts, x=d['wind_p90'].values, y=d['delta'].values, ax=ax,
+            expand=(1.6, 1.8), force_static=(0.7, 0.8), force_text=(0.3, 0.4),
+            arrowprops=dict(arrowstyle='-', color='#999', lw=0.5))
 ax.set_xlabel('ERA5 wind exposure, p90 (m/s)')
 ax.set_ylabel(r'$\Delta$KGE = KGE$_{adapt}$ - KGE$_{vv}$ (common months)')
 ax.set_title(f'Wind vs accuracy gap, full global set (n={len(d)})', fontsize=10, fontweight='bold')

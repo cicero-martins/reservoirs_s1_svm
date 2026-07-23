@@ -45,12 +45,14 @@ for b in order:
     ax.scatter(s.ap_m, s.kge, s=65, color=bcol[b], edgecolors='white',
                linewidths=0.6, zorder=4, label=f'{b} (n={len(s)})')
 ax.axhline(0.5, color='gray', lw=1, ls=':', zorder=2)
+ax.set_ylim(-0.05, 1.0)   # matches the ap_kge_curve_pooled y-range for a consistent view
 ax.set_xlabel('Static A/P (m)')
 ax.set_ylabel('KGE (best-of adapt/vv vs JRC)')
 title_n = 'n=%d' % len(bi) if len(bi) == len(bi_all) else 'n=%d of %d' % (len(bi), len(bi_all))
 ax.set_title('A/P vs KGE within each climate zone (%s)' % title_n,
               fontsize=11, fontweight='bold')
-ax.legend(fontsize=8, loc='lower right', title='Biome (Spearman rho, p in console)')
+ax.legend(fontsize=8, loc='upper left', bbox_to_anchor=(1.01, 1.0),
+          title='Biome (Spearman rho, p in console)', borderaxespad=0)
 ax.grid(alpha=0.25)
 out = 'analysis/method_comparison_output/ap_kge_by_biome.png'
 fig.savefig(out, dpi=150, bbox_inches='tight')

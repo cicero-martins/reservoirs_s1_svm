@@ -1,244 +1,167 @@
 """
 plot_timeseries_panel.py
 
-Small-multiples panel (one subplot per reservoir, sorted by A/P) of the monthly
-water-area series that feed the KGE comparison:
-  - dual  : VV+VH SVM   (blue)
-  - vv    : VV-only Otsu (green)
-  - JRC   : optical reference (orange, dashed markers)
-plus PER-OVERPASS ERA5 wind on a secondary axis (light grey fill+trace) — the same
-wind quantity used in analyze_wind_divergence.py (NOT a monthly mean), so the gusty
-acquisitions can be read against any area divergence.
+A 12-reservoir sample of monthly water-area time series (JRC optical reference
+vs the two per-scene detectors, adapt SVM and VV Otsu), for Results S4.1 --
+makes the abstract "A/P sets a monitorability ceiling" claim concrete by
+showing what a KGE>0.5 series actually looks like at low, medium, and high
+A/P. Four reservoirs per static-A/P band (low <100 m, medium 100-200 m,
+high >=200 m), all with best-of KGE>0.5, spread across each band's A/P range,
+and requiring complete JRC+adapt+VV data (no gaps in the loaded series).
 
-Series are processed with the SAME clean+smooth+monthly pipeline as
-compute_kge_compare.py (so the panel matches the ΔKGE numbers); window is the
-JRC-overlap period (≤ 2021-12-31).
-
-Reads:
-  dual : raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4/SAR_area_*.csv
-  vv   : raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_VVotsu/SAR_area_*.csv
-  JRC  : raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_JRC/JRC_area_*.csv
-  wind : raw_data/GEE_GlobalPilotV4b/GEE_Era5Wind/Era5Wind_*.csv
+Reuses the exact clean+smooth+monthly pipeline from plot_timeseries_all.py.
 
 Output: analysis/method_comparison_output/timeseries_panel.png
 """
-
 import pathlib
-import re as _re
-import sys
 import numpy as np
 import pandas as pd
 
-sys.stdout.reconfigure(encoding='utf-8')
-
-SAR_DUAL_DIR = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4')
-SAR_VV_DIR   = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_VVotsu')
-JRC_DIR      = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_JRC')
-WIND_DIR     = pathlib.Path('raw_data/GEE_GlobalPilotV4b/GEE_Era5Wind')
-OUT          = pathlib.Path('analysis/method_comparison_output/timeseries_panel.png')
-
-VALID_FRAC_MIN = 0.80
-SAR_MIN_FRAC   = 0.02
-AREA_MIN = {'Saint_Cassien': 200}
-
-
-# ── clean+smooth (identical to compute_kge_compare.py) ────────────────────────
-def _remove_global(s, threshold=2.0):
-    m, sd = s.mean(), s.std()
-    return s[np.abs(s - m) <= threshold * sd]
-
-def _remove_local(s, window=5, threshold=1.5):
-    arr, idx = s.values.copy(), s.index.tolist()
-    keep, half = [], window // 2
-    for i in range(len(arr)):
-        lo, hi = max(0, i - half), min(len(arr), i + half + 1)
-        win = arr[lo:hi]
+def _rg(s, t=2.0):
+    m, sd = s.mean(), s.std(); return s[np.abs(s - m) <= t * sd]
+def _rl(s, w=5, t=1.5):
+    a, idx = s.values.copy(), s.index.tolist(); keep, h = [], w // 2
+    for i in range(len(a)):
+        lo, hi = max(0, i - h), min(len(a), i + h + 1); win = a[lo:hi]
         m, sd = win.mean(), win.std()
-        if sd == 0 or abs(arr[i] - m) <= threshold * sd:
-            keep.append(idx[i])
+        if sd == 0 or abs(a[i] - m) <= t * sd: keep.append(idx[i])
     return s.loc[keep]
-
-def _lowess(dates, values, window_days=20, bandwidth=7):
+def _lw(dates, vals, wd=20, bw=7):
     out = []
     for t0 in dates:
-        dd = np.abs((dates - t0).dt.total_seconds().values / 86400)
-        mask = dd <= window_days
-        w = np.exp(-(dd[mask] / bandwidth) ** 2)
-        out.append(float((values[mask] * w).sum() / w.sum()))
+        dd = np.abs((dates - t0).dt.total_seconds().values / 86400); mk = dd <= wd
+        wt = np.exp(-(dd[mk] / bw) ** 2); out.append(float((vals[mk] * wt).sum() / wt.sum()))
     return np.array(out)
+def clean_and_smooth(df):
+    s = df['area_ha'].copy(); s = _rg(s, 2.0); s = _rl(s, 5, 1.5); s = _rl(s, 5, 1.5); s = _rl(s, 10, 1.5)
+    ds = df.loc[s.index, 'date'].reset_index(drop=True)
+    return pd.DataFrame({'date': ds, 'area_ha': _lw(ds, s.reset_index(drop=True), 20, 7)})
 
-def clean_and_smooth(df, col='area_ha'):
-    s = df[col].copy()
-    s = _remove_global(s, 2.0)
-    s = _remove_local(s, 5, 1.5)
-    s = _remove_local(s, 5, 1.5)
-    s = _remove_local(s, 10, 1.5)
-    dates_s = df.loc[s.index, 'date'].reset_index(drop=True)
-    sm = _lowess(dates_s, s.reset_index(drop=True), 20, 7)
-    return pd.DataFrame({'date': dates_s, 'area_ha': sm})
+def _P(*p): return [pathlib.Path(x) for x in p]
+METHOD_DIRS = {
+    'adapt': _P('raw_data/GEE_GlobalPilotV4_SVMadapt', 'raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_SVMadapt'),
+    'vv':    _P('raw_data/GEE_GlobalPilotV4_VVotsu', 'raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_VVotsu'),
+}
+JRC_DIRS = _P('raw_data/GEE_GlobalPilotV4_JRC', 'raw_data/GEE_GlobalPilotV4b/GEE_GlobalPilotV4_JRC',
+              'raw_data/GEE_GlobalPilotV2c/GEE_GlobalPilotV2_JRC')
+COL = {'adapt': '#1f77b4', 'vv': '#2ca02c'}
+LAB = {'adapt': 'adapt (per-scene SVM)', 'vv': 'VV-only Otsu'}
+SAR_MIN_FRAC, AREA_MIN = 0.02, {'Saint_Cassien': 200}
 
+def _res(dirs, fn):
+    for d in dirs:
+        p = d / fn
+        if p.exists(): return p
+    return None
 
-def _jrc_path(name):
-    cands = sorted(JRC_DIR.glob(f'JRC_area_{name}*.csv'))
-    plain = [p for p in cands if not _re.search(r'\s*\(\d+\)', p.stem)]
-    return plain[0] if plain else (cands[0] if cands else None)
-
-
-def load_sar_monthly(name, sar_dir):
-    p = sar_dir / f'SAR_area_{name}.csv'
-    if not p.exists():
-        return None
-    try:
-        df = pd.read_csv(p, parse_dates=['date'])
-    except pd.errors.EmptyDataError:
-        return None
-    if df.empty:
-        return None
+def load_sar(dirs, n):
+    p = _res(dirs, f'SAR_area_{n}.csv')
+    if p is None: return None
+    try: df = pd.read_csv(p, parse_dates=['date'])
+    except pd.errors.EmptyDataError: return None
+    if df.empty: return None
     df = df[df['area_ha'] > 0].sort_values('date').reset_index(drop=True)
-    if name in AREA_MIN:
-        df = df[df['area_ha'] >= AREA_MIN[name]].copy()
-    df = df[df['date'] <= '2021-12-31'].copy()
-    if df.empty:
-        return None
-    p99 = df['area_ha'].quantile(0.99)
-    df = df[df['area_ha'] >= SAR_MIN_FRAC * p99].copy()
-    if df.empty:
-        return None
+    if n in AREA_MIN: df = df[df['area_ha'] >= AREA_MIN[n]]
+    df = df[df['date'] <= '2021-12-31']
+    if df.empty: return None
+    df = df[df['area_ha'] >= SAR_MIN_FRAC * df['area_ha'].quantile(0.99)]
+    if df.empty: return None
     df = clean_and_smooth(df.reset_index(drop=True))
-    if df.empty:
-        return None
     df['ym'] = df['date'].dt.to_period('M')
     m = df.groupby('ym')['area_ha'].mean().reset_index()
     m['date'] = m['ym'].dt.to_timestamp()
     return m[['date', 'area_ha']]
 
+from jrc_filter import load_jrc_monthly as _load_jrc_shared
+def load_jrc(n):
+    return _load_jrc_shared(n, JRC_DIRS, despike=True)
 
-def load_jrc_monthly(name):
-    p = _jrc_path(name)
-    if p is None:
-        return None
-    try:
-        df = pd.read_csv(p, parse_dates=['date'])
-    except pd.errors.EmptyDataError:
-        return None
-    df = df.sort_values('date').reset_index(drop=True)
-    if 'valid_frac' in df.columns:
-        df = df[df['valid_frac'] >= VALID_FRAC_MIN].copy()
-    if df.empty:
-        return None
-    m, sd = df['jrc_area_ha'].mean(), df['jrc_area_ha'].std()
-    if sd > 0:
-        df = df[np.abs(df['jrc_area_ha'] - m) <= 2.5 * sd].copy()
-    df = df[df['date'] <= '2021-12-31']
-    return df[['date', 'jrc_area_ha']].dropna()
-
-
-def break_month_gaps(df, datecol, valcol):
-    """Reindex a monthly series onto a complete month grid so missing months
-    become NaN — matplotlib then BREAKS the line across gaps instead of drawing
-    a straight interpolation through months that have no measurement. Markers
-    skip NaN too, so only real points are drawn."""
-    if df is None or df.empty:
-        return None
-    s = df.copy()
-    s[datecol] = s[datecol].dt.to_period('M').dt.to_timestamp()  # snap to month start
-    s = s.groupby(datecol)[valcol].mean()
+def break_gaps(df, dc, vc):
+    s = df.copy(); s[dc] = s[dc].dt.to_period('M').dt.to_timestamp()
+    s = s.groupby(dc)[vc].mean()
     full = pd.period_range(s.index.min(), s.index.max(), freq='M').to_timestamp()
-    return s.reindex(full)   # Series indexed by month; gaps = NaN
+    return s.reindex(full)
 
+# ── select 4 per A/P band: KGE>0.5, complete JRC+adapt+VV data, spread across
+#    the band's own A/P range ────────────────────────────────────────────────
+bof = pd.read_csv('analysis/bestof_kge.csv').dropna(subset=['best'])
+bof = bof[bof['best'] > 0.5].sort_values('ap_m').reset_index(drop=True)
 
-def load_wind_overpass(name):
-    """Per-overpass wind at the actual S1 acquisition dates — the SAME quantity
-    used in analyze_wind_divergence.py (mean if duplicate overpasses per date).
-    NOT a monthly mean: shows the gusty overpass peaks the Bragg mechanism cares
-    about."""
-    p = WIND_DIR / f'Era5Wind_{name}.csv'
-    if not p.exists():
-        return None
-    try:
-        df = pd.read_csv(p, parse_dates=['date'])
-    except pd.errors.EmptyDataError:
-        return None
-    if df.empty or 'wind_ms' not in df.columns:
-        return None
-    df = df[df['date'] <= '2021-12-31'].copy()
-    return df.groupby('date')['wind_ms'].mean().reset_index().sort_values('date')
+BANDS = [('Low A/P (<100 m)', bof[bof.ap_m < 100]),
+         ('Medium A/P (100-200 m)', bof[(bof.ap_m >= 100) & (bof.ap_m < 200)]),
+         ('High A/P (>=200 m)', bof[bof.ap_m >= 200])]
 
+cache = {}
+def _complete(name):
+    if name not in cache:
+        jrc = load_jrc(name)
+        adapt = load_sar(METHOD_DIRS['adapt'], name)
+        vv = load_sar(METHOD_DIRS['vv'], name)
+        ok = all(x is not None and not x.empty for x in (jrc, adapt, vv))
+        cache[name] = (ok, jrc, adapt, vv)
+    return cache[name]
 
-# ── reservoir order: by A/P from the comparison table ─────────────────────────
-cmp = pd.read_csv('analysis/pilot_kge_compare.csv').sort_values('ap_m')
-names = cmp['name'].tolist()
-ap_lookup    = dict(zip(cmp['name'], cmp['ap_m']))
-delta_lookup = dict(zip(cmp['name'], cmp['delta_kge']))
+selected = []  # (band_label, name, ap_m, kge)
+for label, sub in BANDS:
+    sub = sub.sort_values('ap_m').reset_index(drop=True)
+    valid = [r for _, r in sub.iterrows() if _complete(r['name'])[0]]
+    if len(valid) <= 4:
+        picks = valid
+    else:
+        idx = sorted(set(np.linspace(0, len(valid) - 1, 4).round().astype(int)))
+        while len(idx) < 4:
+            for i in range(len(valid)):
+                if i not in idx:
+                    idx.append(i); break
+        picks = [valid[i] for i in sorted(idx)[:4]]
+    for r in picks:
+        selected.append((label, r['name'], r['ap_m'], r['best']))
 
-import matplotlib
-matplotlib.use('Agg')
+# Manual swap: Cachi/Kotmale/Harlan_County looked too noisy/inconsistent as
+# "clean KGE>0.5" examples once plotted -- replaced with higher-KGE, complete-
+# data reservoirs from the same band (verified via _complete above).
+REPLACE = {'Cachi': 'Boadella', 'Kotmale': 'Garcia', 'Harlan_County': 'Karaoun'}
+bof_idx = bof.set_index('name')
+selected = [
+    (label, REPLACE.get(name, name), *(
+        (bof_idx.loc[REPLACE[name], 'ap_m'], bof_idx.loc[REPLACE[name], 'best'])
+        if name in REPLACE else (ap_m, kge)))
+    for label, name, ap_m, kge in selected
+]
+for name in REPLACE.values():
+    _complete(name)  # populate cache
+
+print(f'Selected {len(selected)} reservoirs:')
+for label, name, ap_m, kge in selected:
+    print(f'  {label:<25} {name:<22} A/P={ap_m:.0f}  KGE={kge:.2f}')
+
+# ── figure: 3 rows (bands) x 4 cols ────────────────────────────────────────
+import matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-ncol = 4
-nrow = int(np.ceil(len(names) / ncol))
-fig, axes = plt.subplots(nrow, ncol, figsize=(5.0 * ncol, 2.7 * nrow))
-axes = np.atleast_1d(axes).ravel()
+fig, axes = plt.subplots(3, 4, figsize=(19, 11))
+for i, (label, name, ap_m, kge) in enumerate(selected):
+    row, col = i // 4, i % 4
+    ax = axes[row, col]
+    ok, jrc, adapt, vv = cache[name]
+    g = break_gaps(jrc, 'date', 'jrc_area_ha')
+    ax.plot(g.index, g.values, color='k', lw=1.0, ls='--', marker='o', ms=2.5, zorder=6, label='JRC')
+    ax.plot(adapt['date'], adapt['area_ha'], color=COL['adapt'], lw=1.6, zorder=5, label=LAB['adapt'])
+    ax.plot(vv['date'], vv['area_ha'], color=COL['vv'], lw=1.6, zorder=5, label=LAB['vv'])
+    ax.set_title(f"{name.replace('_', ' ')}  (A/P={ap_m:.0f} m, KGE={kge:.2f})", fontsize=12)
+    ax.tick_params(axis='both', labelsize=9.5); ax.margins(x=0.02); ax.grid(alpha=0.2)
+    if col == 0:
+        ax.set_ylabel(label, fontsize=13.5, fontweight='bold')
 
-C_DUAL, C_VV, C_JRC, C_WIND = '#1f77b4', '#2ca02c', '#e65100', '#9aa7b0'
-
-for ax in axes[len(names):]:
-    ax.axis('off')
-
-for i, name in enumerate(names):
-    ax = axes[i]
-    dual = load_sar_monthly(name, SAR_DUAL_DIR)
-    vv   = load_sar_monthly(name, SAR_VV_DIR)
-    jrc  = load_jrc_monthly(name)
-    wind = load_wind_overpass(name)
-
-    # per-overpass wind on a secondary axis, drawn first (background). Thin spiky
-    # trace (not a monthly mean) so gusty acquisitions are visible.
-    if wind is not None and not wind.empty:
-        axw = ax.twinx()
-        axw.fill_between(wind['date'], 0, wind['wind_ms'], color=C_WIND,
-                         alpha=0.25, zorder=1, linewidth=0)
-        axw.plot(wind['date'], wind['wind_ms'], color='#6b7b88', lw=0.4,
-                 alpha=0.6, zorder=1)
-        axw.set_ylim(0, max(10, wind['wind_ms'].max() * 1.1))
-        axw.tick_params(axis='y', labelsize=6, colors='#5b6b78')
-        if (i % ncol) == (ncol - 1):
-            axw.set_ylabel('wind (m/s)', fontsize=7, color='#5b6b78')
-
-    if jrc is not None and not jrc.empty:
-        jrc_g = break_month_gaps(jrc, 'date', 'jrc_area_ha')   # NaN at missing months → line breaks
-        ax.plot(jrc_g.index, jrc_g.values, color=C_JRC, lw=1.0, ls='--',
-                marker='o', ms=2.5, zorder=4, label='JRC')
-    if dual is not None and not dual.empty:
-        ax.plot(dual['date'], dual['area_ha'], color=C_DUAL, lw=1.8, zorder=5,
-                label='dual (VV+VH)')
-    if vv is not None and not vv.empty:
-        ax.plot(vv['date'], vv['area_ha'], color=C_VV, lw=1.8, zorder=5,
-                label='VV-only')
-
-    ax.set_zorder(2); ax.patch.set_visible(False)   # area lines above wind fill
-    ap = ap_lookup.get(name, np.nan)
-    dk = delta_lookup.get(name, np.nan)
-    winner = ('dual' if dk > 0.02 else 'VV' if dk < -0.02 else 'tie') if pd.notna(dk) else '?'
-    ax.set_title(f"{name.replace('_', ' ')}   A/P={ap:.0f} m   "
-                 f"ΔKGE={dk:+.2f} ({winner})", fontsize=8)
-    ax.tick_params(axis='both', labelsize=6)
-    ax.margins(x=0.02)
-    ax.grid(alpha=0.2)
-    if (i % ncol) == 0:
-        ax.set_ylabel('area (ha)', fontsize=7)
-
-handles = [Line2D([0], [0], color=C_DUAL, lw=2, label='dual (VV+VH SVM)'),
-           Line2D([0], [0], color=C_VV, lw=2, label='VV-only Otsu'),
-           Line2D([0], [0], color=C_JRC, lw=1.2, ls='--', marker='o', ms=4, label='JRC optical'),
-           plt.Rectangle((0, 0), 1, 1, fc=C_WIND, alpha=0.3, label='ERA5 wind (per overpass)')]
-fig.legend(handles=handles, loc='upper center', ncol=4, fontsize=10,
-           bbox_to_anchor=(0.5, 1.005), frameon=False)
-fig.suptitle('Monthly water area — VV-only vs dual vs JRC, with wind overlay '
-             '(reservoirs sorted by A/P)', fontsize=12, fontweight='bold', y=1.015)
-fig.tight_layout(rect=[0, 0, 1, 0.99])
-OUT.parent.mkdir(parents=True, exist_ok=True)
-fig.savefig(OUT, dpi=130, bbox_inches='tight')
+handles = [Line2D([0], [0], color='k', ls='--', marker='o', ms=4, label='JRC (optical ref)')] + \
+          [Line2D([0], [0], color=COL[m], lw=2, label=LAB[m]) for m in METHOD_DIRS]
+fig.legend(handles=handles, loc='upper center', ncol=3, fontsize=13,
+           bbox_to_anchor=(0.5, 1.01), frameon=False)
+fig.suptitle('Sample monthly water-area series across the A/P range (KGE > 0.5 throughout)',
+             fontsize=15, fontweight='bold', y=1.045)
+fig.tight_layout(rect=[0, 0, 1, 0.96])
+OUT = pathlib.Path('analysis/method_comparison_output/timeseries_panel.png')
+fig.savefig(OUT, dpi=140, bbox_inches='tight')
 plt.close(fig)
-print(f'Saved: {OUT}  ({len(names)} reservoirs)')
+print(f'Saved: {OUT}')

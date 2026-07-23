@@ -235,6 +235,8 @@ for name in NAMES:
 df = pd.DataFrame(rows).sort_values('ap_m').reset_index(drop=True)
 df.to_csv(OUT_CSV, index=False)
 print(f'Saved {len(df)} reservoirs -> {OUT_CSV}\n')
+ids = pd.read_csv('analysis/reservoir_ids.csv')[['name', 'id']].set_index('name')
+df['id'] = df['name'].map(ids['id']).fillna(df['name'].str.replace('_', ' '))
 
 
 def summ(col, label):
@@ -271,47 +273,129 @@ if len(pair) >= 6:
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from adjustText import adjust_text
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 6), gridspec_kw={'wspace': 0.28})
+fig, axes = plt.subplots(2, 2, figsize=(13, 13), constrained_layout=True)
+lims = [-0.6, 1.05]
+
+def _trend(ax, x, y):
+    """OLS trend line across the panel (distinct from the dashed 1:1 reference)
+    so the overall bias direction/magnitude is readable at a glance, not just
+    the win/loss scatter."""
+    slope, icpt, r, p, se = stats.linregress(x, y)
+    xf = np.array(lims)
+    ax.plot(xf, slope * xf + icpt, color='#d62728', lw=1.8, alpha=0.85, zorder=3.5,
+            label=f'trend (slope={slope:.2f})')
+
+def _label(ax, d, xcol, ycol):
+    """Annotate only points within the plotted lims (others are clipped anyway);
+    keeps adjust_text from dragging off-screen outliers' labels back into view."""
+    v = d[d[xcol].between(*lims) & d[ycol].between(*lims)]
+    texts = [ax.text(r[xcol], r[ycol], r['id'], fontsize=7.5,
+                      color='#444', zorder=10) for _, r in v.iterrows()]
+    adjust_text(texts, x=v[xcol].values, y=v[ycol].values, ax=ax,
+                expand=(1.6, 1.8), force_text=(0.5, 0.6), force_static=(0.7, 0.8),
+                arrowprops=dict(arrowstyle='-', color='#999', lw=0.5))
+
+AP_VMIN, AP_VMAX = df['ap_m'].min(), df['ap_m'].max()   # shared colour scale, all panels
 
 # (a) adapt vs dual, 1:1 — Q1
-ax = axes[0]
+ax = axes[0, 0]
 p1 = df.dropna(subset=['kge_adapt', 'kge_dual'])
 sc = ax.scatter(p1['kge_dual'], p1['kge_adapt'], c=p1['ap_m'], cmap='viridis',
+                vmin=AP_VMIN, vmax=AP_VMAX,
                 s=55, edgecolors='white', linewidths=0.5, zorder=4)
-lims = [-0.6, 1.05]
 ax.plot(lims, lims, 'k--', lw=1, alpha=0.5, label='1:1 (adapt = dual)')
-for _, r in p1.iterrows():
-    ax.annotate(r['name'].replace('_', ' '), (r['kge_dual'], r['kge_adapt']),
-                fontsize=5, xytext=(3, 2), textcoords='offset points', color='#444')
+_trend(ax, p1['kge_dual'], p1['kge_adapt'])
 ax.set_xlim(*lims); ax.set_ylim(*lims)
+_label(ax, p1, 'kge_dual', 'kge_adapt')
 ax.set_xlabel('KGE — SVM fixed 2023 training (dual)')
 ax.set_ylabel('KGE — SVM per-scene retraining (adapt)')
 ax.set_title('(a) Q1: per-scene retraining vs fixed baseline\n'
-             'mostly above 1:1 → adaptive ≥ fixed (median ΔKGE +0.07); '
-             'arbitrary 2023 baseline not needed')
+             'mostly above 1:1 → adaptive $\\geq$ fixed (median $\\Delta$KGE +0.07)',
+             fontsize=10.5)
 ax.legend(fontsize=8); ax.grid(alpha=0.25)
-plt.colorbar(sc, ax=ax, label='A/P (m)')
+ax.set_box_aspect(1)
 
 # (b) fast vs vv, 1:1 — Q2
-ax = axes[1]
+ax = axes[0, 1]
 p2 = df.dropna(subset=['kge_fast', 'kge_vv'])
 ax.scatter(p2['kge_vv'], p2['kge_fast'], c=p2['ap_m'], cmap='viridis',
+           vmin=AP_VMIN, vmax=AP_VMAX,
            s=55, edgecolors='white', linewidths=0.5, zorder=4)
-ax.plot(lims, lims, 'k--', lw=1, alpha=0.5, label='1:1 (fast = vv)')
-for _, r in p2.iterrows():
-    ax.annotate(r['name'].replace('_', ' '), (r['kge_vv'], r['kge_fast']),
-                fontsize=5, xytext=(3, 2), textcoords='offset points', color='#444')
+ax.plot(lims, lims, 'k--', lw=1, alpha=0.5, label='1:1 (Fast = vv)')
+_trend(ax, p2['kge_vv'], p2['kge_fast'])
 ax.set_xlim(*lims); ax.set_ylim(*lims)
+_label(ax, p2, 'kge_vv', 'kge_fast')
 ax.set_xlabel('KGE — VV Otsu, vectorised area (vv)')
-ax.set_ylabel('KGE — VV Otsu, pixel-count area (fast)')
+ax.set_ylabel('KGE — Fast (VV Otsu, pixel-count area)')
 ax.set_title('(b) Q2: dropping vectorisation (the cost lever)\n'
-             'mostly below 1:1 → pixel-count area costs a modest hit '
-             '(median ΔKGE −0.07)')
+             'mostly below 1:1 → Fast costs a modest hit (median $\\Delta$KGE $-$0.07)',
+             fontsize=10.5)
 ax.legend(fontsize=8); ax.grid(alpha=0.25)
+ax.set_box_aspect(1)
+
+# (c) dual (fixed) vs vv, 1:1 — is polarisation count alone worth it?
+ax = axes[1, 0]
+p3 = df.dropna(subset=['kge_dual', 'kge_vv'])
+ax.scatter(p3['kge_vv'], p3['kge_dual'], c=p3['ap_m'], cmap='viridis',
+           vmin=AP_VMIN, vmax=AP_VMAX,
+           s=55, edgecolors='white', linewidths=0.5, zorder=4)
+ax.plot(lims, lims, 'k--', lw=1, alpha=0.5, label='1:1 (dual = vv)')
+_trend(ax, p3['kge_vv'], p3['kge_dual'])
+ax.set_xlim(*lims); ax.set_ylim(*lims)
+_label(ax, p3, 'kge_vv', 'kge_dual')
+ax.set_xlabel('KGE — VV Otsu, per-scene (vv)')
+ax.set_ylabel('KGE — SVM fixed 2023 training (dual)')
+ax.set_title('(c) VV Otsu vs fixed-training dual SVM\n'
+             'mostly below 1:1 → fixed dual ranks below the simple threshold',
+             fontsize=10.5)
+ax.legend(fontsize=8); ax.grid(alpha=0.25)
+ax.set_box_aspect(1)
+
+# (d) adapt vs vv, 1:1 — the paper's actual head-to-head. Unlike (a)-(c), this
+# does NOT need the four-way df (which requires a 'dual' export to exist at
+# all, capping it near N=47 even though this panel never plots dual): it
+# reads bestof_kge.csv directly with the EXACT same filter compute_kge_apcurve.py
+# uses (drop chapados, NO_DUAL_EXPORT, reference-noise-flagged), so this panel
+# matches the N=62/59 and 38/24 winner split quoted in the text and
+# Figure~\ref{fig:ap_curve}, not the smaller four-way subset.
+_NO_DUAL_EXPORT = {'Forggen'}
+try:
+    _rn2 = pd.read_csv('analysis/reference_noise.csv')
+    _REF_NOISE = set(_rn2.loc[_rn2.ref_noise, 'name'])
+except FileNotFoundError:
+    _REF_NOISE = set()
+p4_full = pd.read_csv('analysis/bestof_kge.csv').dropna(subset=['best'])
+p4_full = p4_full[~p4_full['chapado']]
+p4_full = p4_full[~p4_full['name'].isin(_NO_DUAL_EXPORT)]
+p4_full = p4_full[~p4_full['name'].isin(_REF_NOISE)].copy()
+p4_full['id'] = p4_full['name'].map(ids['id']).fillna(p4_full['name'].str.replace('_', ' '))
+ax = axes[1, 1]
+p4 = p4_full.dropna(subset=['kge_adapt', 'kge_vv'])
+ax.scatter(p4['kge_vv'], p4['kge_adapt'], c=p4['ap_m'], cmap='viridis',
+           vmin=AP_VMIN, vmax=AP_VMAX,
+           s=55, edgecolors='white', linewidths=0.5, zorder=4)
+ax.plot(lims, lims, 'k--', lw=1, alpha=0.5, label='1:1 (adapt = vv)')
+_trend(ax, p4['kge_vv'], p4['kge_adapt'])
+ax.set_xlim(*lims); ax.set_ylim(*lims)
+_label(ax, p4, 'kge_vv', 'kge_adapt')
+ax.set_xlabel('KGE — VV Otsu, per-scene (vv)')
+ax.set_ylabel('KGE — SVM per-scene retraining (adapt)')
+ax.set_title(f'(d) VV Otsu vs per-scene dual SVM (N={len(p4)})\n'
+             'scattered around 1:1 → the two per-scene detectors are indistinguishable',
+             fontsize=10)
+ax.legend(fontsize=8); ax.grid(alpha=0.25)
+ax.set_box_aspect(1)
+
+# One shared colorbar for all four panels (ax=list of all axes keeps their
+# plotted areas equal-sized -- a colorbar attached to only one axis would
+# shrink just that panel and leave the subplots visibly different sizes).
+fig.colorbar(sc, ax=axes.ravel().tolist(), location='right', shrink=0.6, pad=0.02,
+             label='A/P (m)')
 
 fig.suptitle('Four-way method comparison against JRC (common months)',
-             fontsize=12, fontweight='bold')
+             fontsize=13, fontweight='bold')
 OUT_PNG.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(OUT_PNG, dpi=150, bbox_inches='tight')
 plt.close(fig)

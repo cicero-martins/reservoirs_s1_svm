@@ -213,20 +213,36 @@ fig, axes = plt.subplots(2, 2, figsize=(15, 9))
 axes = axes.ravel()
 for ax, name in zip(axes, RESERVOIRS):
     planet = load_planet(name)
+    all_dates, all_vals = [], []
     if planet is not None and not planet.empty:
         ax.plot(planet['date'], planet['planet'], 'o-', color='#d62728', ms=4,
                 lw=1.5, zorder=6, label='PlanetScope (3 m, truth)')
+        all_dates.append(planet['date']); all_vals.append(planet['planet'])
     for label, folder in METHODS.items():
         sar = load_sar(name, folder)
         if sar is None or sar.empty:
             continue
         ax.plot(sar['date'], sar['sar'], MLS[label], color=MCOL[label], ms=3, lw=1.1,
                 alpha=0.85, zorder=4, label=label)
+        all_dates.append(sar['date']); all_vals.append(sar['sar'])
     sub = res[res.name == name]
     txt = '\n'.join(f"{r.method.split(' ')[0]:>5}: KGE={r.KGE:+.2f}"
                     for r in sub.itertuples())
     if txt:
-        ax.text(0.015, 0.97, txt, transform=ax.transAxes, va='top', ha='left',
+        # Place the KGE box in whichever upper corner has more clearance from the
+        # data: e.g. Poma's series starts near its own peak, so a fixed upper-left
+        # box sits on top of the curve there -- check the first/last 20% of the
+        # x-range's max value instead of hardcoding a corner.
+        ha, x0 = 'left', 0.015
+        if all_dates:
+            d = pd.concat(all_dates).reset_index(drop=True)
+            v = pd.concat(all_vals).reset_index(drop=True)
+            span = d.max() - d.min()
+            left_max = v[d <= d.min() + 0.2 * span].max()
+            right_max = v[d >= d.max() - 0.2 * span].max()
+            if left_max > right_max:
+                ha, x0 = 'right', 0.985
+        ax.text(x0, 0.97, txt, transform=ax.transAxes, va='top', ha=ha,
                 fontsize=8, family='monospace',
                 bbox=dict(boxstyle='round', fc='white', ec='#bbb', alpha=0.85))
     if planet is not None and not planet.empty:

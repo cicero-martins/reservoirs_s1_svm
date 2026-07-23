@@ -36,66 +36,111 @@ each detector separately, not only for the best-of series used above:
 Spearman $\rho(\text{A/P},\text{KGE}) = 0.41$ for the per-scene SVM alone and
 $0.51$ for VV Otsu alone.
 
-\begin{figure}[t]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.9\linewidth]{ap_kge_curve_pooled}
   \caption{Surface-area skill (KGE against JRC, best of the two per-scene
   detectors) versus static A/P for the 62 global reservoirs, coloured by which
   detector won. A/P sets a monitorability ceiling: high-A/P reservoirs are
   reliably tracked. Low-A/P reservoirs are permitted, but not guaranteed, large
-  errors.}
+  errors. Points are labelled by the continent-coded ID listed against each
+  reservoir's name in Table~\ref{tab:pilot}.}
   \label{fig:ap_curve}
+\end{figure}
+
+Figure~\ref{fig:timeseries_panel} makes this ceiling concrete with sample
+monthly series, four reservoirs per A/P band, all with KGE~$>$~0.5. At
+high A/P, both detectors track JRC closely, with only minor offsets at the
+seasonal extremes. At low A/P, the same KGE~$>$~0.5 threshold is compatible
+with a persistent systematic bias, most visibly Songhuaba, where the VV
+Otsu series runs some 300--350~ha above JRC throughout while still
+correlating well enough to clear the threshold: a reminder that KGE~$>$~0.5
+certifies that a detector tracks the reservoir's dynamics, not that its
+absolute area is unbiased, and that the bias itself grows as A/P falls,
+exactly as the mixed-pixel argument predicts.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{timeseries_panel}
+  \caption{Sample monthly water-area series (JRC optical reference vs the
+  two per-scene detectors), four reservoirs per static-A/P band, all with
+  KGE~$>$~0.5. High-A/P series track JRC tightly; low-A/P series can clear
+  KGE~$>$~0.5 while still carrying a large systematic offset (Songhuaba).}
+  \label{fig:timeseries_panel}
 \end{figure}
 
 \subsection{Per-scene adaptivity matters more than polarisation count}
 \label{sec:res_fourway}
 
-Comparing the four detectors under the identical pipeline, on the 47
-reservoirs with all four exports available (the most recent 15-reservoir
-expansion was run with only the two per-scene detectors, Section~3.2), overturns
-the intuitive ``dual-pol beats single-pol'' expectation. Ranked by median
-KGE, the order is \emph{per-scene SVM} (0.78) $>$ \emph{per-scene VV Otsu}
-(0.74) $>$ \emph{VV Otsu without vectorisation} (0.69) $>$
-\emph{fixed-training dual SVM} (0.66) (Figure~\ref{fig:fourway}). The
-fixed-training dual-polarisation learner ranks \emph{last}, below the
-single-polarisation threshold, because VV Otsu adapts to every scene by
-construction while the fixed SVM does not: per-scene adaptivity matters more
-than the number of polarisations. Retraining the SVM per scene (adapt versus
-the fixed baseline) wins in 24 of 47 reservoirs, ties in 7, and loses in 16,
-but the median improvement is small ($\Delta$KGE $+0.02$) against a much
-larger mean improvement ($+0.20$). As with the SVM-versus-Otsu comparison
-below, this gap between mean and median is a right-skewed distribution, not a
-contradiction: a handful of reservoirs where the fixed 2023 baseline fails
-badly account for most of the gain, while the typical reservoir sees only a
-modest benefit from retraining.
+The central comparison is the per-scene VV Otsu threshold against the
+per-scene dual SVM, evaluated across the full screened set: 62 reservoirs,
+59 after excluding three whose SVM export does not share enough common
+months with JRC to compute a paired KGE (their VV Otsu series overlaps JRC
+without issue, Section~\ref{sec:val_global}). The two are statistically
+indistinguishable, overturning the intuitive ``dual-pol beats single-pol''
+expectation: a paired Wilcoxon signed-rank test on the 59 finds no
+significant difference between them ($p = 0.37$,
+Figure~\ref{fig:fourway}d). VV Otsu is nonetheless the better or equal
+detector in the majority of reservoirs (it wins 38 of 62,
+Figure~\ref{fig:ap_curve}). That majority does not register as a
+significant Wilcoxon result, however: the SVM's fewer wins tend to be
+larger (median winning margin 0.12 KGE, against 0.08 for Otsu), so a
+handful of big SVM wins offsets many small VV wins in the paired,
+rank-based test. This same asymmetry is
+why the trend line in Figure~\ref{fig:fourway}d tilts above the 1:1 line at
+low VV-Otsu skill: the SVM's advantage concentrates in the harder,
+low-KGE cases it occasionally rescues, not in a general edge across most
+reservoirs. Neither climate zone nor the detector's own baseline accuracy
+predicts which reservoirs see the SVM's largest gains
+(Section~\ref{sec:disc_limitations}). A dual-polarisation advantage is not
+concentrated by A/P either: the difference between the per-scene SVM and
+the per-scene Otsu does not depend on it
+(Spearman$(\text{A/P},\,\text{KGE}_{\text{SVM}}-\text{KGE}_{\text{Otsu}}) =
+-0.14$, $p = 0.36$).
 
-Second, and more consequentially, the two per-scene detectors are
-statistically indistinguishable: a paired Wilcoxon signed-rank test on the 59
-reservoirs where both per-scene detectors clear the minimum-pairs threshold
-(three of the 62 lack sufficient overlap with JRC for the SVM specifically,
-Section~\ref{sec:val_global}) finds no significant difference between them
-($p = 0.37$). The single-band VV Otsu is nonetheless the better or equal
-detector in the majority of reservoirs (it wins 38 of 62, Figure~\ref{fig:ap_curve}),
-because the SVM's fewer wins tend to be larger (median winning margin 0.12
-KGE, against 0.08 for Otsu), which balances the win count in the paired
-test. Neither climate zone nor the detector's own baseline accuracy predicts
-which reservoirs see the SVM's largest gains (Section~\ref{sec:disc_limitations}).
-A dual-polarisation advantage is not concentrated by A/P either: the
-difference between the per-scene SVM and the per-scene Otsu does not depend
-on it (Spearman$(\text{A/P},\,\text{KGE}_{\text{SVM}}-\text{KGE}_{\text{Otsu}}) =
--0.14$, $p = 0.36$). Removing the
-vectorisation post-processing (the ``fast'' path), by contrast, does cost
+Two further variants, the fixed-2023-training SVM and a
+no-vectorisation ``fast'' VV path, only have exports for 47 of the 62 (the
+most recent 15-reservoir expansion was run with just the two per-scene
+detectors, Section~3.2), so the four-way comparison
+(Figure~\ref{fig:fourway}a--c) is restricted to that subset, evaluated on
+strictly common months across all four exports (a stricter window than the
+pairwise comparison above, so individual KGE values shift slightly).
+Ranked by median KGE on it, the order is \emph{per-scene SVM} (0.78) $>$
+\emph{per-scene VV Otsu} (0.74) $>$ \emph{VV Otsu without vectorisation}
+(0.69) $>$ \emph{fixed-training dual SVM} (0.66). This is the same
+margin-driven asymmetry as above, not a reversal of it: within this
+subset VV Otsu still wins more often (27 of 47 versus 20 for the SVM), but
+the SVM's fewer wins are large enough to lift its median above VV Otsu's.
+The fixed-training
+dual-polarisation learner ranks \emph{last}, below the single-polarisation
+threshold (Figure~\ref{fig:fourway}c), because VV Otsu adapts to every
+scene by construction while the fixed SVM does not: per-scene adaptivity
+matters more than the number of polarisations. Retraining the SVM per
+scene (adapt versus the fixed baseline) wins in 24 of 47 reservoirs, ties
+in 7, and loses in 16, but the median improvement is small ($\Delta$KGE
+$+0.02$) against a much larger mean improvement ($+0.20$), the same
+right-skewed pattern as above: a handful of reservoirs where the fixed
+2023 baseline fails badly account for most of the gain, while the typical
+reservoir sees only a modest benefit from retraining. Removing the
+vectorisation post-processing (the ``fast'' path), separately, does cost
 accuracy (median $\Delta$KGE $-0.07$ versus VV Otsu, worse in 32 of 47
 reservoirs), so that step is retained. The implications of this parsimony
 result are discussed in Section~\ref{sec:discussion}.
 
-\begin{figure}[t]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{kge_4way}
-  \caption{Four-detector KGE across the 47 reservoirs with all four exports.
-  Per-scene adaptivity outranks the fixed-training dual SVM, but the two
-  per-scene detectors (single-band Otsu and dual-band SVM) are
-  indistinguishable, and the simpler Otsu wins in most reservoirs.}
+  \caption{Four-detector KGE paired 1:1 against JRC. (a)--(c) use the
+  47-reservoir subset with exports for all four detectors. (a) Per-scene
+  retraining raises the dual SVM's skill over its fixed-training baseline.
+  (b) Dropping vectorisation costs the VV Otsu detector a modest amount of
+  accuracy. (c) The fixed-training dual SVM ranks below the simple
+  per-scene VV Otsu threshold, showing polarisation count alone is not
+  what earns accuracy. (d) The paper's central comparison, VV Otsu versus
+  the per-scene dual SVM, on the full 59-reservoir set (Section~4.2): the
+  two scatter around the 1:1 line and are statistically indistinguishable.
+  Points are labelled by the continent-coded ID listed against each
+  reservoir's name in Table~\ref{tab:pilot}.}
   \label{fig:fourway}
 \end{figure}
 
@@ -115,7 +160,7 @@ mixed-pixel, low-water regime. It is, however, a single near-truth case at an
 extreme, and the global set (Section~\ref{sec:res_fourway}) shows no systematic
 dual-polarisation advantage, so we present it as a mechanism rather than a rule.
 
-\begin{figure}[t]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{sicily_planet_validation}
   \caption{Surface-area time series of the four detectors against PlanetScope
@@ -150,7 +195,7 @@ the median, the per-scene SVM, is also the most expensive, while the
 per-scene VV Otsu matches its accuracy at roughly 15\% lower cost. The
 implications for method choice are discussed in Section~\ref{sec:discussion}.
 
-\begin{figure}[t]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.8\linewidth]{eecu_svm_vs_vv}
   \caption{Per-reservoir Earth Engine compute cost of the fixed-training dual
@@ -201,16 +246,18 @@ their difficulty reflects climate, geometry not fully captured by static A/P,
 or reservoir operation (Section~\ref{sec:disc_limitations}) is not yet
 resolved.
 
-\begin{figure}[t]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.9\linewidth]{delta_kge_vs_wind_global}
   \caption{Accuracy gap (dual-band SVM minus VV Otsu) versus ERA5 wind exposure
   for the 47 reservoirs with wind data, coloured by A/P. No relationship is
-  visible. Wind does not predict which detector is more accurate.}
+  visible. Wind does not predict which detector is more accurate. Points are
+  labelled by the continent-coded ID listed against each reservoir's name in
+  Table~\ref{tab:pilot}.}
   \label{fig:wind}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{biome_kge}
   \caption{Surface-area skill by climate zone at comparable A/P, on the
@@ -234,7 +281,7 @@ variance to correlate. A/P therefore predicts skill inside individual
 climates, not only across the pooled sample, while climate independently
 shifts the overall level.
 
-\begin{figure}[t]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.9\linewidth]{ap_kge_by_biome}
   \caption{A/P versus KGE within each climate zone, on the reference-quality-

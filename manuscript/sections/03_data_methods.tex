@@ -22,7 +22,7 @@ and an audit of computational cost. Keeping every stage identical except the
 decision rule is what allows the comparison to isolate the effect of the
 classifier itself rather than of the surrounding pipeline.
 
-\begin{figure}[t]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{workflow_diagram.pdf}
 \caption{The GEE workflow. A single Sentinel-1 pipeline feeds two
@@ -88,7 +88,7 @@ training below. Figure~\ref{fig:sample_selection} illustrates this automated
 selection for one example reservoir, alongside the analogous region used to
 build Otsu's per-scene histogram (Section~\ref{sec:methods_otsu}).
 
-\begin{figure}[t]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{sample_selection_pozzillo.png}
   \caption{Automated sample and region selection at Pozzillo (Sicily),
@@ -121,7 +121,8 @@ of backscatter is built over a 500~m land-ringed buffer around the water
 body, which renders it bimodal, and every candidate split of the histogram
 into a low- and a high-backscatter class is scored by the variance between
 the two resulting class means, weighted by class size. The split that
-maximises this between-class variance is the threshold, which is equivalent
+maximises this between-class variance is the threshold $T_{\text{Otsu}}$,
+which is equivalent
 to minimising the within-class variance, the criterion Otsu's original 1979
 formulation derives a closed-form recursion for. We compute it directly by
 evaluating every candidate split over the array-valued histogram (a common
@@ -273,16 +274,16 @@ KGE is computed on the paired series.
 \subsection{Computational cost audit}
 \label{sec:methods_cost}
 
-To test the common assumption that the dual-polarisation learner is more
-expensive than a single-band threshold, we audit the Earth Engine Compute Unit
-(EECU) usage of each export task via \texttt{batchEecuUsageSeconds}
-(\texttt{ee.data.listOperations}) for all four classifier configurations
-(fixed-training dual SVM, per-scene VV Otsu, per-scene dual SVM, and a
-no-post-processing fast VV variant), pairing them per reservoir and comparing
-cost ratios. The fast configuration also isolates the true cost lever by
-removing the post-processing (vectorisation, keep-polygon, and
-dynamic-perimeter steps) and computing area by direct pixel counting inside
-the reservoir polygon.
+Because added complexity is often assumed to raise cost, we test whether
+the dual-polarisation classifier is in fact more expensive than the
+single-band threshold. We measure Earth Engine Compute Unit (EECU) usage
+via \texttt{batchEecuUsageSeconds} (\texttt{ee.data.listOperations}) for
+each export task, across four classifier configurations (fixed-training
+dual SVM, per-scene VV Otsu, per-scene dual SVM, and a no-post-processing
+fast VV variant), pairing tasks per reservoir to compare cost ratios. The
+fast configuration isolates the vectorisation lever specifically,
+computing area by direct pixel counting rather than the full
+vectorisation, keep-polygon, and dynamic-perimeter post-processing chain.
 
 \subsection{Radiometric and climate limits}
 \label{sec:methods_wind}

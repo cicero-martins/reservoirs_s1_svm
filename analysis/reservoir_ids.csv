@@ -1,0 +1,63 @@
+name,country,continent,ap_m,id
+Long_Lake,Canada,Americas,62.0,Am1
+Wushantou,Taiwan,Asia,62.0,As1
+Songhuaba,China,Asia,64.0,As2
+Grandval,France,Europe,66.0,E1
+Sarrans,France,Europe,74.0,E2
+Roxburgh,New Zealand,Oceania,75.0,O1
+Rappbode,Germany,Europe,78.0,E3
+Mabubas,Angola,Africa,80.0,A1
+Karapuzha,India,Asia,84.0,As3
+Sau,Spain,Europe,84.0,E4
+Susqueda,Spain,Europe,84.0,E5
+Saint_Cassien,France,Europe,87.0,E6
+Mundaring_Weir,Australia,Oceania,92.0,O2
+Amir_Kabir,Iran,Asia,92.0,As4
+Boadella,Spain,Europe,93.0,E7
+Cachi,Costa Rica,Americas,95.0,Am2
+Cinco_de_Noviembre,Honduras,Americas,100.0,Am3
+Blyde,South Africa,Africa,102.0,A2
+Panneciere,France,Europe,111.0,E8
+Googong,Australia,Oceania,111.0,O3
+El_Atazar,Spain,Europe,113.0,E9
+Castillon,France,Europe,116.0,E10
+Youssf_BenTachfine,Morocco,Africa,116.0,A3
+Changmao,China,Asia,117.0,As5
+East_Canyon,USA,Americas,118.0,Am4
+Ambuklao,Philippines,Asia,118.0,As6
+Conestogo,Canada,Americas,123.0,Am5
+Cecita,Italy,Europe,125.0,E11
+El_Burguillo,Spain,Europe,127.0,E12
+Salto,Italy,Europe,129.0,E13
+Kidatu,Tanzania,Africa,130.0,A4
+Puentes_Viejas,Spain,Europe,131.0,E14
+Caia,Portugal,Europe,139.0,E15
+Figueira,Brazil,Americas,142.0,Am6
+Kotmale,Sri Lanka,Asia,152.0,As7
+Cardinia,Australia,Oceania,156.0,O4
+Chivor,Colombia,Americas,158.0,Am7
+Bilancino,Italy,Europe,160.0,E16
+Kamburu,Kenya,Africa,163.0,A5
+Shaharchay,Iran,Asia,166.0,As8
+Garcia,Italy,Europe,168.0,E17
+Manuel_Avila_Camacho,Mexico,Americas,170.0,Am8
+Loumbila,Burkina Faso,Africa,180.0,A6
+Yedang,South Korea,Asia,198.0,As9
+Pineview,USA,Americas,208.0,Am9
+Baisha,China,Asia,209.0,As10
+Lago_de_Almafuerte,Argentina,Americas,221.0,Am10
+Loch_Doon,United Kingdom,Europe,229.0,E18
+Recoleta,Chile,Americas,237.0,Am11
+Deer_Creek,USA,Americas,239.0,Am12
+Contas,Brazil,Americas,251.0,Am13
+Rockport,USA,Americas,253.0,Am14
+Asolamandha,India,Asia,255.0,As11
+Yesa,Spain,Europe,266.0,E19
+Hassan_Addakhil,Morocco,Africa,267.0,A7
+Hubbard_Creek,USA,Americas,280.0,Am15
+Kartalkaya,Turkey,Asia,294.0,As12
+Erfenis,South Africa,Africa,318.0,A8
+Antero,USA,Americas,336.0,Am16
+Karaoun,Lebanon,Asia,344.0,As13
+Umbuluzi,Mozambique,Africa,361.0,A9
+Harlan_County,USA,Americas,461.0,Am17

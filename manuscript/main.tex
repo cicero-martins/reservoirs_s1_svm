@@ -13,6 +13,7 @@
 %% --- Graphics & tables ---
 \usepackage{graphicx}
 \graphicspath{{figures/}}
+\usepackage{float}
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{longtable}
@@ -68,7 +69,7 @@
 % Abstract word count: 150/150 (ENVSOFT Guide for Authors limit, exact). See project memory.
 The area-to-perimeter ratio (A/P) of a reservoir shoreline may predict, in
 advance, how reliably Sentinel-1 monitors surface area, a low-cost basis for
-tracking small, ungauged reservoirs beyond altimetry and gauges. We test this
+tracking reservoirs beyond altimetry and gauges. We test this
 in an Earth Engine pipeline comparing two scene-adaptive detectors grounded in
 JRC, a single-polarisation VV Otsu threshold and a dual-polarisation (VV+VH)
 Support Vector Machine (SVM), across 62 reference-screened reservoirs on five
@@ -104,19 +105,44 @@ Area-to-Perimeter Ratio
 \input{sections/06_conclusions}
 
 % -----------------------------------------------------------------------
+\section*{CRediT authorship contribution statement}
+\textbf{Martins Jr, C.:} Conceptualization, Methodology, Software, Formal
+analysis, Investigation, Data curation, Visualization, Writing -- original
+draft. \textbf{Capodici, F.:} Conceptualization, Supervision, Methodology,
+Formal analysis, Investigation, Writing -- review \& editing.
+\textbf{Ciraolo, G.:} Conceptualization, Supervision, Methodology, Writing --
+review \& editing. \textbf{De Marchis, M.:} Conceptualization, Supervision,
+Methodology, Writing -- review \& editing.
+
 \section*{Acknowledgements}
-The authors acknowledge the European Space Agency (ESA) for providing open-access 
-Sentinel-1 SAR data under the Copernicus Programme, Google Earth Engine (GEE) 
-for providing the cloud-based computational infrastructure used in this study, and 
+The authors acknowledge the European Space Agency (ESA) for providing open-access
+Sentinel-1 SAR data under the Copernicus Programme, Google Earth Engine (GEE)
+for providing the cloud-based computational infrastructure used in this study, and
 Planet Labs PBC for providing PlanetScope imagery used in the validation.
 
-\section*{Data Availability Statement}
-The GEE application developed is available at \url{https://ee-ciceromartinsjr.projects.earthengine.app/view/globalpilotsar}.
-GEEscripts and supplementary datasets are available at:
-\url{https://github.com/cicero-martins/reservoirs_s1_svm}. A supplementary
-document giving a worked example of each statistical test used in
-Section~3.5 (KGE, Spearman, Wilcoxon, Kruskal-Wallis) is submitted alongside
-this manuscript.
+\section*{Software and data availability}
+\begin{itemize}
+  \item \textbf{Name of the web application:} sar\_global\_reservoirs (Reservoir SAR Monitor)
+  \item \textbf{Developer:} Cicero Martins Jr.
+  \item \textbf{Year first available:} 2026
+  \item \textbf{Hardware required:} General-purpose computer with internet access.
+  \item \textbf{Software required:} Web browser (Google Chrome recommended for Earth Engine apps).
+  \item \textbf{Program language:} JavaScript (Google Earth Engine API) for the
+  web application; Python for the offline analysis scripts.
+  \item \textbf{Availability and cost:} Open-source, available at no cost.
+  \item \textbf{Source code repository:} \url{https://github.com/cicero-martins/reservoirs_s1_svm}
+  \item \textbf{Web application (live app):} \url{https://ee-ciceromartinsjr.projects.earthengine.app/view/sarglobalreservoirs}
+  \item \textbf{Licence:} MIT License
+  \item \textbf{Data availability:} Primary Sentinel-1 SAR data are public
+  domain from ESA, accessed via Google Earth Engine. Validation PlanetScope
+  imagery is under commercial licence; while not directly hosted, all unique
+  Product IDs and metadata are provided in the source code repository for
+  traceability. Reservoir A/P, area, climate zone and country attributes
+  (Table~\ref{tab:pilot}) and the code used to derive them are available in
+  the same repository. A supplementary document giving a worked example of
+  each statistical test used in Section~3.5 (KGE, Spearman, Wilcoxon,
+  Kruskal--Wallis) is submitted alongside this manuscript.
+\end{itemize}
 
 \bibliographystyle{elsarticle-harv}
 \bibliography{references}

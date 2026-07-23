@@ -45,7 +45,7 @@ were drawn from the Global Reservoir and Dam databases
 \citep[GRanD, GRDL;][]{Lehner2011, Hao2024}, and their water-body polygons
 from the JRC maximum-extent layer \citep{Pekel2016}.
 
-\begin{figure*}[t]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{figures/study_area_map}
   \caption{Global-set reservoirs ($n=62$) coloured by static shoreline
@@ -55,7 +55,7 @@ from the JRC maximum-extent layer \citep{Pekel2016}.
   Sicilian near-truth reservoirs (Section~\ref{sec:study_sicily}), coloured
   on the same A/P scale (regional boundary: FAO GAUL level-1).}
   \label{fig:map_global}
-\end{figure*}
+\end{figure}
 
 \input{sections/table_pilot}
 
@@ -82,7 +82,8 @@ decade they have repeatedly reached critically low levels during the dry
 season \citep{ISPRA2023}, making them a demanding and policy-relevant test
 bed.
 
-The four reference reservoirs span contrasting morphometries. Pozzillo, the
+The four reference reservoirs span contrasting morphometries
+(Figure~\ref{fig:sicily_3d}). Pozzillo, the
 largest, is a broad, relatively shallow basin. Poma and Rosamarina are
 intermediate, and Ancipa is a small, steep-sided, valley-confined reservoir
 in the Nebrodi range whose narrow, predominantly east--west-oriented body
@@ -90,3 +91,14 @@ represents the low-A/P, hardest-to-monitor end of the range. For each, cloud-
 free PlanetScope SuperDove imagery ($\sim$3~m) acquired between May~2024 and
 May~2025 yields near-truth NDWI water masks used to validate the
 Sentinel-1--derived surface areas (Section~\ref{sec:methods}).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{figures/sicily_4lakes_3d}
+  \caption{Basin geometry of the four Sicilian near-truth reservoirs,
+  reconstructed independently of the SAR pipeline (bathtub/level-stacking,
+  merged with real GLO-30 terrain; A/P and area per panel). Pozzillo is
+  broad and shallow, Ancipa is narrow and steep-sided at the lowest A/P,
+  and Poma and Rosamarina fall in between.}
+  \label{fig:sicily_3d}
+\end{figure}

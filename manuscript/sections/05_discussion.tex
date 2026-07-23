@@ -3,29 +3,23 @@
 
 \subsection{A simple, per-scene detector is enough}
 
-The four-detector comparison changes how the single- versus dual-polarisation
-question should be posed. Two per-scene detectors, a single-band Otsu threshold
-and a dual-band SVM, are statistically indistinguishable across the global set,
-and the single-band detector is the better of the two in most reservoirs
-(Section~\ref{sec:res_fourway}). A fixed-training dual SVM, by contrast, ranks
-below the single-band threshold, because it cannot follow the scene-to-scene
-changes in backscatter that a per-scene rule absorbs by construction. Two
-lessons follow. First, the choice worth making is not how many polarisations to
-use but whether the decision rule is re-estimated for each acquisition.
-Retraining per scene also removes any dependence on a baseline year, settling
-the objection that a fixed training year is arbitrary. Second, the second
-polarisation is not worth its overhead: it adds no reliable accuracy over a wide
-range of geometry and climate, and where it does help, the Sicilian Ancipa
-case (Section~\ref{sec:res_sicily}) shows the mechanism is real at an extreme
-but does not generalise.
+The four-detector comparison (Section~\ref{sec:res_fourway}) changes how
+the single- versus dual-polarisation question should be posed. Two lessons
+follow. First, the choice worth making is not how many polarisations to
+use but whether the decision rule is re-estimated for each acquisition:
+retraining per scene is what separates the competitive dual SVM from the
+fixed-training variant that ranks last, and it also removes any dependence
+on a baseline year, settling the objection that a fixed training year is
+arbitrary. Second, the second polarisation is not worth its overhead: it
+adds no reliable accuracy over a wide range of geometry and climate, and
+where it does help, the Sicilian Ancipa case (Section~\ref{sec:res_sicily})
+shows the mechanism is real at an extreme but does not generalise.
 
-The cost audit points the same way.
-Polarisation count itself is cheap, but making the dual classifier adapt
-requires per-scene retraining, which makes it the costliest method, whereas the
-per-scene single-band Otsu is the simplest and roughly 15\% cheaper to run
-(Section~\ref{sec:res_cost}). The most accurate method on the median is
-therefore also the most expensive and buys no general gain, so the
-recommendation is the simple per-scene VV Otsu.
+The cost audit reinforces this recommendation rather than complicating it:
+because the most accurate method on the median, the per-scene SVM, is also
+the most expensive (Section~\ref{sec:res_cost}), its added complexity buys
+no general gain, and the simple per-scene VV Otsu is the more practical
+default.
 
 \subsection{A/P as an a-priori screening tool}
 
@@ -43,6 +37,21 @@ manual delineation that would otherwise limit transfer to new regions. Coupled
 with the parsimony result above, a single simple detector applied everywhere,
 with A/P used only to flag where its output should be trusted, keeps the
 operational workflow as light as possible.
+
+This a-priori value is not incidental to A/P's particular form. Other
+shoreline-shape descriptors, such as fractal dimension or compactness
+indices, also quantify shoreline irregularity, but they are not derived
+from the mixed-pixel mechanism itself (Section~\ref{sec:introduction}), so
+there is no equivalent argument for why they, rather than some other
+irregularity measure, should set an accuracy ceiling. A/P is instead the
+length-scale that mechanism directly implies: the ambiguous-boundary
+fraction $r/(A/P)$ follows from dividing the boundary-strip area by the
+water area, so the relationship it predicts, and that we observe (Spearman
+$\rho=0.51$, Section~\ref{sec:res_ap}), is consistent with that derivation
+rather than a post-hoc fit to whichever shape metric happened to correlate.
+We did not screen candidate shoreline descriptors and keep the
+best-performing one; A/P was derived from the error mechanism first, and
+only then tested.
 
 \subsection{Geometric and radiometric limits}
 \label{sec:disc_geo_radio}
@@ -67,13 +76,11 @@ are tracked less well at given A/P than those in arid or Mediterranean ones.
 Reaching this conclusion required first separating a genuine climate signal
 from a data-quality artefact. In a first pass, the climate residual lost
 significance once reservoirs with a demonstrably noisy optical reference were
-excluded, since those reservoirs were disproportionately humid and tropical,
-and we could not tell whether climate mattered or the reference did. We
-therefore built an explicit reference-quality screen (a roughness ratio
-comparing month-to-month JRC variability to that of two independent SAR
-detectors, Section~\ref{sec:val_global}) and excluded the 14 reservoirs it
-flagged before
-computing any result. On this cleaned set the climate residual remains
+excluded after the fact, since those reservoirs were disproportionately
+humid and tropical, and we could not tell whether climate mattered or the
+reference did. Only once the reference-quality screen (Section~\ref{sec:val_global})
+was applied throughout, rather than as a post-hoc exclusion, did the
+climate residual prove robust: on this cleaned set it remains
 significant ($p=0.012$), so it is not merely standing in for reference noise:
 climate is a genuine, if secondary, modulator of the geometric ceiling A/P
 sets. The practical implication survives either way. Where two independent
@@ -85,9 +92,11 @@ precisely where an all-weather SAR record is most valuable.
 \label{sec:disc_limitations}
 
 Several limitations bound these conclusions. The study addresses surface area
-only. Converting area to storage volume requires area--elevation--volume
-information that for many reservoirs is outdated, and we leave that conversion,
-and the updating of those curves, to future work. The global set is referenced
+only. Converting area to storage volume requires an area--elevation--volume
+relationship that, for a significant number of reservoirs, needs updating
+or recreating from scratch (Section~\ref{sec:introduction}); we leave that
+conversion to future work.
+The global set is referenced
 against the 30~m JRC product, an inter-product comparison rather than ground
 truth. The four Sicilian reservoirs validated against 3~m PlanetScope reproduce
 the main findings, but a broader near-truth validation would strengthen them,

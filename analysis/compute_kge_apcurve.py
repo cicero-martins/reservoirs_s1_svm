@@ -39,6 +39,8 @@ df = df[~df['name'].isin(NO_DUAL_EXPORT)].copy()    # Forggen: historical specia
 n_before_refnoise = len(df)
 df = df[~df['name'].isin(REF_NOISE)].copy()         # drop reference-noise-flagged
 df = df.sort_values('ap_m').reset_index(drop=True)
+ids = pd.read_csv('analysis/reservoir_ids.csv')[['name', 'id']].set_index('name')
+df['id'] = df['name'].map(ids['id'])                # continent-coded label (Table 1), not the full name
 df.to_csv('analysis/pilot_kge_apcurve.csv', index=False)
 
 r, p = stats.spearmanr(df['ap_m'], df['best'])
@@ -55,6 +57,7 @@ print(f'  winner: VV-Otsu {int((df.winner=="vv").sum())} | adapt {int((df.winner
 import matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from adjustText import adjust_text
 
 WCOL = {'vv': '#2ca02c', 'adapt': '#1f77b4'}
 fig, ax = plt.subplots(figsize=(11, 7))
@@ -63,9 +66,14 @@ for w, c in WCOL.items():
     ax.scatter(s['ap_m'], s['best'], s=70, color=c, alpha=0.85, edgecolors='white',
                linewidths=0.7, zorder=4, label=f'best = {"VV-Otsu" if w=="vv" else "adapt SVM"} '
                f'(n={len(s)})')
-for _, r_ in df.iterrows():
-    ax.annotate(r_['name'].replace('_', ' '), (r_['ap_m'], r_['best']), fontsize=5.5,
-                xytext=(3, 2), textcoords='offset points', color='#666')
+YLIM = (-0.1, 1.02)
+ax.set_ylim(*YLIM)
+df_vis = df[(df['best'] >= YLIM[0]) & (df['best'] <= YLIM[1])]
+texts = [ax.text(r_['ap_m'], r_['best'], r_['id'], fontsize=7.5,
+                  color='#666', zorder=10) for _, r_ in df_vis.iterrows()]
+adjust_text(texts, x=df_vis['ap_m'].values, y=df_vis['best'].values, ax=ax,
+            expand=(1.6, 1.8), force_static=(0.7, 0.8), force_text=(0.3, 0.4),
+            arrowprops=dict(arrowstyle='-', color='#999', lw=0.5))
 
 edges = [df.ap_m.min() - 1, 90, 130, 180, 260, df.ap_m.max() + 1]
 df['bin'] = pd.cut(df['ap_m'], edges)

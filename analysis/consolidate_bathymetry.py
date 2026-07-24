@@ -65,6 +65,21 @@ def aev_from_dem(elev, mask, levels):
     return areas, vols
 
 
+def vol_exact(elev, mask, floor, top):
+    """Volume above floor (Mm3), exact per-pixel water-column sum -- not an
+    approximation. Found 2026-07-24: aev_from_dem's 0.5 m-step trapezoidal
+    integration systematically UNDERESTIMATES volume by 1.7-11.7% depending on
+    the reservoir (worst for the sparsest/steppiest DEMs -- Nicoletti, Pozzillo,
+    Arancio, Garcia), because a fixed 0.5 m level grid poorly resolves the
+    area(h) step function these ~10-mask level-slice DEMs produce, especially
+    after the windowed drought-refill masks made the steps coarser. This exact
+    sum has no such discretization error: by the layer-cake identity,
+    integral_floor^top A(h) dh = sum_pixels pixelArea*(top-elev_pixel) exactly."""
+    pixel_m2 = PIXEL_HA * 1e4  # 0.01 ha = 100 m2
+    col = np.clip(top - elev, 0.0, top - floor)
+    return float(np.sum(col[mask]) * pixel_m2 / 1e6)  # m -> m3 -> Mm3
+
+
 def load_design_vol(name, cfg):
     qc, ac, vc, unit = cfg['design']
     df = pd.read_excel(f'{CURVE_DIR}/{name}.xls', sheet_name=0, header=None, engine='xlrd')[[qc, vc]]
@@ -131,7 +146,7 @@ for name, cfg in RES.items():
     vdes_floor_abs = float(des_vol(floor))
     vdes_abs_max = float(des_vol(top))
     vdes_rel_max = vdes_abs_max - vdes_floor_abs
-    vdem_rel_max = float(v_dem[-1])
+    vdem_rel_max = vol_exact(dem, mask, floor, top)
 
     # Observability envelope: what fraction of the design curve's TOTAL volume (down to
     # its own lowest tabulated point, which for every core reservoir is at or near true

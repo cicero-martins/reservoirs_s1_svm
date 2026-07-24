@@ -1,10 +1,10 @@
 reservoir,ap_m,floor_m,max_m,obs_range_m,vol_dem_rel_Mm3,vol_design_rel_Mm3,band_observable_pct,deepzone_pct,band_pct_capped,sar_change_band_pct,truth_change_band_pct,truth_change_total_pct,indep_ref,field_rmse_m
-Olivo,50.7,432.09,439.17,7.1,1.89,3.7,51.2,48.8,False,-48.8,-3.6,-30.6,updated curve,
-Ancipa,90.5,898.46,945.28,46.8,13.04,22.46,100.0,0.0,True,-42.0,,,—,
-Nicoletti,119.7,375.05,379.87,4.8,2.78,5.26,39.1,60.9,False,-47.2,-6.2,-5.0,updated curve,
-Castello,126.7,277.51,292.78,15.3,12.89,19.39,67.2,32.8,False,-33.5,-23.4,-31.8,updated curve,
-Garcia,167.7,172.54,189.54,17.0,33.76,49.27,83.8,16.2,False,-31.5,-24.3,,echosounder,2.72
-Arancio,182.2,167.19,176.52,9.3,14.12,18.25,72.9,27.1,False,-22.6,-3.7,-15.2,updated curve,
-Rosamarina,187.4,140.34,162.2,21.9,42.83,54.0,76.7,23.3,False,-20.7,-7.3,-16.7,2025 survey,
-Poma,190.1,176.38,193.06,16.7,38.89,46.81,78.6,21.4,False,-16.9,-0.5,2.9,updated curve,
-Pozzillo,240.5,344.77,352.2,7.4,26.04,28.82,79.1,20.9,False,-9.6,,,—,
+Olivo,50.7,432.09,439.17,7.1,1.95,3.7,51.2,48.8,False,-47.3,-3.6,-30.6,updated curve,
+Ancipa,90.5,898.46,945.28,46.8,13.26,22.46,100.0,0.0,True,-41.0,,,—,
+Nicoletti,119.7,375.05,379.87,4.8,3.15,5.26,39.1,60.9,False,-40.2,-6.2,-5.0,updated curve,
+Castello,126.7,277.51,292.78,15.3,13.35,19.39,67.2,32.8,False,-31.2,-23.4,-31.8,updated curve,
+Garcia,167.7,172.54,189.54,17.0,35.64,49.27,83.8,16.2,False,-27.7,-24.9,,echosounder,2.43
+Arancio,182.2,167.19,176.52,9.3,15.1,18.25,72.9,27.1,False,-17.3,-3.7,-15.2,updated curve,
+Rosamarina,187.4,140.34,162.2,21.9,44.24,54.0,76.7,23.3,False,-18.1,-7.3,-16.7,2025 survey,
+Poma,190.1,176.38,193.06,16.7,39.95,46.81,78.6,21.4,False,-14.7,-0.5,2.9,updated curve,
+Pozzillo,240.5,344.77,352.2,7.4,28.73,28.82,79.1,20.9,False,-0.3,,,—,

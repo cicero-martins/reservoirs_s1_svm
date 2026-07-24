@@ -126,6 +126,16 @@ def vertical_range(name):
     return lo, hi, terr_hi
 
 
+def vol_exact(arr, mask, floor, top, pixel_ha=PIXEL_HA):
+    """Volume above floor (Mm3), exact per-pixel water-column sum. aev()'s 0.5 m-
+    step trapezoidal integration underestimates volume by 1.7-11.7% for these
+    sparse (~10-mask) level-slice DEMs, worse for the steppiest ones (found
+    2026-07-24) -- use this for any reported total-volume scalar; aev()'s curve
+    stays fine for plotting the intermediate area/volume-vs-elevation shape."""
+    col = np.clip(top - arr, 0.0, top - floor)
+    return float(np.sum(col[mask]) * pixel_ha * 1e4 / 1e6)
+
+
 def aev(arr, mask, levels, pixel_ha=PIXEL_HA):
     """area(h)=pixels below h (ha); volume above first level via trapezoid (Mm3)."""
     areas = np.array([np.sum((arr < h) & mask) * pixel_ha for h in levels])
@@ -232,9 +242,8 @@ def capacity_change(name):
     if B is None:
         return None
     dc = design_curve(name)
-    levels = np.arange(B['floor'], B['top'] + 1e-6, 0.5)
-    _, v_dem = aev(B['arr'], B['mask'], levels, B['pixel_ha'])
-    out = dict(floor=B['floor'], top=B['top'], vol_dem_rel=float(v_dem[-1]))
+    out = dict(floor=B['floor'], top=B['top'],
+               vol_dem_rel=vol_exact(B['arr'], B['mask'], B['floor'], B['top'], B['pixel_ha']))
     if dc is None:
         return out
     _, des_vol = dc

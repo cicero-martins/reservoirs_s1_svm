@@ -120,6 +120,15 @@ def aev(elev, mask, levels, pixel_ha):
     return areas, vols
 
 
+def vol_exact(elev, mask, lo, hi, pixel_ha):
+    """Volume in [lo,hi] (Mm3), exact per-pixel water-column sum -- the 0.5 m-step
+    trapezoidal aev() above underestimates volume by up to ~12% for these sparse
+    (~10-mask) level-slice DEMs (see consolidate_bathymetry.py::vol_exact for the
+    full diagnosis); use this exact sum for any reported total-volume scalar."""
+    col = np.clip(hi - elev, 0.0, hi - lo)
+    return float(np.sum(col[mask]) * pixel_ha * 1e4 / 1e6)
+
+
 rows, panels = [], {}
 for site, cfg in SITES.items():
     arrs, dates, tf, crs = load_site_masks(site)
@@ -166,8 +175,8 @@ for site, cfg in SITES.items():
         levels = np.arange(lo, hi + 1e-6, 0.5)
         a_pl, v_pl = aev(dem, pmask, levels, pix_ha)
         a_sar, v_sar = aev(sar_dem, sar['mask'], levels, bt.PIXEL_HA)
-        rec['planet_vol_Mm3'] = round(float(v_pl[-1]), 2)
-        rec['sar_vol_Mm3'] = round(float(v_sar[-1]), 2)
+        rec['planet_vol_Mm3'] = round(vol_exact(dem, pmask, lo, hi, pix_ha), 2)
+        rec['sar_vol_Mm3'] = round(vol_exact(sar_dem, sar['mask'], lo, hi, bt.PIXEL_HA), 2)
         panels[site] = dict(levels=levels, a_pl=a_pl, a_sar=a_sar, v_pl=v_pl, v_sar=v_sar,
                             ap=cfg['ap'], lo=lo, hi=hi)
     rows.append(rec)

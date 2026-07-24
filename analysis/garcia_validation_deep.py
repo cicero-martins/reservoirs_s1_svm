@@ -116,11 +116,19 @@ print(band_df.to_string(index=False))
 levels = np.arange(floor_B, max_B + 1e-6, 0.5)
 
 def compute_aev(elev_grid, mask, levels, pixel_ha=PIXEL_HA):
-    """area(h)=pixels below h (ha); volume via trapezoid rel. to first level (Mm3)."""
+    """area(h)=pixels below h (ha); volume rel. to first level (Mm3), EXACT per-pixel
+    water-column sum at each level (not the 0.5 m-step trapezoidal approximation this
+    used to have -- found 2026-07-24 to underestimate volume by up to ~12% for these
+    sparse level-slice DEMs; see consolidate_bathymetry.py::vol_exact for the full
+    diagnosis). By the layer-cake identity this has no discretization error at any h."""
+    pixel_m2 = pixel_ha * 1e4
+    floor = levels[0]
+    valid = mask & np.isfinite(elev_grid)   # elev_grid may have NaN gaps inside mask
     areas = np.array([np.sum((elev_grid < h) & mask) * pixel_ha for h in levels])
-    vols = np.zeros_like(areas)
-    for i in range(1, len(levels)):
-        vols[i] = vols[i-1] + (areas[i] + areas[i-1]) / 2 * (levels[i] - levels[i-1]) * 0.01
+    vols = np.array([
+        np.sum(np.clip(h - elev_grid, 0.0, h - floor)[valid]) * pixel_m2 / 1e6
+        for h in levels
+    ])
     return areas, vols
 
 a_dem, v_dem = compute_aev(dem_b,    lake_mask, levels)

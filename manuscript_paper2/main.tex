@@ -54,7 +54,7 @@
 
 % -----------------------------------------------------------------------
 \begin{abstract}
-% DRAFT abstract (~150 words). Numbers from the Jul-2026 analysis; see project memory.
+% Abstract (~170 words). Numbers from the Jul-2026 analysis; see project memory.
 Reservoir storage assessment relies on area--elevation--volume (AEV) curves that,
 in many operational settings, still date to construction and no longer reflect
 decades of sedimentation. We present a fully remote-sensing method that reconstructs
@@ -62,14 +62,19 @@ updated bathymetry and storage for the SAR-observable, drawdown-exposed band of 
 reservoir by pairing Sentinel-1 SAR water area with a remote water level, requiring
 neither in-situ gauges nor a nadir altimetry track. Waterlines exposed during drawdown
 are stacked by water level into a digital elevation model of the emerged basin, and
-storage follows by integration. We validate the method on nine Sicilian reservoirs
-against a December~2025 echo-sounder survey (RMSE~$2.2$~m) and recent reference
-bathymetric curves. Replacing the in-situ gauge with SWOT swath altimetry changes
-the reconstructed storage by a mean of $2.2$~\si{Mm^3} (${\approx}5\%$) relative to
-field truth, demonstrating gauge-free, track-free volume. An independent PlanetScope
-optical reconstruction agrees with the SAR bathymetry to $1.1$--$2.6$~m at
-medium-to-high A/P; at one reservoir whose gauge had stalled at a fixed reading for
-months, only SWOT recovered the true drawdown. Reliability scales with the shoreline
+storage follows by integration. A shared regional drought-to-refill event across
+Sicily in 2025--2026 exposed an unusually wide elevation range at most of our study
+reservoirs, motivating a windowed sampling strategy that captures each reservoir's
+fullest observable range from a short, temporally consistent image set. We validate
+the method on nine Sicilian reservoirs against a December~2025 echo-sounder survey
+(RMSE~$2.4$~m) and recent reference bathymetric curves. Replacing the in-situ gauge
+with SWOT swath altimetry changes the reconstructed storage by a mean of
+$2.2$~\si{Mm^3} (${\approx}5\%$) relative to field truth, demonstrating gauge-free,
+track-free volume; three of the nine gauges used in this study had documented
+malfunctions (stuck readings, dry-lakebed misreads) during the study period, each
+resolved only because a satellite water level was available as a fallback. An
+independent PlanetScope optical reconstruction agrees with the SAR bathymetry to
+$1.3$--$3.3$~m at medium-to-high A/P. Reliability scales with the shoreline
 area-to-perimeter ratio. We release the pipeline as open-source code, with a
 downloadable interactive app.
 \end{abstract}

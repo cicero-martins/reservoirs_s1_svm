@@ -9,11 +9,11 @@ nadir track, it removes the two constraints that keep small reservoirs off nadir
 altimetry's map: the need for a gauge, and the need for a satellite ground track to
 actually cross the water body. Notably, DAHITI could add these small reservoirs only
 once SWOT existed, so wide-swath altimetry is what makes them observable at all.
-Rosamarina makes the case concretely: its gauge flat-lined at its telemetry floor
-($145.72$~m) for ${\sim}10$ months of 2024--2025, and only the SWOT level ---
-corroborated by the optical masks --- recovered the true ${\sim}17$~m drawdown,
-without which the optical reconstruction collapsed to a flat, unphysical surface
-(Section~\ref{sec:res_xsensor}). For this specific reservoir, the satellite source was
+Rosamarina makes the case concretely: its gauge suffered two separate stuck episodes
+at two different flat readings, spanning ${\sim}19$ months combined across
+2024--2026, and only the SWOT level --- corroborated by the optical masks ---
+recovered the true drawdown, without which the optical reconstruction collapsed to a
+flat, unphysical surface (Section~\ref{sec:res_xsensor}). For this specific reservoir, the satellite source was
 not merely as good as the gauge but strictly better; the reverse can also hold,
 however, since at the low-A/P Ancipa the SWOT water level itself degrades (RMSE
 $12$~m, Section~\ref{sec:res_ladder}) --- so which source is more reliable is
@@ -25,32 +25,36 @@ down close to its dead pool, or that is filling from empty, exposes most of its 
 and can be reconstructed almost completely; a reservoir kept near full exposes only a
 thin upper band. Consequently, deep-zone sedimentation is invisible to SAR and the
 band capacity change is a lower bound on total loss (Section~\ref{sec:res_change}).
-The 2022--2025 Sicilian drought, by drawing reservoirs down, is favourable to the
-method.
+The 2025--2026 Sicilian drought-to-refill event, by drawing most reservoirs down
+sharply and refilling them within months, was particularly favourable to the method:
+it exposed an unusually wide elevation range in a short, temporally consistent window
+(Section~\ref{sec:intro}).
 
 \subsection{Reliability scales with A/P}
 The area-to-perimeter ratio that predicts SAR water-area reliability
 \citep{PaperOne} also predicts bathymetric-reconstruction reliability: narrow,
-low-A/P reservoirs (Olivo, Ancipa) give noisy area series, poorly-constrained
-hypsometry, and, for Ancipa, degraded SWOT water level (RMSE $12$~m). The same signature
+low-A/P reservoirs (Olivo, Ancipa, Nicoletti) show the largest apparent capacity
+losses in Section~\ref{sec:res_change} and, where an independent curve exists
+(Nicoletti), the widest gap between SAR and truth (Section~\ref{sec:res_curves});
+Ancipa additionally has a degraded SWOT water level (RMSE $12$~m). The same signature
 appears in the cross-sensor comparison (Section~\ref{sec:res_xsensor}): the PlanetScope
-and SAR reconstructions agree to ${\sim}1$--$2.6$~m at Pozzillo, Poma and Rosamarina but
-diverge ($5.5$~m) at the low-A/P Ancipa. This divergence fell from $6.9$~m once a
-reconstruction defect that had collapsed Ancipa's near-dam pool was corrected, but it
-did not close, consistent with a genuine A/P-driven ceiling on reconstruction quality
-rather than a leftover artifact of that bug. It is also unlikely to be a classifier
+and SAR reconstructions agree to $1.3$--$3.3$~m at Pozzillo, Poma and Rosamarina but
+diverge ($6.1$~m) at the low-A/P Ancipa, which is also revisit-rate limited (only 9
+Sentinel-1 acquisitions span its drawdown-refill window, all already used, so no
+denser resampling is possible there). This is unlikely to be a classifier
 artifact: every reservoir here is masked with the same per-scene VV-Otsu classifier
 (Section~\ref{sec:data}), whose dual-polarisation SVM alternative performs comparably
 overall \citep{PaperOne}, though we have not tested SVM masks specifically at Ancipa.
-Two independent lines of evidence --- degraded SWOT water level and PlanetScope
-cross-sensor divergence --- therefore converge on the same low-A/P reservoir, so A/P
-offers an a-priori screen for where the fully remote pipeline can be trusted.
+Multiple independent lines of evidence --- apparent capacity loss, curve validation
+gap, degraded SWOT water level, and PlanetScope cross-sensor divergence --- therefore
+converge on the same low-A/P reservoirs, so A/P offers an a-priori screen for where
+the fully remote pipeline can be trusted.
 
 \subsection{Systematic bias and its correction}
 The elevation-dependent bias (Section~\ref{sec:res_garcia}) is intrinsic to the
 level-slicing reconstruction. A single field calibration transfers to a similarly
 sedimenting reservoir (Rosamarina) but not to an anomalous one (Poma), so we treat it
-as a partially-correctable systematic with a $\sim\pm10$~pp transfer uncertainty rather
+as a partially-correctable systematic with a $\pm11.3$~pp transfer uncertainty rather
 than a universal correction; more field surveys would tighten it.
 
 \subsection{Limitations and future work}

@@ -92,11 +92,11 @@ to the other reservoirs. Two distinct uncertainties follow from it. The first is
 calibration uncertainty in the bias model itself: we draw 500 samples of its two
 regression coefficients from their joint covariance and propagate each through the
 band-capacity-change calculation, giving a 5th--95th-percentile confidence interval
-that is narrow ($\pm0.6\%$) because it reflects only the fitted line's own
+that is narrow ($\pm0.8\%$ median) because it reflects only the fitted line's own
 uncertainty, not independent per-pixel noise. The second, larger, uncertainty is
 whether the bias model \emph{transfers} to other reservoirs at all: the RMS of the
 bias-corrected error against independent truth at Rosamarina and Poma (excluding the
-self-calibrated Garcia) is ${\approx}\pm10$ percentage points, the dominant term in
+self-calibrated Garcia) is $\pm11.3$ percentage points, the dominant term in
 the overall budget. This error, consistent with the shoreline-geometry dependence
 already established for the SAR area input itself, is what any operational use of the
 reconstruction must budget for.

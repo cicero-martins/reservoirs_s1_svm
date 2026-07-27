@@ -29,6 +29,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))          # anal
 sys.path.insert(0, str((pathlib.Path(__file__).resolve().parent.parent / 'tool')))
 import bathymetry as bt          # load_dem (SAR), aev, design_curve, updated_curve
 from _dem_recon import build_dem  # shared waterline-stacking reconstruction (bathtub)
+import schwatke_bathymetry_3d as m3d  # CONFIGS[...]['swot_bias_corr'] -- single source of truth
 
 REPO   = pathlib.Path('.')
 MASKS  = REPO / 'raw_data' / 'GEE_SicilyPlanetMasks'
@@ -40,7 +41,14 @@ MAX_DT = 7   # days for mask<->WL pairing
 
 SITES = {
     'Ancipa':     dict(gauge='ancipa_livello_secca.csv', ap=90.5),
-    'Pozzillo':   dict(gauge='pozzillo_wl.csv',          ap=240.5),
+    # force_swot=True added 2026-07-24: Pozzillo's gauge under-represents its true
+    # water-level range throughout the record (independently confirmed via SAR area
+    # correlating more strongly with SWOT than with the gauge, see
+    # schwatke_bathymetry_3d.py CONFIGS['Pozzillo'] and Results sec:res_inputvalid) --
+    # the old IQR-based stuck-sensor detection in choose_wl() never triggers for
+    # Pozzillo since its gauge isn't frozen, just compressed, so this needs an
+    # explicit override rather than relying on that heuristic.
+    'Pozzillo':   dict(gauge='pozzillo_wl.csv',          ap=240.5, force_swot=True),
     'Rosamarina': dict(gauge='rosamarina_wl.csv',        ap=187.4),
     'Poma':       dict(gauge='poma_wl.csv',              ap=190.1),
 }
@@ -53,12 +61,42 @@ def _wl(df, dcol, wcol):
     df['wl'] = pd.to_numeric(df['wl'], errors='coerce')
     return df.dropna().groupby('date', as_index=False).wl.mean().sort_values('date')
 
+def _remove_global(s, threshold=2.0):
+    mean, sd = s.mean(), s.std()
+    return s[np.abs(s - mean) <= threshold * sd]
+
+def _remove_local(s, window=5, threshold=1.5):
+    arr, idx = s.values.copy(), s.index.tolist()
+    keep, half = [], window // 2
+    for i in range(len(arr)):
+        lo, hi = max(0, i - half), min(len(arr), i + half + 1)
+        win = arr[lo:hi]
+        mean, sd = win.mean(), win.std()
+        if sd == 0 or abs(arr[i] - mean) <= threshold * sd:
+            keep.append(idx[i])
+    return s.loc[keep]
+
 def load_wl(site, cfg):
     g = pd.read_csv(GAUGE / cfg['gauge']); g.columns = [c.strip().lower() for c in g.columns]
     gauge = _wl(g, next(c for c in g.columns if 'time' in c or 'date' in c),
                    next(c for c in g.columns if 'wl' in c or 'quota' in c or 'value' in c))
     sp = SWOT / f'{site}_swot.csv'
-    swot = _wl(pd.read_csv(sp), 'datetime', 'wse') if sp.exists() else None
+    if not sp.exists():
+        return gauge, None
+    swot = _wl(pd.read_csv(sp), 'datetime', 'wse')
+    # Paper 1's outlier-cleaning pipeline (same as schwatke_bathymetry_3d.load_swot)
+    s = swot.set_index('date')['wl']
+    s = _remove_global(s, 2.0)
+    s = _remove_local(s, 5, 1.5)
+    s = _remove_local(s, 5, 1.5)
+    s = _remove_local(s, 10, 1.5)
+    # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py / CONFIGS comments
+    # in schwatke_bathymetry_3d.py) -- otherwise a per-site constant reference-frame
+    # mismatch gets scored as pixel-elevation "error" against the gauge-calibrated SAR DEM.
+    corr = m3d.CONFIGS.get(site, {}).get('swot_bias_corr', 0.0)
+    if corr:
+        s = s + corr
+    swot = s.rename('wl').rename_axis('date').reset_index()
     return gauge, swot
 
 def pair_series(dates, df):
@@ -78,15 +116,17 @@ def _iqr(vals):
     v = [x for x in vals if x is not None]
     return float(np.subtract(*np.percentile(v, [75, 25]))) if len(v) >= 4 else -1.0
 
-def choose_wl(dates, gauge, swot):
+def choose_wl(dates, gauge, swot, force_swot=False):
     """Pick a SINGLE water-level source per site (no datum mixing). Prefer the in-situ gauge,
-    but fall back to SWOT ONLY when the gauge is degenerate over the mask window — flat to
+    but fall back to SWOT when the gauge is degenerate over the mask window — flat to
     < 0.5 m IQR, i.e. a stuck/dead sensor. Rosamarina's gauge reads 145.72 m to the cm for
     ~10 months in 2024--25 (IQR ~0.01 m) while SWOT and the optical masks both show ~17 m of
     drawdown, so SWOT recovers the hypsometry the dead gauge lost; every well-behaved gauge
-    (Pozzillo, Poma, Ancipa) is kept, avoiding a needless SWOT datum shift."""
+    (Poma, Ancipa) is kept, avoiding a needless SWOT datum shift. `force_swot` overrides this
+    for a reservoir whose gauge is known-compressed rather than stuck (Pozzillo), since the
+    IQR heuristic only catches a frozen gauge, not a merely narrow-but-varying one."""
     g, s = pair_series(dates, gauge), pair_series(dates, swot)
-    use_swot = _iqr(g) < 0.5 and _iqr(s) > 1.0   # gauge stuck AND SWOT has real spread
+    use_swot = force_swot or (_iqr(g) < 0.5 and _iqr(s) > 1.0)
     return (s, 'SWOT') if use_swot else (g, 'gauge')
 
 
@@ -134,7 +174,7 @@ for site, cfg in SITES.items():
     arrs, dates, tf, crs = load_site_masks(site)
     pix_m = abs(tf.a); pix_ha = pix_m * pix_m / 1e4
     gauge, swot = load_wl(site, cfg)
-    chosen, wl_src = choose_wl(dates, gauge, swot)
+    chosen, wl_src = choose_wl(dates, gauge, swot, force_swot=cfg.get('force_swot', False))
     wls, keep, srcs = [], [], []
     for a, w in zip(arrs, chosen):
         if w is not None:

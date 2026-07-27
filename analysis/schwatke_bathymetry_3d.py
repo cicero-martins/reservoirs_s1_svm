@@ -90,6 +90,12 @@ CONFIGS = {
         'sar_csv':      SAR_DIR / 'SAR_area_Poma.csv',
         'h0_bound_lo':  155.0,
         'dahiti_csv':   DAHITI_DIR / '42134_Poma_wl.csv',
+        # 2026-07-27: gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py),
+        # added to raw SWOT wherever it's loaded. Poma is the textbook case for this
+        # being a pure datum offset rather than real disagreement: r=1.00 between
+        # gauge and SWOT before correction, with bias (-1.90 m) essentially equal to
+        # the uncorrected RMSE (1.91 m).
+        'swot_bias_corr': 1.90,
         'boletin_cfg':  {
             'cod':        'dig-18',
             'curve_xls':  CURVE_DIR / 'Poma.xls',
@@ -110,6 +116,10 @@ CONFIGS = {
         # 2026-01-29 (~145.13 m, found when the new windowed Period-B masks landed
         # mostly inside it). SWOT is used in both.
         'gauge_bad_window': [('2024-01-24', '2025-04-02'), ('2025-07-24', '2026-01-29')],
+        # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py), added to raw
+        # SWOT wherever it's loaded -- otherwise splicing SWOT into the gauge series at
+        # the bad-window boundary would inject a fake step of this size.
+        'swot_bias_corr': 0.19,
         'boletin_cfg':  {
             'cod':        'dig-22',
             'curve_xls':  CURVE_DIR / 'Rosamarina.xls',
@@ -122,6 +132,25 @@ CONFIGS = {
         'gauge_min':    330.0,
         'sar_csv':      SAR_DIR / 'SAR_area_Pozzillo.csv',
         'h0_bound_lo':  310.0,
+        # swot_csv + swot_priority added 2026-07-24: unlike Rosamarina/Garcia's
+        # TEMPORARY stuck-gauge windows (gauge_bad_window, a hard exclusion), Pozzillo's
+        # gauge shows a PERSISTENT amplitude-compression problem -- not frozen, but its
+        # range is systematically narrower than reality. Found via the SAR area series
+        # itself: SAR area correlates far better with SWOT (r=0.90) than with the gauge
+        # (r=0.76) over the SWOT era, and SWOT's water-level span (12.9 m) tracks the
+        # SAR-implied range much better than the gauge's compressed span (7.8 m) --
+        # independent corroboration the gauge, not SWOT, is the less reliable source
+        # here. `swot_priority` reorders (SWOT first, gauge as fallback) rather than
+        # excluding gauge outright like gauge_bad_window does: SWOT alone is too sparse
+        # for Pozzillo (a 42-day gap mid-window) to cover every date, and a compressed
+        # but real gauge reading is still better than the model-inversion last resort.
+        'swot_csv':      REPO / 'validation_data' / 'SWOT' / 'Pozzillo_swot.csv',
+        'swot_priority': True,
+        # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py), added to raw
+        # SWOT wherever it's loaded -- Pozzillo's residual disagreement after this
+        # correction (r=0.64, alpha=1.79) is real range-compression in the gauge, not
+        # datum, consistent with the swot_priority rationale above.
+        'swot_bias_corr': 0.76,
         # boletin_cfg added 2026-07-21: the model-inversion fallback, fit on only 9
         # B-period pairs all <=356 m, was being asked to extrapolate Period-A's large-area
         # dates (360-590 ha) and inverting to 377-392 m -- ABOVE the dam's own design-curve
@@ -145,6 +174,13 @@ CONFIGS = {
         # GEE centroid-inside filter selects upstream patches instead of dam body;
         # anchor-based post-processing fixes this in Phase 2.
         'fix_components': True,
+        # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py). Ancipa has no
+        # swot_csv here (SWOT is never used in its reconstruction -- its gauge is
+        # trusted throughout), so this only affects the WL-alone validation table/
+        # figure; even after removing this 8.58 m offset, Ancipa's SWOT still shows a
+        # genuinely compressed dynamic range (alpha=0.55) relative to the gauge, unlike
+        # Poma's near-pure-offset case, consistent with SWOT degrading at low A/P.
+        'swot_bias_corr': -8.58,
         'boletin_cfg':  {
             'cod':        'dig-01',
             'curve_xls':  CURVE_DIR / 'Ancipa.xls',
@@ -169,6 +205,10 @@ CONFIGS = {
         'gauge_min':    160.0,
         'sar_csv':      REPO / 'raw_data' / 'exportSicilyExtended' / 'GEE_SicilyExtended_VVotsu' / 'SAR_area_Arancio.csv',
         'h0_bound_lo':  145.0,
+        # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py); no swot_csv
+        # here since Arancio's gauge is trusted throughout (SWOT is not used in its
+        # reconstruction), so this only affects the WL-alone validation table/figure.
+        'swot_bias_corr': 0.21,
         'boletin_cfg':  {
             'cod':        'dig-02',
             'curve_xls':  CURVE_DIR / 'Arancio.xls',
@@ -224,6 +264,10 @@ CONFIGS = {
         # window; the gauge then recovers and tracks a real 176.5->189.8 m refill from
         # 2026-02-04 on. Dates in this window use SWOT instead of the gauge.
         'gauge_bad_window': ('2025-08-06', '2026-02-03'),
+        # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py), added to raw
+        # SWOT wherever it's loaded -- otherwise splicing SWOT into the gauge series at
+        # the bad-window boundary would inject a fake step of this size.
+        'swot_bias_corr': -1.19,
         # V->h validation vs AEGIS gauge: n=44, bias=-0.10 m, RMSE=1.04 m, R2=0.954
         # Bias essentially zero — no significant sedimentation signal in design curve.
         'boletin_cfg':  {
@@ -312,15 +356,51 @@ def interp_wl(series: pd.Series, dt: pd.Timestamp, max_gap_days: float) -> float
     return np.nan
 
 
+def _remove_global(s: pd.Series, threshold: float = 2.0) -> pd.Series:
+    """Paper 1's outlier filter (analysis/compute_kge_v3.py), verbatim."""
+    mean, sd = s.mean(), s.std()
+    return s[np.abs(s - mean) <= threshold * sd]
+
+
+def _remove_local(s: pd.Series, window: int = 5, threshold: float = 1.5) -> pd.Series:
+    arr, idx = s.values.copy(), s.index.tolist()
+    keep, half = [], window // 2
+    for i in range(len(arr)):
+        lo, hi = max(0, i - half), min(len(arr), i + half + 1)
+        win = arr[lo:hi]
+        mean, sd = win.mean(), win.std()
+        if sd == 0 or abs(arr[i] - mean) <= threshold * sd:
+            keep.append(idx[i])
+    return s.loc[keep]
+
+
 def load_swot(path: Path) -> pd.Series:
-    """Load SWOT LakeSP CSV -> daily mean WSE Series (date index), quality-screened."""
+    """Load SWOT LakeSP CSV -> daily mean WSE Series (date index), quality-screened
+    AND outlier-cleaned with Paper 1's own pipeline (global 2sigma + local (5,1.5)x2
+    + (10,1.5) -- see wl_gauge_swot_validation.py for the cross-check that motivated
+    this: raw SWOT had occasional clear outliers, e.g. Garcia/Pozzillo isolated points
+    tens of metres off neighbouring observations, that a quality_f filter alone
+    doesn't catch)."""
     df = pd.read_csv(path, parse_dates=['datetime'])
     df = df[df['quality_f'].isin([0, 1])]
     df['_dt'] = df['datetime'].dt.tz_localize(None)
     df['_wl'] = pd.to_numeric(df['wse'], errors='coerce')
     df = df.dropna(subset=['_dt', '_wl'])
     daily = df.set_index('_dt')['_wl'].resample('D').mean().dropna()
-    return daily.rename('wl_swot')
+    cleaned = _remove_global(daily, 2.0)
+    cleaned = _remove_local(cleaned, 5, 1.5)
+    cleaned = _remove_local(cleaned, 5, 1.5)
+    cleaned = _remove_local(cleaned, 10, 1.5)
+    return cleaned.rename('wl_swot')
+
+
+def load_swot_corrected(cfg: dict, path: Path) -> pd.Series:
+    """load_swot() plus the reservoir's gauge-vs-SWOT datum offset (swot_bias_corr,
+    see CONFIGS comments): the raw loader must stay pure (path-only) since
+    wl_gauge_swot_validation.py uses it to *derive* that offset in the first place."""
+    swot = load_swot(path)
+    corr = cfg.get('swot_bias_corr', 0.0)
+    return (swot + corr).rename('wl_swot') if corr and len(swot) else swot
 
 
 def build_anchor_mask(res: str) -> np.ndarray | None:
@@ -502,7 +582,7 @@ def phase1():
         swot = pd.Series(dtype=float, name='wl_swot')
         if 'swot_csv' in cfg and cfg['swot_csv'].exists():
             try:
-                swot = load_swot(cfg['swot_csv'])
+                swot = load_swot_corrected(cfg, cfg['swot_csv'])
                 print(f'  SWOT: {swot.index.min().date()} to {swot.index.max().date()}'
                       f'  ({len(swot)} obs)  WL {swot.min():.1f}-{swot.max():.1f} m')
             except Exception as e:
@@ -531,8 +611,13 @@ def phase1():
             boletin = pd.Series(dtype=float, name='wl_boletin')
             print(f'  Boletin V->h: UNAVAILABLE ({e})')
 
-        # Fit power-law model on B-period SAR+gauge pairs for inversion
-        # Only possible for reservoirs where period B overlaps with gauge
+        # Fit power-law model on B-period SAR+gauge pairs for inversion. Calibration
+        # stays on gauge even for reservoirs where gauge is deprioritised for the
+        # primary WL assignment (e.g. Pozzillo, see 'gauge_soft_bad' below): gauge is
+        # dense enough to constrain the fit's shape reliably, whereas SWOT alone is
+        # too sparse here (a 42-day gap mid-window left <6 calibration pairs and the
+        # fit failed outright when tried 2026-07-24). The model is only ever used as
+        # a last-resort fallback for the few dates neither SWOT nor gauge can reach.
         sar = sar_daily[res]
         pairs_B = match_sar_gauge(sar, gauge, dates_json[res].get('B', []))
         model   = fit_hyps_model(pairs_B, cfg['h0_bound_lo'])
@@ -556,17 +641,27 @@ def phase1():
                 # Try gauge match within ±MAX_DT days (always first priority) -- unless
                 # this date falls inside a known gauge-bad window (e.g. Garcia's
                 # dry-lakebed floor reading), in which case skip the gauge entirely and
-                # try SWOT first instead.
+                # try SWOT first instead. `swot_priority` (Pozzillo) is a SOFTER
+                # reordering: try SWOT first everywhere, but still fall back to gauge
+                # (not straight to boletin/model) if no SWOT observation is near enough.
                 wl_m   = np.nan
                 source = 'none'
                 in_bad_window = any(lo <= dt <= hi for lo, hi in bad_windows)
-                if len(gauge) > 0 and not in_bad_window:
+                swot_first = cfg.get('swot_priority', False)
+
+                if swot_first and len(swot) > 0:
+                    val = interp_wl(swot, dt, MAX_DT)
+                    if not np.isnan(val):
+                        wl_m   = val
+                        source = 'swot'
+
+                if np.isnan(wl_m) and len(gauge) > 0 and not in_bad_window:
                     val = interp_wl(gauge, dt, MAX_DT)
                     if not np.isnan(val):
                         wl_m   = val
                         source = 'gauge'
 
-                if np.isnan(wl_m) and in_bad_window and len(swot) > 0:
+                if np.isnan(wl_m) and in_bad_window and not swot_first and len(swot) > 0:
                     val = interp_wl(swot, dt, MAX_DT)
                     if not np.isnan(val):
                         wl_m   = val

@@ -10,14 +10,18 @@ truth, and its dependence on shoreline area-to-perimeter ratio (A/P), is establi
 there; we do not re-derive it here, only apply it (Section~\ref{sec:data}).
 
 The water level is the other required input, and where a gauge is unavailable it must
-itself be remotely sensed. We test this substitution directly: keeping the SAR area
-fixed, we pair it with the in-situ \emph{gauge} and, separately, with \emph{SWOT}
-altimetry, fit the power-law hypsometry of Eq.~\eqref{eq:powerlaw} to each, and compare
-the resulting water levels and integrated storage to each other and to field/survey
-truth. Because SWOT's wide swath observes a reservoir regardless of ground track,
-whereas nadir altimetry only reaches the reservoirs a track happens to cross, this
-validates the water-level substitution that later lets the whole pipeline run without
-either a gauge or an altimetry ground track.
+itself be remotely sensed. We validate this substitution in two separate steps rather
+than as one combined figure. First, \emph{as a water level}: SWOT is compared directly
+to the in-situ gauge, independent of any SAR area or reconstruction, giving a per-reservoir
+water-level RMSE with no volume computed yet (Section~\ref{sec:res_inputvalid}). Only once
+that establishes where SWOT is an acceptable substitute do we ask what carrying it through
+the reconstruction does to \emph{storage}: keeping the SAR area fixed, we pair it with the
+in-situ gauge and, separately, with SWOT altimetry, fit the power-law hypsometry of
+Eq.~\eqref{eq:powerlaw} to each, and compare the resulting integrated storage to each other
+and to field/survey truth (Section~\ref{sec:res_valid}). Because SWOT's wide swath observes
+a reservoir regardless of ground track, whereas nadir altimetry only reaches the reservoirs
+a track happens to cross, this validates the water-level substitution that later lets the
+whole pipeline run without either a gauge or an altimetry ground track.
 
 \subsection{Bathymetric reconstruction: DEM and scalar hypsometry}
 \label{sec:dem}
@@ -48,12 +52,15 @@ observed level range is wide. Both see only the exposed band.
 
 \subsection{Validation of the reconstructed curves and bathymetry}
 \label{sec:xsensor}
-The reconstruction itself is then checked against two further independent references.
-The scalar AEV curve is compared, over the common observed range, to the most recent
-official area--volume curve for each reservoir, as an area RMSE; the DEM is compared to
-Garcia's echo-sounder survey, the one genuine field ground truth, as an elevation-wise
-bias and RMSE. Both comparisons are restricted to the SAR-observable band, the only
-part either reference and the reconstruction can be compared over.
+The reconstruction itself is then checked against two further independent references,
+both restricted to the SAR-observable band, the only part either reference and the
+reconstruction can be compared over. The DEM is compared to Garcia's echo-sounder
+survey, the one genuine field ground truth, as an elevation-wise bias and RMSE and as
+a band-relative storage-loss comparison. For the six reservoirs with a recent official
+area--volume curve, the DEM's own band capacity change is compared to that curve's
+band and total capacity change relative to the original design curve, so both figures
+are on the same footing (\% of design capacity) rather than one in area and one in
+volume.
 
 Because the reconstruction (Section~\ref{sec:dem}) is agnostic to the mask source, we
 additionally rebuild the bathymetry from PlanetScope 3~m optical water masks and

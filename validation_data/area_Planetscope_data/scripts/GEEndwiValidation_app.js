@@ -7,7 +7,7 @@
 var aoiPozzillo = ee.Geometry.Polygon([[[14.554580696432122, 37.6766992581014], [14.554580696432122, 37.64897758060163], [14.617408760396966, 37.64897758060163], [14.617408760396966, 37.6766992581014]]], null, false);
 var aoiAncipa = ee.Geometry.Polygon([[[14.57325691102672, 37.829510306031736], [14.57677597406553, 37.82944254240149], [14.578492583025685, 37.829239135754236], [14.579436720599281, 37.83144236541283], [14.57467311738862, 37.83520465165205], [14.563783306938234, 37.839356953333464], [14.562635380088457, 37.84113614580156], [14.56059688447167, 37.842321965613536], [14.558343834516467, 37.841203734129536], [14.559320198191177, 37.83911944092924], [14.556461064714243, 37.83885679609163], [14.552628213554826, 37.83909822359957], [14.550454245643296, 37.84033730950888], [14.548366011357844, 37.842457526834366], [14.544632370375181, 37.84549065349614], [14.543645323492353, 37.84588036505758], [14.541799931450177, 37.845049509355505], [14.540727189490793, 37.8433801988068], [14.544632672400146, 37.83746207809259], [14.552485884405758, 37.832560902982586], [14.562227667551046, 37.83398447172823], [14.56413743936066, 37.83385738061234], [14.56536054875059, 37.83318796014818], [14.567291678172841, 37.83042549836065], [14.568064220082166, 37.83015440239056], [14.570574736567504, 37.82905276680642]]]);
 var aoiRosamarina = ee.Geometry.Polygon([[[13.608783486080712, 37.96112161679806], [13.607753517818994, 37.90669370285033], [13.654960396481103, 37.907100030549195], [13.654960396481103, 37.96112161679806]]], null, false);
-var aoiPoma = aoiPoma2;
+var aoiPoma = ee.Geometry.Polygon([[[13.079822257193644, 38.00170936341241], [13.079478934439738, 37.995486777961126], [13.078792288931925, 37.98709897962336], [13.085315421256144, 37.98439303364138], [13.091323682283965, 37.984596086422705], [13.098361685904582, 37.979657388048814], [13.1103779822913, 37.96923789204502], [13.114669516715129, 37.965854620744274], [13.12462587657841, 37.96544861771155], [13.125312932234179, 37.9772210077487], [13.11913271251591, 37.98736956873287], [13.099048331412394, 38.00008613115189], [13.08617372814091, 38.00373835321052]]]);
 var aoiGarcia = ee.Geometry.Polygon([[[13.102364938493247, 37.78566159075255], [13.12777082228231, 37.79027407118122], [13.14751188063192, 37.80180401264191], [13.164334695573325, 37.81414583769675], [13.142362039323325, 37.81590878717127], [13.13051740431356, 37.8046523091972], [13.123307626481528, 37.804381047591185], [13.11129133009481, 37.79990508724729], [13.10356656813192, 37.8047879396266], [13.092751901383872, 37.80099019345061], [13.093953531022544, 37.79244455058606], [13.092408578629966, 37.786204250451654]]]);
 
 // --- 2. ASSET DICTIONARY ---
@@ -50,6 +50,8 @@ var assetData = {
       'Ancipa - 2024/04/29': 'projects/ee-ciceromartinsjr/assets/planet/ancipa/20240429_095851_69_24d5_3B_AnalyticMS_SR_clip',
       'Ancipa - 2024/05/05': 'projects/ee-ciceromartinsjr/assets/planet/ancipa/20240505_090339_27_24ab_3B_AnalyticMS_SR_clip',
       'Ancipa - 2024/05/24': 'projects/ee-ciceromartinsjr/assets/planet/ancipa/20240524_090624_95_24a1_3B_AnalyticMS_SR_clip',
+      'Ancipa - 2024/11/14': 'projects/ee-ciceromartinsjr/assets/planet/ancipa/20241114_091835_45_24d0_3B_AnalyticMS_SR_clip',
+      'Ancipa - 2024/11/25': 'projects/ee-ciceromartinsjr/assets/planet/ancipa/20241125_100105_47_24f5_3B_AnalyticMS_SR_clip',
       'Ancipa - 2024/12/19': 'projects/ee-ciceromartinsjr/assets/planet/ancipa/20241219_100532_ancipa',
       'Ancipa - 2024/12/31': 'projects/ee-ciceromartinsjr/assets/planet/ancipa/20241231_100350_64_24f9_3B_AnalyticMS_SR_clip',
       'Ancipa - 2025/01/30': 'projects/ee-ciceromartinsjr/assets/planet/ancipa/20250130_092618_99_24af_3B_AnalyticMS_SR_clip',
@@ -106,7 +108,24 @@ var assetData = {
       'Rosamarina - 2025/05/18': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20250518_101217_78_2500_3B_AnalyticMS_SR_clip',
       'Rosamarina - 2025/05/19': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20250519_101047_51_24fa_3B_AnalyticMS_SR_clip',
       'Rosamarina - 2025/05/29': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20250529_101305_90_24ee_3B_AnalyticMS_SR_clip',
-      'Rosamarina - 2025/05/30': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20250530_101742_36_24f5_3B_AnalyticMS_SR_clip'
+      'Rosamarina - 2025/05/30': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20250530_101742_36_24f5_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2025/09/21': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20250921_102026_22_2541_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2025/10/10': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20251010_101708_49_2507_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2025/10/26': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20251026_101844_14_250e_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2025/11/22': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20251122_102311_92_252d_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2025/12/13': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20251213_103002_94_24e5_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/01/01': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260101_095724_20_254c_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/01/13': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260113_095546_75_255d_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/01/28': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260128_102400_51_253b_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/02/06': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260206_102650_61_250b_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/02/13': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260213_102053_46_252e_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/02/19': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260219_103748_36_24e5_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/03/04': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260304_102426_14_251a_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/03/25': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260325_102324_96_2549_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/04/08': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260408_095707_75_255d_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/04/17': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260417_095352_34_2555_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/04/25': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260425_104600_35_24e5_3B_AnalyticMS_SR_clip',
+      'Rosamarina - 2026/05/09': 'projects/ee-ciceromartinsjr/assets/planet/rosamarina/20260509_095320_16_2571_3B_AnalyticMS_SR_clip'
     }
   },
   'Poma': {
@@ -152,10 +171,12 @@ var assetData = {
       'Poma - 2025/05/06': 'projects/ee-ciceromartinsjr/assets/planet/poma/20250506_101138_68_2409_3B_AnalyticMS_SR_clip',
       'Poma - 2025/05/10': 'projects/ee-ciceromartinsjr/assets/planet/poma/20250510_102326_06_2522_3B_AnalyticMS_SR_clip',
       'Poma - 2025/05/19': 'projects/ee-ciceromartinsjr/assets/planet/poma/20250519_101546_53_250e_3B_AnalyticMS_SR_clip',
-      'Poma - 2025/05/29': 'projects/ee-ciceromartinsjr/assets/planet/poma/20250529_094829_79_24b9_3B_AnalyticMS_SR_clip'
+      'Poma - 2025/05/29': 'projects/ee-ciceromartinsjr/assets/planet/poma/20250529_094829_79_24b9_3B_AnalyticMS_SR_clip',
+      'Poma - 2026/04/08': 'projects/ee-ciceromartinsjr/assets/planet/poma/20260408_095840_27_254b_3B_AnalyticMS_SR_clip',
+      'Poma - 2026/04/30': 'projects/ee-ciceromartinsjr/assets/planet/poma/20260430_103021_71_2504_3B_AnalyticMS_SR_clip'
     }
   }
-  
+
 };
 
 // --- 2.1 PAPER THRESHOLDS TABLE ---
@@ -169,7 +190,8 @@ var paperThresholds = {
   'Ancipa - 2025/02/23': -0.2, 'Ancipa - 2025/03/14': -0.2, 'Ancipa - 2025/03/21': -0.2,
   'Ancipa - 2025/04/18': -0.25, 'Ancipa - 2025/04/29': -0.35, 'Ancipa - 2023/12/26': -0.25,
   'Ancipa - 2022/05/22': -0.4,
-  
+  'Ancipa - 2024/11/14': -0.1, 'Ancipa - 2024/11/25': -0.1,
+
   // Poma
   'Poma - 2023/09/03': -0.15, 'Poma - 2024/05/05': 0, 'Poma - 2024/05/17': -0.15,
   'Poma - 2024/05/23': -0.1, 'Poma - 2024/05/29': -0.15, 'Poma - 2024/06/11': -0.1,
@@ -184,6 +206,7 @@ var paperThresholds = {
   'Poma - 2025/03/09': -0.1, 'Poma - 2025/04/04': -0.1, 'Poma - 2025/04/15': -0.25,
   'Poma - 2025/04/19': -0.1, 'Poma - 2025/04/25': -0.1, 'Poma - 2025/05/06': -0.2,
   'Poma - 2025/05/10': -0.2, 'Poma - 2025/05/19': -0.1, 'Poma - 2025/05/29': -0.1,
+  'Poma - 2026/04/08': -0.1, 'Poma - 2026/04/30': -0.1,
 
   // Pozzillo
   'Pozzillo - 2024/05/28': -0.1, 'Pozzillo - 2024/06/10': -0.1, 'Pozzillo - 2024/06/23': 0,
@@ -209,6 +232,12 @@ var paperThresholds = {
   'Rosamarina - 2025/03/14': -0.2, 'Rosamarina - 2025/04/23': -0.2, 'Rosamarina - 2025/05/07': -0.2,
   'Rosamarina - 2025/05/18': -0.1, 'Rosamarina - 2025/05/19': -0.1, 'Rosamarina - 2025/05/29': -0.1,
   'Rosamarina - 2025/05/30': -0.125, 'Rosamarina - 2025/01/02': -0.25,
+  'Rosamarina - 2025/09/21': -0.1, 'Rosamarina - 2025/10/10': -0.1, 'Rosamarina - 2025/10/26': -0.1,
+  'Rosamarina - 2025/11/22': -0.1, 'Rosamarina - 2025/12/13': -0.1, 'Rosamarina - 2026/01/01': -0.1,
+  'Rosamarina - 2026/01/13': -0.1, 'Rosamarina - 2026/01/28': -0.1, 'Rosamarina - 2026/02/06': -0.1,
+  'Rosamarina - 2026/02/13': -0.1, 'Rosamarina - 2026/02/19': -0.1, 'Rosamarina - 2026/03/04': -0.1,
+  'Rosamarina - 2026/03/25': -0.1, 'Rosamarina - 2026/04/08': -0.1, 'Rosamarina - 2026/04/17': -0.1,
+  'Rosamarina - 2026/04/25': -0.1, 'Rosamarina - 2026/05/09': -0.1,
 };
 
 // --- 3. UI COMPONENTS ---

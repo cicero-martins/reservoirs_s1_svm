@@ -35,6 +35,9 @@ warnings.filterwarnings('ignore')
 sys.stdout.reconfigure(encoding='utf-8')
 sys.path.insert(0, str((pathlib.Path(__file__).resolve().parent.parent / 'tool')))
 import bathymetry as bt
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import schwatke_bathymetry_3d as m3d      # noqa: E402 -- load_gauge w/ stuck-sensor filter
+from wl_gauge_swot_validation import clean_series, bad_windows_for  # noqa: E402
 
 REPO  = pathlib.Path('.')
 GAUGE = REPO / 'analysis' / 'schwatke_output' / 'gauge_downloads'
@@ -79,10 +82,28 @@ def _wl(df, dcol, wcol):
     df['wl'] = pd.to_numeric(df['wl'], errors='coerce')
     return df.dropna().groupby('date', as_index=False).wl.mean().sort_values('date')
 
-def load_gauge(f):
+def _drop_flat_runs(df, flat_tol=0.005, flat_min_days=5):
+    """Mirrors schwatke_bathymetry_3d.load_gauge's stuck-sensor filter (same
+    thresholds), applied here to the date/wl DataFrame shape this script uses."""
+    daily = df.set_index('date')['wl'].resample('D').mean().dropna()
+    run_len = pd.Series(0, index=daily.index, dtype=int)
+    count = 0
+    for i, chg in enumerate(daily.diff().abs()):
+        count = count + 1 if (not np.isnan(chg) and chg < flat_tol) else 0
+        run_len.iloc[i] = count
+    stuck = run_len >= flat_min_days
+    daily = daily[~stuck]
+    return daily.rename('wl').reset_index()
+
+def load_gauge(f, name=None):
     g = pd.read_csv(GAUGE / f); g.columns = [c.strip().lower() for c in g.columns]
-    return _wl(g, next(c for c in g.columns if 'time' in c or 'date' in c),
-                  next(c for c in g.columns if 'wl' in c or 'quota' in c or 'value' in c))
+    df = _wl(g, next(c for c in g.columns if 'time' in c or 'date' in c),
+                next(c for c in g.columns if 'wl' in c or 'quota' in c or 'value' in c))
+    df = _drop_flat_runs(df)
+    if name:
+        for lo, hi in bad_windows_for(name):
+            df = df[(df.date < lo) | (df.date > hi)]
+    return df
 
 def load_dahiti(f):
     d = pd.read_csv(DAH / f)
@@ -91,7 +112,19 @@ def load_dahiti(f):
 
 def load_swot(name):
     p = SWOT / f'{name}_swot.csv'
-    return _wl(pd.read_csv(p), 'datetime', 'wse') if p.exists() else None
+    if not p.exists():
+        return None
+    df = _wl(pd.read_csv(p), 'datetime', 'wse')
+    cleaned = clean_series(df.set_index('date')['wl'])
+    # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py / CONFIGS comments
+    # in schwatke_bathymetry_3d.py) -- this script fits BOTH tiers' power-law hypsometry
+    # to an absolute elevation and integrates volume over an absolute band, so an
+    # uncorrected datum offset here would directly bias the gauge-vs-SWOT volume
+    # comparison this script exists to make, not just the WL RMSE/KGE reported alongside it.
+    corr = m3d.CONFIGS.get(name, {}).get('swot_bias_corr', 0.0)
+    if corr:
+        cleaned = cleaned + corr
+    return cleaned.rename('wl').rename_axis('date').reset_index()
 
 
 def survey_truth(name):
@@ -135,13 +168,27 @@ def wl_rmse(a, b):
                       on='date', tolerance=pd.Timedelta('1D'), direction='nearest').dropna()
     return (len(m), float(np.sqrt(((m.x - m.y)**2).mean())), float((m.x - m.y).mean())) if len(m) else (0, np.nan, np.nan)
 
+def kge(obs, sim):
+    """Paper 1's KGE definition (compute_kge_v3.py), obs=gauge, sim=SWOT."""
+    if obs.std() == 0 or sim.std() == 0 or len(obs) < 4:
+        return np.nan
+    from scipy import stats as _stats
+    r, _ = _stats.pearsonr(obs, sim)
+    alpha, beta = sim.std() / obs.std(), sim.mean() / obs.mean()
+    return 1.0 - np.sqrt((r - 1) ** 2 + (alpha - 1) ** 2 + (beta - 1) ** 2)
+
+def wl_kge(gauge_df, swot_df):
+    m = pd.merge_asof(swot_df.rename(columns={'wl': 'x'}), gauge_df.rename(columns={'wl': 'y'}),
+                      on='date', tolerance=pd.Timedelta('1D'), direction='nearest').dropna()
+    return kge(m.y, m.x) if len(m) else np.nan
+
 
 rows, panels = [], {}
 for name, cfg in RES.items():
     sar = load_sar(name)
     if sar is None:
         print(f'{name}: no SAR ≥2023 series'); continue
-    g, sw = load_gauge(cfg['gauge']), load_swot(name)
+    g, sw = load_gauge(cfg['gauge'], name), load_swot(name)
     fg, fs = fit(sar, g), fit(sar, sw)
     if fg is None or fs is None:
         print(f'{name}: need both gauge & SWOT fits (g={fg is not None}, s={fs is not None})'); continue
@@ -150,6 +197,7 @@ for name, cfg in RES.items():
     hs = np.linspace(lo, hi, 100)
     vol_g, vol_s = band_vol(fg['popt'], hs), band_vol(fs['popt'], hs)
     _, sw_rmse, _ = wl_rmse(sw, g)   # SWOT vs gauge WL
+    sw_kge = wl_kge(g, sw)
 
     truth = survey_truth(name) if cfg['tier'] == 'truth' else None
     vol_t = float(truth[1](hi) - truth[1](lo)) if truth is not None else np.nan
@@ -157,6 +205,7 @@ for name, cfg in RES.items():
     rec = dict(reservoir=name, ap_m=cfg['ap'], tier=cfg['tier'], band=f'{lo:.1f}-{hi:.1f}',
                vol_gauge=round(vol_g, 2), vol_SWOT=round(vol_s, 2),
                vol_SWOT_minus_gauge=round(vol_s - vol_g, 2), wl_SWOT_vs_gauge_rmse_m=round(sw_rmse, 2),
+               wl_SWOT_vs_gauge_kge=round(sw_kge, 2) if sw_kge == sw_kge else None,
                vol_survey=None if np.isnan(vol_t) else round(vol_t, 2),
                vol_SWOT_vs_survey=None if np.isnan(vol_t) else round(vol_s - vol_t, 2),
                vol_gauge_vs_survey=None if np.isnan(vol_t) else round(vol_g - vol_t, 2))

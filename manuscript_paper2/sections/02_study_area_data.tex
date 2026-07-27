@@ -72,20 +72,25 @@ identifier, 2023-07 onward, quality-screened. We note (Section~\ref{sec:results}
 that for these small reservoirs DAHITI is itself SWOT-derived, so the independent
 comparison is gauge versus SWOT.
 
-Three of the nine gauges have a documented malfunction window during which the
-recorded level is not usable at face value: Rosamarina's sensor froze at two
-different flat readings (2024-01-24--2025-04-02 and 2025-07-24--2026-01-29);
-Garcia's sensor reads the dry lakebed floor (${\sim}176$~m) rather than the true
-water level whenever the reservoir empties below that elevation
-(2025-08-06--2026-02-03, confirmed against a real decline to ${\sim}172$~m in SWOT
-over the same window); and Nicoletti's sensor was inoperative until late 2025. In
-each case we substitute SWOT (Rosamarina, Garcia) or the design curve inverted from
-official monthly volumes (Nicoletti, and as a fallback elsewhere) for the affected
-dates rather than discarding them --- the water-level source actually used for every
-paired date is recorded and reported per reservoir (Section~\ref{sec:results}). This
-recurring, independently-confirmed gauge failure mode is itself an argument for
-pairing SAR imagery with a gauge-independent altimetry source rather than relying on
-in-situ networks alone.
+Four of the nine gauges have a documented reliability problem during which the
+recorded level is not usable at face value. Three are intermittent malfunctions with
+a clear onset and recovery: Rosamarina's sensor froze at two different flat readings
+(2024-01-24--2025-04-02 and 2025-07-24--2026-01-29); Garcia's sensor reads the dry
+lakebed floor (${\sim}176$~m) rather than the true water level whenever the reservoir
+empties below that elevation (2025-08-06--2026-02-03, confirmed against a real decline
+to ${\sim}172$~m in SWOT over the same window); and Nicoletti's sensor was inoperative
+until late 2023. The fourth, Pozzillo, is different in kind: never frozen, but its
+recorded range is persistently narrower than the truth throughout the record, caught
+only because the independently-measured SAR water-surface area correlates more
+strongly with SWOT than with the gauge over the same period ($r=0.90$ vs.\ $r=0.76$),
+with an implied range matching SWOT's, not the gauge's (Section~\ref{sec:res_inputvalid}).
+In each case we substitute SWOT (Rosamarina, Garcia, Pozzillo) or the design curve
+inverted from official monthly volumes (Nicoletti, and as a fallback elsewhere) for
+the affected dates rather than discarding them --- the water-level source actually
+used for every paired date is recorded and reported per reservoir
+(Section~\ref{sec:results}). This recurring, independently-confirmed gauge failure
+mode is itself an argument for pairing SAR imagery with a gauge-independent altimetry
+source rather than relying on in-situ networks alone.
 
 \subsection{Ground truth}
 Independent references are of two different kinds. Garcia has a genuine field survey

@@ -1,7 +1,7 @@
-reservoir,ap_m,tier,band,vol_gauge,vol_SWOT,vol_SWOT_minus_gauge,wl_SWOT_vs_gauge_rmse_m,vol_survey,vol_SWOT_vs_survey,vol_gauge_vs_survey,xcheck_DAHITI_vs_SWOT_wse_m,xcheck_DAHITI_matches_SWOT,xcheck_vol_DAHITI
-Garcia,167.7,truth,175.8-190.4,36.46,33.29,-3.17,2.31,36.77,-3.47,-0.3,0.22,82/85,32.92
-Poma,190.1,truth,176.3-191.3,35.85,39.17,3.32,1.9,39.82,-0.65,-3.97,0.31,72/72,39.0
-Rosamarina,187.4,truth,145.1-165.3,52.49,50.5,-2.0,3.66,54.57,-4.08,-2.08,-0.63,84/85,52.29
-Arancio,182.2,truth,166.1-175.9,16.4,16.44,0.04,0.78,17.1,-0.66,-0.7,,,
-Pozzillo,240.5,consist,344.4-356.3,40.8,40.49,-0.31,2.69,,,,,,
-Ancipa,90.5,consist,912.5-946.3,15.77,12.6,-3.17,12.08,,,,,,
+reservoir,ap_m,tier,band,vol_gauge,vol_SWOT,vol_SWOT_minus_gauge,wl_SWOT_vs_gauge_rmse_m,wl_SWOT_vs_gauge_kge,vol_survey,vol_SWOT_vs_survey,vol_gauge_vs_survey,xcheck_DAHITI_vs_SWOT_wse_m,xcheck_DAHITI_matches_SWOT,xcheck_vol_DAHITI
+Garcia,167.7,truth,175.7-188.3,29.41,27.76,-1.66,0.67,0.91,29.11,-1.36,0.3,1.4,74/85,26.68
+Poma,190.1,truth,176.5-192.7,40.21,39.66,-0.55,0.18,0.99,45.0,-5.33,-4.78,-1.59,68/72,43.77
+Rosamarina,187.4,truth,145.1-160.2,35.3,33.87,-1.43,2.22,0.9,36.0,-2.13,-0.7,-0.3,79/85,34.73
+Arancio,182.2,truth,166.2-176.1,16.8,16.82,0.02,0.28,0.96,17.54,-0.71,-0.74,,,
+Pozzillo,240.5,consist,344.4-356.3,40.86,39.47,-1.39,2.73,0.1,,,,,,
+Ancipa,90.5,consist,909.8-939.4,11.58,13.41,1.83,8.92,0.54,,,,,,

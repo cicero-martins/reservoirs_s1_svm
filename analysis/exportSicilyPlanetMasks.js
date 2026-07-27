@@ -26,9 +26,24 @@
 
 // Run a subset per batch to keep the task list manageable; [] = all four sites.
 // Ancipa + Pozzillo first: they lack a modern survey, so PlanetScope is their truth.
-var EXPORT_ONLY   = ['Ancipa', 'Pozzillo'];
+var EXPORT_ONLY   = ['Ancipa', 'Poma', 'Rosamarina'];
 var EXPORT_SCALE  = 10;                       // m (10 = match SAR masks; 3 = native PlanetScope)
 var DRIVE_FOLDER  = 'GEE_SicilyPlanetMasks';
+
+// Optional date-level allow-list, on top of EXPORT_ONLY's site filter.
+// [] = every date for the selected site(s) (the original behaviour).
+// Set to the 21 complementary-download dates so re-runs don't re-export masks
+// already downloaded/integrated.
+var EXPORT_DATES = [
+  'Ancipa - 2024/11/14', 'Ancipa - 2024/11/25',
+  'Poma - 2026/04/08', 'Poma - 2026/04/30',
+  'Rosamarina - 2025/09/21', 'Rosamarina - 2025/10/10', 'Rosamarina - 2025/10/26',
+  'Rosamarina - 2025/11/22', 'Rosamarina - 2025/12/13', 'Rosamarina - 2026/01/01',
+  'Rosamarina - 2026/01/13', 'Rosamarina - 2026/01/28', 'Rosamarina - 2026/02/06',
+  'Rosamarina - 2026/02/13', 'Rosamarina - 2026/02/19', 'Rosamarina - 2026/03/04',
+  'Rosamarina - 2026/03/25', 'Rosamarina - 2026/04/08', 'Rosamarina - 2026/04/17',
+  'Rosamarina - 2026/04/25', 'Rosamarina - 2026/05/09'
+];
 
 // "Ancipa - 2024/04/29" -> "2024-04-29"
 function isoDate(dateKey) {
@@ -42,6 +57,7 @@ Object.keys(assetData).forEach(function (site) {
   var imgs = assetData[site].images;
 
   Object.keys(imgs).forEach(function (dateKey) {
+    if (EXPORT_DATES.length && EXPORT_DATES.indexOf(dateKey) < 0) return; // only the requested dates
     var thr = paperThresholds[dateKey];
     if (thr === undefined) return;            // only the validated (chosen-threshold) dates
 

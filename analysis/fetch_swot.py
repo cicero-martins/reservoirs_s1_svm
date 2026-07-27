@@ -28,13 +28,21 @@ LAKE_ID = {
     'Arancio':    '2190001033',   # LAGO ARANCIO
     'Pozzillo':   '2190000763',   # LAGO DI POZZILLO
     'Ancipa':     '2190001013',   # LAGO DELL'ANCIPA
+    # Added 2026-07-27: found by the author directly from the PLD vector shapefile
+    # (SWOT L2 Lake Single-Pass Vector Prior Data Product, Version D, downloaded from
+    # Earthdata Search and spatially filtered to Sicily -- raw_data/swot_l2_hr_lakeSP/),
+    # NOT from the earlier CMR granule-bbox search, which over-matched and returned
+    # unrelated lakes for these 3 (see manuscript sec:res_inputvalid before this fix).
+    'Olivo':      '2190001062',   # LAGO OLIVO
+    'Castello':   '2190001122',   # LAGO CASTELLO
+    'Nicoletti':  '2190000863',   # LAGO NICOLETTI
 }
 
 S = requests.Session(); S.verify = False
 rows = []
 for name, lid in LAKE_ID.items():
     r = S.get(BASE, params={'feature': 'PriorLake', 'feature_id': lid,
-                            'start_time': '2023-01-01T00:00:00Z', 'end_time': '2026-07-01T00:00:00Z',
+                            'start_time': '2023-01-01T00:00:00Z', 'end_time': '2026-08-01T00:00:00Z',
                             'output': 'csv',
                             'fields': 'lake_id,time_str,wse,wse_u,area_total,quality_f'}, timeout=90)
     if r.status_code != 200:

@@ -221,6 +221,11 @@ CONFIGS = {
         'gauge_min':    260.0,
         'sar_csv':      REPO / 'raw_data' / 'exportSicilyExtended' / 'GEE_SicilyExtended_VVotsu' / 'SAR_area_Castello.csv',
         'h0_bound_lo':  245.0,
+        # swot_csv added 2026-07-27: correct PLD lake_id (2190001122) found by the author
+        # directly from the PLD vector shapefile, not the earlier CMR granule-bbox search,
+        # which over-matched and returned unrelated lakes for this reservoir.
+        'swot_csv':     REPO / 'validation_data' / 'SWOT' / 'Castello_swot.csv',
+        'swot_bias_corr': 0.04,  # tiny -- already near-zero bias before correction
         'boletin_cfg':  {
             'cod':        'dig-03',
             'curve_xls':  CURVE_DIR / 'Castello.xls',
@@ -233,6 +238,12 @@ CONFIGS = {
         'gauge_min':    415.0,
         'sar_csv':      REPO / 'raw_data' / 'exportSicilyExtended' / 'GEE_SicilyExtended_VVotsu' / 'SAR_area_Olivo.csv',
         'h0_bound_lo':  400.0,
+        # swot_csv added 2026-07-27: correct PLD lake_id (2190001062) found by the author
+        # directly from the PLD vector shapefile, not the earlier CMR granule-bbox search,
+        # which over-matched and returned unrelated lakes for this reservoir.
+        'swot_csv':     REPO / 'validation_data' / 'SWOT' / 'Olivo_swot.csv',
+        # near-pure datum offset (r=0.99, alpha=1.00 before correction -- same signature as Poma).
+        'swot_bias_corr': -0.74,
         'boletin_cfg':  {
             'cod':        'dig-15',
             'curve_xls':  CURVE_DIR / 'Olivo.xls',
@@ -245,6 +256,23 @@ CONFIGS = {
         'gauge_min':    370.0,
         'sar_csv':      REPO / 'raw_data' / 'exportSicilyExtended' / 'GEE_SicilyExtended_VVotsu' / 'SAR_area_Nicoletti.csv',
         'h0_bound_lo':  355.0,
+        # swot_csv added 2026-07-27: correct PLD lake_id (2190000863) found by the author
+        # directly from the PLD vector shapefile, not the earlier CMR granule-bbox search,
+        # which over-matched and returned unrelated lakes for this reservoir.
+        'swot_csv':     REPO / 'validation_data' / 'SWOT' / 'Nicoletti_swot.csv',
+        # gauge_bad_window found 2026-07-27 (author flagged it): the gauge is frozen at
+        # ~372.68 m for 2023-11-15 to 2025-01-17 (14 months) -- confirmed via a long-flat-run
+        # scan of the raw record (a generic 5-day/5-mm stuck filter in load_gauge() only
+        # catches part of this, 18 residual near-frozen points leak through). An initial
+        # SAR-area correlation check WITHOUT excluding this window looked like gauge (r=0.90)
+        # clearly beat SWOT (r=0.72) -- but that was itself contaminated by the leaked stuck
+        # points; once the window is properly excluded, gauge (r=0.71) and SWOT (r=0.72) are
+        # statistically tied. So, unlike the false lead first suspected, this is a plain
+        # stuck-gauge case (like Rosamarina/Garcia), not gauge range-compression (like
+        # Pozzillo): SWOT has 21 real, varying observations inside the window (368.2->370.1 m,
+        # a genuine refill trend) that substitute for the frozen gauge.
+        'gauge_bad_window': ('2023-11-15', '2025-01-17'),
+        'swot_bias_corr': 1.47,
         'boletin_cfg':  {
             'cod':        'dig-13',
             'curve_xls':  CURVE_DIR / 'Nicoletti.xls',

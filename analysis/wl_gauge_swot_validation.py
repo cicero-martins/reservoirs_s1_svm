@@ -39,7 +39,8 @@ OUT = pathlib.Path('analysis/schwatke_output/fullrs')
 OUT.mkdir(parents=True, exist_ok=True)
 
 AP = {'Arancio': 182.2, 'Poma': 190.1, 'Garcia': 167.7, 'Pozzillo': 240.5,
-      'Rosamarina': 187.4, 'Ancipa': 90.5}
+      'Rosamarina': 187.4, 'Ancipa': 90.5, 'Olivo': 50.7, 'Castello': 126.7,
+      'Nicoletti': 119.7}
 RESERVOIRS = list(AP.keys())
 
 

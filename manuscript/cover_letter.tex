@@ -1,0 +1,388 @@
+\documentclass[11pt]{article}
+\usepackage[left=2.5cm, right=2.5cm, bottom=2.5cm, top=3.5cm, headheight=3.2cm, headsep=0.5cm, footskip=2.1cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+
+\titleformat{\section}{\normalfont\bfseries\large}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalfont\bfseries}{\thesubsection}{0.6em}{}
+
+\newlist{resp}{description}{1}
+\setlist[resp]{leftmargin=0pt, labelsep=0.5em, style=unboxed, font=\normalfont\bfseries, itemsep=0.4em, topsep=0.3em}
+
+% Università degli Studi di Palermo - Dipartimento di Ingegneria letterhead
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancyhead[C]{\raggedright\includegraphics[width=0.5\textwidth]{unipa_header.png}}
+\fancyfoot[C]{\includegraphics[width=0.9\textwidth]{unipa_footer.png}}
+
+\begin{document}
+\thispagestyle{fancy}
+
+\vspace{0.3cm}
+\begin{flushright}
+To the Editor of the\\
+\textit{Environmental Modelling \& Software}
+\end{flushright}
+
+\vspace{0.5cm}
+Dear Editor,
+
+\vspace{0.2cm}
+We are glad to resubmit the deeply revised version of our manuscript,
+now entitled \textbf{``Shoreline compactness predicts
+Sentinel-1 water-area monitoring reliability across reservoirs worldwide'',}
+by Cicero Martins Jr., Fulvio Capodici, Mauro De Marchis, and Giuseppe
+Ciraolo, submitted for consideration as a new submission to
+\textit{Environmental Modelling \& Software}.
+
+The corresponding author is MSc. Cicero MARTINS Jr.
+
+The corresponding author affirms that:
+
+\begin{itemize}[noitemsep, leftmargin=1.2em]
+\item{All authors of this research paper have directly participated in the planning, execution, or analysis of this study;}
+\item{All authors of this paper have read and approved the version submitted;}
+\item{The contents of this manuscript have not been copyrighted or published previously;}
+\item{The contents of this manuscript are not now under consideration for publication elsewhere.}
+\end{itemize}
+
+As instructed in your decision letter of 8 June 2026, we reference here the
+prior manuscript number, \textbf{ENVSOFT-D-26-00848} (``Monitoring Reservoir
+Surface and Storage Dynamics Using Sentinel-1 SAR and Machine Learning in
+Google Earth Engine'').
+
+Below, we detail point by point how the manuscript
+has changed in response to your comments and those of both reviewers. The
+paper has been substantially reframed rather than incrementally patched, so we
+first summarize the reframing before addressing each comment individually.
+
+\section*{Summary of the reframing}
+
+Both reviewers and the handling editor converged on three concerns:
+insufficient novelty relative to prior SAR-plus-machine-learning studies,
+an unsubstantiated scalability claim, and an experimental setup validated on
+too few reservoirs to support its conclusions. Rather than defend the
+original framing, we changed what the paper is about.
+
+\begin{itemize}[leftmargin=1.2em]
+  \item \textbf{Novelty.} The manuscript's central claim is no longer that a
+  GEE workflow using VV/VH Sentinel-1 and an SVM can monitor Sicilian
+  reservoirs. It is that a reservoir's shoreline \textbf{area-to-perimeter
+  ratio (A/P)} --- a length-scale computable from global databases before any
+  image is processed --- predicts, a priori, the geometric ceiling on SAR
+  classification skill (Introduction, Section~1; Section~3.6; Results,
+  Section~4.1; Discussion, Section~5.2). This claim was already at 
+  the previous paper, and it is the direction Reviewer~1 identified 
+  as the paper's most interesting, under-exploited
+  thread (their General Comment~3).
+  \item \textbf{Scalability.} All manual training-sample delineation has been
+  removed. Both classifiers are now trained automatically from global JRC
+  Global Surface Water and ESA WorldCover masks (Section~3.3), and this fully
+  automated pipeline is tested on \textbf{62 reference-quality-screened
+  reservoirs across 33 countries and five continents} (Section~2.1), not on a
+  single region.
+  \item \textbf{Experimental setup and scope.} The manuscript no longer
+  attempts to convert surface area to storage volume. That conversion
+  depended on area--elevation--volume (AEV) curves built from historical
+  design surveys, and, as Reviewer~1 rightly noted (specific comment~12), our
+  attempt to justify replacing them while still relying on them was
+  internally inconsistent. We now scope the paper to what it can support
+  rigorously, the SAR-derived surface area itself, and leave the AEV/volume
+  problem to future work building on this result (Discussion,
+  Section~5.4). This change resolves the majority of the Results and
+  Discussion issues raised by both reviewers (Reviewer~1 comments 12, 17--20;
+  Reviewer~2 items E.4, E.5, F), since the disputed material no longer
+  appears.
+  \item \textbf{Validation.} The four Sicilian reservoirs are retained, but
+  now as a high-resolution (3~m PlanetScope) near-truth check layered on top
+  of the 62-reservoir global comparison against the JRC Global Surface Water
+  record (Sections~2, 3.7), rather than as the study's only validation.
+  \item \textbf{Baseline.} The single-polarisation baseline is now
+  Otsu's~(1979) between-class-variance threshold, recomputed independently
+  for every acquisition (Section~3.4.1), directly answering Reviewer~1's
+  suggestion (specific comment~22) to compare against an established,
+  well-characterised threshold method rather than an ad hoc cut, and it is
+  compared under an identical pipeline to a dual-polarisation SVM that is
+  likewise re-trained per scene (Section~3.4.2).
+  \item \textbf{Cost.} A computational-cost audit (Earth Engine Compute Unit
+  usage; Section~3.8, Section~4.4) now accompanies the accuracy comparison,
+  answering Reviewer~1's question on this point directly.
+\end{itemize}
+
+We address every remaining comment individually below, organised by source
+(Editor, Reviewer~1, Reviewer~2) and following each reviewer's own numbering.
+Where a comment concerned material that no longer appears in the manuscript
+(chiefly the storage-volume analysis and the multi-classifier comparison), we
+say so explicitly rather than force an answer to a question that no longer
+applies.
+
+\section*{Response to the Editor}
+
+\begin{resp}
+  \item[Novelty, scalability, experimental setup.] Each is addressed
+  structurally, not just rhetorically: novelty by re-centring the paper on
+  the A/P mechanism (Sections~1, 3.6, 4.1, 5.2); scalability by removing
+  manual training entirely (Section~3.3) and testing on 62 reservoirs on five
+  continents instead of one region (Section~2.1); experimental setup by
+  reorganising Sections~3--4 around the five workflow stages in
+  the workflow figure (Figure~2, as requested by Reviewer~2, items D.1, E.1, E.2)
+  and by removing the storage-volume scope that generated most of the
+  original Results/Discussion difficulties.
+\end{resp}
+
+\section*{Response to Reviewer 1}
+
+\subsection*{General comments}
+
+\begin{resp}
+  \item[1. Workflow is scalable, the model is not.] Agreed, and fixed at the
+  root: the model itself no longer requires manual, per-location training.
+  Both detectors are trained automatically from global JRC/WorldCover masks
+  (Section~3.3), and we are explicit that only the \emph{static}, a-priori A/P
+  is shown to generalise; we do \emph{not} claim a dynamic, per-scene
+  switching rule is scalable, because we could not establish that one
+  generalises (Discussion, Section~5.4, final two paragraphs).
+  \item[2. Only four of many reservoirs validated.] The primary comparison
+  now runs on 62 reservoirs referenced against JRC (Sections~2.1, 3.7.1,
+  4.1--4.2); the four Sicilian reservoirs remain as a secondary,
+  high-resolution near-truth layer (Sections~2.2, 3.7.2, 4.3), not the sole
+  validation.
+  \item[3. Novelty vs.\ widely applied SAR+SVM approaches.] We agree with the
+  reviewer's own suggestion: the paper's contribution is now the
+  quantification of morphometric (A/P) control over SAR classification
+  performance (Sections~1, 3.6, 4.1, 5.2), derived mechanistically from the
+  mixed-pixel argument (Section~1) rather than fitted post hoc to whichever
+  shape metric happened to correlate (Discussion, Section~5.2, final
+  paragraph).
+\end{resp}
+
+\subsection*{Specific comments}
+
+\begin{resp}
+  \item[Abstract, ``NDWI masks showed strong agreement'': N should be
+  mentioned.] Every accuracy figure now states its N explicitly; the Abstract
+  states N=62, and Section~4.2 documents the N=62$\to$59 accounting for the
+  four-detector subset.
+  \item[Abstract, computational cost of the proposed framework.] Added: a
+  dedicated computational-cost audit (Section~3.8, Section~4.4, Figure
+  \texttt{eecu\_svm\_vs\_vv.png}) measuring Earth Engine Compute Unit usage
+  across detector configurations.
+  \item[Introduction, ``relatively few studies... reservoir environments'' ---
+  novelty of struggling conditions.] Rewritten: the Introduction (Section~1)
+  now poses the open question directly (final paragraph before the
+  objectives) rather than asserting that SAR struggles in these conditions as
+  itself the finding.
+  \item[Introduction, incidence-angle filtering not quantified unlike
+  shoreline complexity.] Section~3.2 now states and justifies the
+  orbit-selection rule explicitly (highest mean incidence angle, among
+  orbits with $\geq$20 scenes and $\geq$90\% AOI coverage) as a controlled
+  preprocessing choice held constant across both detectors. Shoreline
+  complexity (A/P) remains the sole a-priori predictor under test, consistent
+  with the reviewer's own assessment that it is the stronger contribution.
+  \item[Introduction, medium/small reservoirs known to be difficult.] The
+  global set spans $\sim$2--75~km$^2$ (Section~2.1) including medium and
+  small reservoirs, and Section~4.1 shows why: small reservoirs tend toward
+  low A/P, so A/P (not size per se) is the operative geometric control,
+  explaining rather than merely acknowledging the difficulty.
+  \item[Study Area, units notation (``$1.12\times10^9$~m$^3$'').] No longer
+  applicable: the manuscript no longer reports storage-volume figures (see
+  Summary of the reframing, above); all quantities are surface area
+  (km$^2$/ha) or shoreline length (m).
+  \item[Data Collection, ``not affected by data lacks due to cloudiness'' ---
+  how is cloudiness an issue for SAR?] Reworded in the Introduction
+  (Section~1) to state plainly that SAR is \emph{not} affected by cloud
+  cover, which is its advantage over optical alternatives, not a claim that
+  cloudiness affects SAR.
+  \item[Figure 2, text overflow; incidence-angle ``why'' missing.] The
+  workflow figure has been regenerated (\texttt{workflow\_diagram.pdf}), and
+  Section~3.2 now states the quantitative rationale for the orbit-selection
+  rule.
+  \item[Classification, ``the labeled dataset'' undefined.] Fully specified
+  in Section~3.3: water points where JRC occurrence $\geq$95\% (relaxed to
+  $\geq$80\% where needed), land points from a 500--2000~m ring restricted to
+  non-water WorldCover pixels with zero JRC occurrence, $\leq$500 points per
+  class, fixed random seed. Figure \texttt{sample\_selection\_pozzillo.png}
+  illustrates the construction concretely.
+  \item[Classifier Selection, ``overall accuracy (96.12\%)'' --- train, test,
+  or all?] No longer applicable: the manuscript no longer reports a single
+  pixel-level confusion-matrix accuracy. Skill is reported exclusively as KGE
+  (with its $r$, $\alpha$, $\beta$ components) against independent reference
+  data (JRC or PlanetScope) on validation months (Section~3.7), never on the
+  classifier's own training pixels.
+  \item[Area Calculation, reservoir boundary / buffered region.] Section~3.5
+  describes the post-processing chain (morphological gap-filling,
+  vectorisation, centroid-inside retention with a largest-polygon fallback).
+  The boundary itself is the JRC maximum-extent polygon (Section~3.3), which
+  by construction already reflects the reservoir's historical maximum
+  inundation, so it is not a nominal design boundary that could clip real
+  flooding.
+  \item[Temporal Filtering, LOWESS does not address wind artifacts; mismatch
+  with Introduction.] Corrected: Section~3.5 now states plainly that LOWESS
+  smoothing is applied for temporal consistency only, and that accuracy
+  metrics are computed on the raw, unsmoothed classification. Wind's actual
+  effect is instead tested directly in Sections~3.9/4.5, where we report an
+  honest null result for a systematic wind effect (Discussion,
+  Section~5.3), replacing the earlier, untested claim.
+  \item[Volume Calculation, 2D polynomial vs.\ using AEV curves directly.] No
+  longer applicable: the manuscript does not attempt area-to-volume
+  conversion (see Summary of the reframing). Discussion Section~5.4
+  identifies AEV reconstruction as future work, precisely because, as the
+  reviewer rightly noted, that conversion carries separate uncertainties this
+  paper is not positioned to resolve.
+  \item[Validation, present only the validation/test period.] No longer
+  applicable in its original form (there is no train/test split of a pixel
+  classifier). The corresponding safeguard is that KGE (Section~3.7) is
+  computed strictly over months where an independent external reference
+  exists, never over training data.
+  \item[Results, manual delineation undercuts the scalability claim.] Fixed
+  directly: Section~3.3 describes a fully automated sample-selection
+  procedure; no step in the pipeline involves manual delineation.
+  \item[Figure 6, confusion-matrix broken reference and N mismatch.] No
+  longer applicable: confusion-matrix figures have been removed. The
+  four-detector comparison (Figure \texttt{kge\_4way.png}, Section~4.2)
+  reports paired per-reservoir KGE with an internally consistent, explicitly
+  documented N at every step.
+  \item[Results, NDWI threshold sentence awkward; justification belongs in
+  main text.] Section~3.7.2 now states the PlanetScope NDWI method concisely
+  in the main text (scene-specific threshold, independent of the SAR
+  workflow); full worked detail remains in the Supplementary Material.
+  \item[Results, topographic shadowing does not fully explain
+  overestimation.] No longer applicable in its original form: with the
+  storage-volume analysis removed, this discrepancy no longer appears.
+  Section~4.3 reports the PlanetScope comparison's bias ($\beta$) component
+  directly, without attributing it solely to topography.
+  \item[Figure 12, why not derive area from in-situ storage/AEV instead of
+  PlanetScope?] Explained in Sections~2.2/3.7.2: PlanetScope is used
+  specifically because it is independent of both the AEV relationship and
+  the SAR pipeline, avoiding circularity; in-situ storage records would
+  validate a volume step this paper no longer includes.
+  \item[Table 3, ambiguous column headers (SVM vs.\ threshold).] No longer
+  applicable in the same form: result tables were rebuilt with every
+  detector (VV Otsu / SVM) named explicitly in each table and figure legend
+  (Table~1; Section~4).
+  \item[Discussion, physical mechanism behind high-storage underestimation
+  not explained.] No longer applicable: no storage/volume analysis remains.
+  The analogous geometric mechanism for area-classification error --- the
+  mixed-pixel argument --- is instead stated mechanistically up front
+  (Section~1; Section~3.6), not inferred post hoc from a discrepancy.
+  \item[Discussion, ``scalability'' via a single Brazil AOI example.] That
+  single-example transferability claim has been removed. Scalability is now
+  demonstrated, not asserted, by testing the automated pipeline on 62
+  reservoirs across five continents and 33 countries (Section~2.1), with the
+  explicit caveat (Section~5.4) that only static, a-priori A/P, not any
+  dynamic switching rule, is shown to generalise.
+  \item[Discussion, compare against Otsu (1979) rather than an ad hoc simple
+  threshold.] Implemented directly: Otsu's (1979) threshold, recomputed per
+  scene, is now the single-polarisation baseline and headline comparison
+  partner to the SVM throughout the manuscript (Sections~3.4.1, 4.2, 5.1).
+  \item[Discussion, VH reduces wind-induced error --- evidence?] Corrected:
+  Sections~3.9/4.5 test this directly using ERA5 wind speed at each
+  overpass. We find no systematic wind effect on the between-detector
+  divergence and report this null result honestly (Section~5.3), rather than
+  asserting VH's benefit without evidence.
+\end{resp}
+
+\section*{Response to Reviewer 2}
+
+\begin{resp}
+  \item[A. Novelty.] As above: the manuscript's claim is no longer that GEE,
+  VV/VH polarisation, or incidence-angle prioritisation are themselves novel.
+  The contribution is the A/P mechanism (Sections~1, 3.6, 4.1, 5.2).
+  \item[B.1 Introduction under-referenced / citations not well matched to
+  claims.] The Introduction (Section~1) has been substantially rewritten and
+  re-referenced throughout, with every claim tied to a specific citation
+  (IPCC2023; Pokhrel2021; Cammalleri2022; Bevacqua2023; ISPRA2023;
+  Biancamaria2016; Schwatke2015; Zhang2026; Lehner2011; Hao2024;
+  Schwatke2020; Torres2012; Mullissa2021; Pekel2016; Gorelick2017;
+  BhatpuriaEtAl2024; ValerioEtAl2024; PengEtAl2025; Bioresita2018;
+  PenaLuque2021; Martinis2015; McQuillan2025).
+  \item[B.2 Area vs.\ level claim overlooks morphology-dependence.] Reframed:
+  Section~1 now presents water level and surface area as two complementary
+  observables with different revisit and scaling trade-offs, rather than
+  asserting area is generally superior. The morphology-dependence the
+  reviewer raised is, in fact, the paper's central subject: A/P is precisely
+  what governs how well area itself can be measured (Sections~3.6, 4.1).
+  \item[B.3 Outdated AEV argument undermines rather than supports the
+  rationale.] Reworded (Section~1): AEV relationships needing updates is now
+  presented as an open problem this paper does not solve --- motivating
+  Schwatke-style future work (Discussion, Section~5.4) --- not as a
+  justification for preferring area over level.
+  \item[C. Area of Study needs a summary table of reservoir attributes.]
+  Added: Table~1 (Section~2.1) lists per-reservoir country,
+  climate zone, surface area, and A/P for all 62 global reservoirs plus the
+  four Sicilian near-truth reservoirs.
+  \item[D.1 Sections 2.2--2.5 disorganised relative to Figure 2's
+  workflow.] Section~3 has been fully reorganised around the five workflow
+  stages shown in Figure~2 (the workflow diagram): 3.1 overview, 3.2
+  acquisition/preprocessing, 3.3 automated training, 3.4 the two detectors,
+  3.5 post-processing/area, 3.6 morphometry, 3.7 validation, 3.8 cost audit,
+  3.9 radiometric/climate limits --- a direct one-to-one match to the
+  workflow figure.
+  \item[D.2 IW3 / ``when necessary'' needs clarification.] Section~3.2 now
+  states the orbit-selection rule explicitly and its rationale (see Reviewer
+  1, specific comment on incidence-angle filtering, above).
+  \item[D.3 Multiple classifiers (SVM, RF, CART, GTB, Minimum Distance)
+  under-described.] The comparison has been narrowed to exactly two,
+  thoroughly described detectors --- Otsu (Section~3.4.1) and SVM
+  (Section~3.4.2, with kernel, cost, and $\gamma$ stated explicitly) ---
+  removing the under-justified multi-algorithm comparison entirely.
+  \item[D.4 Equation (1), the $10^4$ factor unexplained.] No longer
+  applicable: area is now stated directly as the pixel-area sum of the
+  retained water mask (Section~3.5), without the equation the reviewer
+  flagged.
+  \item[D.5 Justify the representativeness of the four validation
+  reservoirs.] Section~2.2: the four Sicilian reservoirs are now explicitly
+  an additional near-truth PlanetScope tier layered on the 62-reservoir
+  global JRC tier (not the sole validation), chosen to span contrasting
+  morphometries and A/P values within Sicily (Figure
+  \texttt{sicily\_4lakes\_3d.png}) rather than to represent the full global
+  study area by themselves.
+  \item[E.1 Data-collection subsection misplaced in Results.] Fixed: all
+  data and methods content now resides in Section~3 only; Section~4
+  (Results) contains no data-collection description.
+  \item[E.2 Results section reorganisation.] Section~4 is restructured into
+  five subsections matching the paper's actual claims (4.1 A/P a priori, 4.2
+  four-way detector comparison, 4.3 PlanetScope validation, 4.4 cost, 4.5
+  wind/climate), no longer interleaved with workflow-step descriptions.
+  \item[E.3 Hyperparameter tuning (three values of C and $\gamma$)
+  unclear.] No longer applicable: the SVM now uses a single, fixed, fully
+  stated configuration ($C=1$, $\gamma=0.01$; Section~3.4.2) rather than an
+  ambiguously reported grid search.
+  \item[E.4 Storage discrepancy interpretation inconsistent with
+  sedimentation direction.] No longer applicable: the storage-volume
+  analysis has been removed in its entirety (see Summary of the reframing),
+  so the disputed claim no longer appears.
+  \item[E.5 Only four of 41 reservoirs shown; extend further.] Addressed by
+  extending well beyond the original 41-reservoir Sicilian study area to 62
+  reservoirs on five continents as the primary comparison (Section~2.1), with
+  the four Sicilian reservoirs retained only as an additional near-truth
+  layer (Section~2.2).
+  \item[F. Robustness/generalisability across all 41 reservoirs unclear.]
+  Representativeness is now argued at the 62-reservoir, five-continent,
+  A/P-stratified level (Section~2.1, Figure \texttt{study\_area\_map}), not
+  inferred from four of 41 Sicilian reservoirs alone.
+\end{resp}
+
+\vspace{0.3cm}
+We believe these changes directly answer the concerns raised by the Editor
+and both Reviewers, and we hope the manuscript is now suitable for review at
+\textit{Environmental Modelling \& Software}. We would be glad to provide any
+further clarification.
+
+\vspace{0.5cm}
+Sincerely,
+
+\vspace{0.3cm}
+Cicero Martins Jr.\\
+\textit{on behalf of all co-authors}
+
+\end{document}

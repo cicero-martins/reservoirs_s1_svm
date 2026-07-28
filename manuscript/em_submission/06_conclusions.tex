@@ -1,0 +1,23 @@
+\section{Conclusions}
+\label{sec:conclusions}
+
+Using a fully automated Google Earth Engine workflow applied to 62
+reference-quality-screened reservoirs on five continents, together with four
+Sicilian reservoirs validated against 3~m PlanetScope imagery, we tested the
+area-to-perimeter ratio as an a-priori predictor of SAR surface-area accuracy
+and asked whether the added complexity of a dual-polarisation,
+machine-learning classifier is justified. Three conclusions follow. First,
+A/P is a strong, geographically general predictor of the geometric ceiling on
+monitorability (Spearman $\rho = 0.51$), computable from global databases
+before any image is processed. Second, the added complexity is not justified
+for most reservoirs: a per-scene single-polarisation Otsu threshold matches a
+per-scene dual-polarisation SVM across the global set, wins outright in 38 of
+62 reservoirs, and costs roughly 15\% less to run, while a fixed-training SVM
+is the least accurate of the four detectors tested. Third, climate is a
+secondary but genuine modulator of the geometric ceiling: humid, vegetated
+reservoirs are tracked less well at given A/P even after every reservoir with
+an unreliable optical reference is excluded.
+
+The workflow is released as an interactive Earth Engine application,
+auto-trained from JRC, covering more than 35,000 global reservoirs and
+flagging each by its expected monitoring reliability from A/P.

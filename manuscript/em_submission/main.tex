@@ -12,7 +12,6 @@
 
 %% --- Graphics & tables ---
 \usepackage{graphicx}
-\graphicspath{{figures/}}
 \usepackage{float}
 \usepackage{booktabs}
 \usepackage{tabularx}
@@ -97,12 +96,12 @@ Area-to-Perimeter Ratio
 \linenumbers   % activate line numbering for review
 
 % -----------------------------------------------------------------------
-\input{sections/01_introduction}
-\input{sections/02_study_area}
-\input{sections/03_data_methods}
-\input{sections/04_results}
-\input{sections/05_discussion}
-\input{sections/06_conclusions}
+\input{01_introduction}
+\input{02_study_area}
+\input{03_data_methods}
+\input{04_results}
+\input{05_discussion}
+\input{06_conclusions}
 
 % -----------------------------------------------------------------------
 \section*{CRediT authorship contribution statement}
@@ -144,7 +143,6 @@ Planet Labs PBC for providing PlanetScope imagery used in the validation.
   Kruskal--Wallis) is submitted alongside this manuscript.
 \end{itemize}
 
-\bibliographystyle{elsarticle-harv}
-\bibliography{references}
+\input{manuscriptrefs.bbl}
 
 \end{document}

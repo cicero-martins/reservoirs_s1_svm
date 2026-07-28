@@ -1,9 +1,30 @@
 % Highlights — Elsevier: 3 to 5 bullets, each <= 85 characters incl. spaces.
-% Submitted as a separate item; kept here for the record.
+% Submitted as a separate item (this file compiles standalone to highlights.pdf).
+\documentclass[11pt]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{parskip}
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{center}
+{\large\bfseries Highlights}\\[0.3em]
+Shoreline compactness predicts Sentinel-1 water-area monitoring reliability
+across reservoirs worldwide\\[0.2em]
+Cicero Martins Jr., Fulvio Capodici, Mauro De Marchis, Giuseppe Ciraolo
+\end{center}
+
+\vspace{0.8cm}
+
 \begin{itemize}
-  \item Shoreline A/P predicts SAR reservoir water-area accuracy a priori
-  \item A simple per-scene single-polarisation detector matches the dual-pol SVM
-  \item Per-scene adaptivity matters more than the number of polarisations
-  \item The simple detector is also the cheapest; complexity is not justified
-  \item An open GEE app runs it over 35,000 global reservoirs, JRC auto-trained
+  \item Shoreline area-to-perimeter ratio (A/P) predicts SAR accuracy in advance
+  \item Median KGE is 0.93 above 200 m A/P but only 0.48 below 100 m
+  \item Climate adds a secondary control on accuracy beyond A/P (p=0.012)
+  \item A simple per-scene VV detector matches a costlier dual-pol SVM overall
+  \item An open GEE app flags 35,000+ reservoirs by expected reliability
 \end{itemize}
+
+\end{document}

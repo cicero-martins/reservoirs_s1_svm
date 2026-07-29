@@ -2,7 +2,7 @@
 tool/bathymetry.py — data layer for the Paper-2 bathymetry explorer (Streamlit MVP).
 
 Loads the already-reconstructed Period-A/B satellite DEMs and the reference curves
-(design + updated survey) for the 5 core Sicilian reservoirs, and derives AEV
+(design + updated survey) for all 9 Sicilian reservoirs, and derives AEV
 curves, capacity-change numbers and A-vs-B change maps. Pure functions, no UI —
 imported by tool/app.py. Reuses the same logic as analysis/consolidate_bathymetry.py
 so the tool and the paper report identical numbers.
@@ -26,6 +26,16 @@ NEWCURVE_EXT = pathlib.Path('C:/Users/Unipa/Documents/GEE/Data/NewCurves')
 UPDATED   = REPO / 'validation_data' / 'updated_curves'
 PIXEL_HA  = 0.01
 
+# Fase-3 extended reservoirs: each official survey curve carries its own volume
+# column directly -- (glob pattern, sheet, [(quota_col, vol_col), ...]) per block.
+# Identical spec to consolidate_bathymetry.py::EXT_CURVE_SPEC (kept in sync).
+EXT_CURVE_SPEC = {
+    'arancio_2022':      ('ARANCIO*', 'BASE', [(0, 1)]),
+    'castello_updated':  ('CASTELLO*', 'Quota_V_S', [(5, 6)]),
+    'nicoletti_updated': ('NICOLETTI*', 'Dati Aree-Volumi', [(0, 1)]),
+    'olivo_2021':        ('OLIVO*', 'Tabella centimetrica 2021', [(1, 2), (5, 6), (9, 10), (13, 14)]),
+}
+
 def _curve_xls(name):
     b = CURVE_BUNDLE / f'{name}.xls'
     return b if b.exists() else CURVE_EXT / f'{name}.xls'
@@ -37,6 +47,12 @@ RESERVOIRS = {
     'Rosamarina': dict(design=(2, 3, 5, 'ha'),  ap=187.4, updated='rosamarina_2025',notes='2025 official bathymetric survey'),
     'Poma':       dict(design=(2, 4, 5, 'ha'),  ap=190.1, updated='poma_new',       notes='updated centimetric survey curve'),
     'Pozzillo':   dict(design=(2, 4, 5, 'ha'),  ap=240.5, updated=None,             notes='largest; V→h historically unreliable'),
+    # Fase-3 extended set: same design-curve source as consolidate_bathymetry.py,
+    # 'updated' curves carry their own volume column directly (NewCurves/ files).
+    'Arancio':    dict(design=(2, 3, 4, 'km2'), ap=182.2, updated='arancio_2022',   notes='updated official survey curve'),
+    'Castello':   dict(design=(2, 3, 4, 'km2'), ap=126.7, updated='castello_updated', notes='updated official survey curve'),
+    'Olivo':      dict(design=(2, 4, 5, 'ha'),  ap=50.7,  updated='olivo_2021',     notes='narrowest basin; updated survey curve'),
+    'Nicoletti':  dict(design=(2, 4, 5, 'ha'),  ap=119.7, updated='nicoletti_updated', notes='updated official survey curve'),
 }
 
 
@@ -218,6 +234,25 @@ def updated_curve(name):
         # volume here is relative to the survey's own floor; caller aligns by floor.
         return (interp1d(lv, ar, bounds_error=False, fill_value='extrapolate'),
                 interp1d(lv, vo, bounds_error=False, fill_value=np.nan))
+    if kind in EXT_CURVE_SPEC:
+        # Fase-3 extended curves carry volume only (no area column in the same
+        # block) -- area_interp is None, so the AEV tab's area panel simply
+        # skips this reference for these 4 reservoirs; capacity_change() below
+        # only needs the volume interpolator.
+        pat, sheet, blocks = EXT_CURVE_SPEC[kind]
+        hits = [h for h in glob.glob(str(NEWCURVE_EXT / pat))
+                if h.lower().endswith(('.xls', '.xlsx'))]
+        if not hits:
+            return None
+        raw = pd.read_excel(hits[0], sheet_name=sheet, header=None, engine='openpyxl')
+        parts = []
+        for qc, vc in blocks:
+            p = raw[[qc, vc]].apply(pd.to_numeric, errors='coerce').dropna()
+            p.columns = ['quota', 'vol_m3']
+            parts.append(p)
+        u = pd.concat(parts)
+        u = u[(u.quota > 50) & (u.quota < 1000)].sort_values('quota')
+        return (None, interp1d(u.quota, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate'))
     return None
 
 
@@ -251,7 +286,8 @@ def capacity_change(name):
     out['vol_design_rel'] = vdes_rel
     out['sar_band_pct'] = (out['vol_dem_rel'] - vdes_rel) / vdes_rel * 100 if vdes_rel else np.nan
     uc = updated_curve(name)
-    if uc is not None and RESERVOIRS[name]['updated'] in ('poma_new', 'rosamarina_2025'):
+    if uc is not None and RESERVOIRS[name]['updated'] in (
+            'poma_new', 'rosamarina_2025', *EXT_CURVE_SPEC.keys()):
         _, upd_vol = uc
         vupd_rel = float(upd_vol(B['top']) - upd_vol(B['floor']))
         out['truth_band_pct']  = (vupd_rel - vdes_rel) / vdes_rel * 100 if vdes_rel else np.nan

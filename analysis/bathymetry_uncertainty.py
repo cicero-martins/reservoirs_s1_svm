@@ -119,12 +119,24 @@ df.to_csv(OUT / 'bathymetry_uncertainty.csv', index=False)
 print('\n' + df.to_string(index=False))
 
 val = df.dropna(subset=['err_raw_pct'])
+# Transferability is tested only where the DEM otherwise tracks truth closely
+# (Rosamarina, Poma): the much larger low-A/P errors (Olivo, Nicoletti, Castello,
+# Arancio) are a separately-established A/P reconstruction-reliability ceiling
+# (Section res_curves), not evidence about THIS bias model's transfer -- lumping
+# them in here would conflate two different error sources. Garcia is excluded as
+# the self-calibrated case. This scope must stay in sync with the reservoirs
+# named in the manuscript's own "transferability" text (Methods/Results): both the
+# mean-|err| figure and the TRANSFER 1-sigma RMS below are computed over this same
+# restricted set, not all reservoirs with a truth curve.
+TRANSFER_SET = {'Rosamarina', 'Poma'}
+val = val[val.reservoir.isin(TRANSFER_SET)]
 if len(val):
-    print(f"\nBias-correction transferability (|error| vs independent truth):")
+    print(f"\nBias-correction transferability (|error| vs independent truth, "
+          f"{sorted(TRANSFER_SET)} only):")
     print(f"  mean |err| raw       = {val.err_raw_pct.abs().mean():.1f} %")
     print(f"  mean |err| corrected = {val.err_corr_pct.abs().mean():.1f} %  "
           f"({'IMPROVED' if val.err_corr_pct.abs().mean() < val.err_raw_pct.abs().mean() else 'no gain'})")
-    indep = val[val.reservoir != 'Garcia']   # Garcia is the self-calibrated case
+    indep = val[val.reservoir.isin(TRANSFER_SET)]
     if len(indep):
         sig = float(np.sqrt((indep.err_corr_pct.astype(float) ** 2).mean()))
         print(f"  TRANSFER 1σ (independent reservoirs, excl. Garcia self-cal) = ±{sig:.1f} % "

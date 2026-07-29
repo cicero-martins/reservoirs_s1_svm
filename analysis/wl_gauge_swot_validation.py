@@ -63,11 +63,15 @@ def _remove_local(s, window=5, threshold=1.5):
 
 
 def clean_series(s):
-    """Outlier removal only (no LOWESS): global 2sigma, then local (5,1.5) x2, (10,1.5)."""
+    """Outlier removal (global 2sigma, then local (5,1.5) x2, (10,1.5)), plus
+    m.rescue_corroborated() to restore genuine sustained level changes the local
+    filter alone over-removes (see schwatke_bathymetry_3d.py::_rescue_corroborated)."""
+    raw = s
     s = _remove_global(s, 2.0)
     s = _remove_local(s, 5, 1.5)
     s = _remove_local(s, 5, 1.5)
     s = _remove_local(s, 10, 1.5)
+    s = m._rescue_corroborated(raw, s)
     return s
 
 
@@ -87,7 +91,7 @@ def load_swot_series(name, corrected=False):
     f = SWOT_DIR / f'{name}_swot.csv'
     if not f.exists():
         return pd.Series(dtype=float, index=pd.DatetimeIndex([]))
-    swot = m.load_swot(f)
+    swot = m.load_swot(f, name)
     if corrected:
         corr = m.CONFIGS.get(name, {}).get('swot_bias_corr', 0.0)
         swot = (swot + corr).rename('wl_swot') if corr and len(swot) else swot

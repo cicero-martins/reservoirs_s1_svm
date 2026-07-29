@@ -116,6 +116,7 @@ def load_swot(name):
         return None
     df = _wl(pd.read_csv(p), 'datetime', 'wse')
     cleaned = clean_series(df.set_index('date')['wl'])
+    cleaned = m3d._drop_excluded(name, cleaned)
     # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py / CONFIGS comments
     # in schwatke_bathymetry_3d.py) -- this script fits BOTH tiers' power-law hypsometry
     # to an absolute elevation and integrates volume over an absolute band, so an

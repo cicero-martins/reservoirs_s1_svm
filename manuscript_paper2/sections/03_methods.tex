@@ -23,8 +23,32 @@ a reservoir regardless of ground track, whereas nadir altimetry only reaches the
 a track happens to cross, this validates the water-level substitution that later lets the
 whole pipeline run without either a gauge or an altimetry ground track.
 
+The same substitution is validated a second time, directly at the level of the spatial
+reconstruction rather than only the volume it integrates to. Every waterline mask's
+gauge-derived level is replaced with one inferred purely from SWOT: the power-law model
+(Eq.~\eqref{eq:powerlaw}) is fit on genuine SAR-area/SWOT-level coincidences drawn from the
+full SWOT record, then inverted at each mask's own observed area, so no gauge enters the
+substitution at any point. At Poma this reproduces the gauge-based DEM to $0.31$~m RMSE
+($0.06$~m bias) over the entire basin, with no pixel differing by more than $1$~m
+(Section~\ref{sec:res_ladder}). The reconstruction itself, and not only the storage it
+yields, is therefore not gauge-dependent.
+
 \subsection{Bathymetric reconstruction: DEM and scalar hypsometry}
 \label{sec:dem}
+
+\begin{figure}[htbp]\centering
+  \includegraphics[width=\linewidth]{method_flowchart.png}
+  \caption{Method overview, illustrated with real Rosamarina data. (A) Sentinel-1
+  water masks, one per acquisition date, each exposing a different elevation band as
+  the reservoir fills or drains. (B) The corresponding waterlines, nested by their
+  paired remote water level (gauge or SWOT altimetry). (C) The resulting bathymetric
+  DEM (Section~\ref{sec:dem}), shown here merged into its surrounding GLO-30 terrain
+  for context. (D) The reconstructed area--elevation curve over the SAR-observable
+  band, against the pre-existing design curve and the reservoir's updated survey
+  curve (Section~\ref{sec:xsensor}).}
+  \label{fig:methodflow}
+\end{figure}
+
 With both inputs validated, the reconstruction follows. Let $\{M_i\}$ be the Sentinel-1
 binary water masks and $\{h_i\}$ their water levels, sorted ascending by $h_i$. Pixels
 wet in the smallest mask (the always-wet core) are assigned the lowest level $h_0$. A
@@ -49,6 +73,31 @@ fitted,
 which is integrated to storage $V(h)=\int A\,\mathrm{d}h$. The DEM gives the spatial
 bathymetry and change maps; the scalar fit gives a robust storage curve where the
 observed level range is wide. Both see only the exposed band.
+
+The mask stack $\{M_i\}$ need not be limited to the dates used to fit
+Eq.~\eqref{eq:powerlaw}. Within the same reconstruction window, additional Sentinel-1
+acquisitions are typically available at $2$--$4\times$ the density of the stratified
+set; each contributes one further waterline once assigned a level by the same
+source-priority rule (Section~\ref{sec:inputvalid}), falling back to Eq.~\eqref{eq:powerlaw},
+inverted at that date's own observed area, only for the few dates neither gauge nor SWOT
+reaches. Because the fit itself is calibrated solely on the original gauge/SWOT pairs,
+this densification adds spatial detail to the DEM without feeding back into the curve it
+is validated against. At Poma, expanding the stack from $10$ to $24$ masks roughly halved
+the tallest single-elevation terrace step (one level otherwise shared by some $2\,000$
+pixels) while changing the reconstructed elevation by less than $1$~m over $97\%$ of the
+basin.
+
+Masks entering either stack are screened by two complementary criteria. The first,
+inherited from \citet{PaperOne}'s own area time series, flags any date whose observed
+area deviates by more than $60\%$ from its temporal neighbours, catching gross
+classification failures. The second, added here, sorts the candidate masks by water
+level and flags any date whose area \emph{decreases} while the paired level rises --
+a physically inconsistent step for a monotonically filling or draining reservoir that a
+purely magnitude-based threshold can miss. The two are not redundant: at Rosamarina, a
+single mask with a salt-and-pepper misclassification pattern (consistent with
+wind-roughening of the water surface on that acquisition) reduced the exposed area by
+only $15\%$ relative to its neighbours, well under the deviation threshold, yet was
+caught immediately by the monotonicity check and excluded before reconstruction.
 
 \subsection{Validation of the reconstructed curves and bathymetry}
 \label{sec:xsensor}
@@ -99,11 +148,11 @@ to the other reservoirs. Two distinct uncertainties follow from it. The first is
 calibration uncertainty in the bias model itself: we draw 500 samples of its two
 regression coefficients from their joint covariance and propagate each through the
 band-capacity-change calculation, giving a 5th--95th-percentile confidence interval
-that is narrow ($\pm0.8\%$ median) because it reflects only the fitted line's own
+that is narrow ($\pm1.3\%$ median) because it reflects only the fitted line's own
 uncertainty, not independent per-pixel noise. The second, larger, uncertainty is
 whether the bias model \emph{transfers} to other reservoirs at all: the RMS of the
 bias-corrected error against independent truth at Rosamarina and Poma (excluding the
-self-calibrated Garcia) is $\pm11.3$ percentage points, the dominant term in
+self-calibrated Garcia) is $\pm8.5$ percentage points, the dominant term in
 the overall budget. This error, consistent with the shoreline-geometry dependence
 already established for the SAR area input itself, is what any operational use of the
 reconstruction must budget for.

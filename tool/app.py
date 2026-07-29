@@ -1,10 +1,10 @@
 """
 Reservoir SAR Bathymetry Explorer — Paper-2 tool (Streamlit MVP)
 
-Interactive explorer over the SAR-waterline reconstructed bathymetry of the 5 core
-Sicilian reservoirs: pick a reservoir + period, view the 2D depth map, 3D surface,
-area-elevation-volume (AEV) curves against the design & updated-survey references,
-the A-vs-B sedimentation change map, and download the DEM GeoTIFF.
+Interactive explorer over the SAR-waterline reconstructed bathymetry of all 9
+validated Sicilian reservoirs: pick a reservoir + period, view the 2D depth map,
+3D surface, area-elevation-volume (AEV) curves against the design & updated-survey
+references, the A-vs-B sedimentation change map, and download the DEM GeoTIFF.
 
 Run:  streamlit run tool/app.py
 Scope (MVP): explorer over the already-reconstructed DEMs. Live Earth-Engine
@@ -132,8 +132,8 @@ INTRO_SLIDES = [
             "independent references — echo-sounder survey, updated design curves, "
             "PlanetScope optical imagery, and SWOT altimetry — within a few percent bias.",
             "Because the satellite record only ever observes the drawdown-exposed band, each "
-            "reconstruction covers a **fraction of total design volume**: 71–93% across the "
-            "5 core reservoirs (mean ≈ 80%), depending on drawdown amplitude and basin slope.",
+            "reconstruction covers a **fraction of total design volume**: 39–87% across the "
+            "9 reservoirs (mean ≈ 70%), depending on drawdown amplitude and basin slope.",
             "The residual deep pool below the lowest observed waterline is extrapolated from "
             "the design curve's low-elevation branch and displayed as a distinct, dashed "
             "**estimate** — not a measurement.",

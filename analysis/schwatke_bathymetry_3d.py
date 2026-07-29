@@ -119,7 +119,17 @@ CONFIGS = {
         # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py), added to raw
         # SWOT wherever it's loaded -- otherwise splicing SWOT into the gauge series at
         # the bad-window boundary would inject a fake step of this size.
-        'swot_bias_corr': 0.19,
+        'swot_bias_corr': 0.28,
+        # 2026-07-28: 2026-01-31 is a lone, physically implausible spike (157.8 m,
+        # sandwiched between 140.6 m eleven days earlier and 146.3 m one day later -- a
+        # 17 m rise then an 11 m drop within three weeks) that survives the standard
+        # cleaning pipeline because its local window (index-based, not time-based) spans a
+        # genuinely wide, fast-changing drawdown-to-refill stretch, masking it statistically.
+        # Found investigating why the corroboration-rescue fix (added the same day) initially
+        # seemed to worsen Rosamarina's WL RMSE -- this point predates that fix and was
+        # already there; it has no corroborating observation within 45 days at any
+        # reasonable tolerance, unlike the genuine rescued points nearby.
+        'swot_exclude_dates': ['2026-01-31'],
         'boletin_cfg':  {
             'cod':        'dig-22',
             'curve_xls':  CURVE_DIR / 'Rosamarina.xls',
@@ -132,25 +142,37 @@ CONFIGS = {
         'gauge_min':    330.0,
         'sar_csv':      SAR_DIR / 'SAR_area_Pozzillo.csv',
         'h0_bound_lo':  310.0,
-        # swot_csv + swot_priority added 2026-07-24: unlike Rosamarina/Garcia's
-        # TEMPORARY stuck-gauge windows (gauge_bad_window, a hard exclusion), Pozzillo's
-        # gauge shows a PERSISTENT amplitude-compression problem -- not frozen, but its
-        # range is systematically narrower than reality. Found via the SAR area series
-        # itself: SAR area correlates far better with SWOT (r=0.90) than with the gauge
-        # (r=0.76) over the SWOT era, and SWOT's water-level span (12.9 m) tracks the
-        # SAR-implied range much better than the gauge's compressed span (7.8 m) --
-        # independent corroboration the gauge, not SWOT, is the less reliable source
-        # here. `swot_priority` reorders (SWOT first, gauge as fallback) rather than
-        # excluding gauge outright like gauge_bad_window does: SWOT alone is too sparse
-        # for Pozzillo (a 42-day gap mid-window) to cover every date, and a compressed
-        # but real gauge reading is still better than the model-inversion last resort.
+        # swot_csv + swot_priority added 2026-07-24: beyond the persistent, whole-record
+        # amplitude-compression problem below, the gauge ALSO has a genuine, extended
+        # frozen episode, 2023-08-27 to 2024-10-03 (~347.6-347.8 m, confirmed against SWOT
+        # showing real month-to-month variation, 343.6-345.7 m, over the same window --
+        # found 2026-07-28, initially recalled as "two periods", turned out to be one
+        # continuous 13-month freeze). Unlike Rosamarina/Garcia's temporary stuck windows,
+        # this sits on top of a PERSISTENT amplitude-compression problem across the whole
+        # record: the range is systematically narrower than reality even outside the frozen
+        # window. Found via the SAR area series itself: SAR area correlates far better with
+        # SWOT (r=0.90) than with the gauge (r=0.76) over the SWOT era, and SWOT's
+        # water-level span (12.9 m) tracks the SAR-implied range much better than the
+        # gauge's compressed span (7.8 m) -- independent corroboration the gauge, not SWOT,
+        # is the less reliable source here. `swot_priority` reorders (SWOT first, gauge as
+        # fallback) rather than excluding gauge outright like gauge_bad_window does: SWOT
+        # alone is too sparse for Pozzillo (a 42-day gap mid-window) to cover every date,
+        # and a compressed but real gauge reading is still better than the model-inversion
+        # last resort. gauge_bad_window below additionally excludes the frozen episode from
+        # the WL-alone validation table/figure (Section res_inputvalid), where the whole
+        # gauge series -- not just reconstruction dates -- is compared against SWOT.
         'swot_csv':      REPO / 'validation_data' / 'SWOT' / 'Pozzillo_swot.csv',
         'swot_priority': True,
+        'gauge_bad_window': ('2023-08-27', '2024-10-03'),
         # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py), added to raw
         # SWOT wherever it's loaded -- Pozzillo's residual disagreement after this
         # correction (r=0.64, alpha=1.79) is real range-compression in the gauge, not
         # datum, consistent with the swot_priority rationale above.
-        'swot_bias_corr': 0.76,
+        'swot_bias_corr': -1.56,
+        # 2026-07-28: 2024-11-30 is a lone one-day spike (348.7 m, a 4.2 m jump from
+        # 344.5 m the immediately preceding day, then no data for 3.5 months) -- found the
+        # same way as Rosamarina's 2026-01-31 case, no corroborating observation nearby.
+        'swot_exclude_dates': ['2024-11-30'],
         # boletin_cfg added 2026-07-21: the model-inversion fallback, fit on only 9
         # B-period pairs all <=356 m, was being asked to extrapolate Period-A's large-area
         # dates (360-590 ha) and inverting to 377-392 m -- ABOVE the dam's own design-curve
@@ -176,11 +198,18 @@ CONFIGS = {
         'fix_components': True,
         # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py). Ancipa has no
         # swot_csv here (SWOT is never used in its reconstruction -- its gauge is
-        # trusted throughout), so this only affects the WL-alone validation table/
-        # figure; even after removing this 8.58 m offset, Ancipa's SWOT still shows a
-        # genuinely compressed dynamic range (alpha=0.55) relative to the gauge, unlike
-        # Poma's near-pure-offset case, consistent with SWOT degrading at low A/P.
-        'swot_bias_corr': -8.58,
+        # trusted throughout), so this only affects the WL-alone validation table/figure.
+        # 2026-07-28 (author flagged the huge diffs as suspicious): three raw SWOT dates
+        # (2024-10-18, 2024-11-08, 2024-11-29) all read ~920-924 m -- essentially flat --
+        # while the gauge AND the independently-measured SAR area both show a real,
+        # continuous drawdown to near-empty over the same span (gauge 906->897 m; SAR area
+        # 4.8->0.26 ha, bottoming out 2024-11-14). SWOT is confirmed wrong here, not the
+        # gauge: as Ancipa's already-narrow water body shrank to a sliver, SWOT's
+        # detection/geolocation evidently failed to track it, an expected failure mode at
+        # this low A/P. Excluded as swot_exclude_dates; swot_bias_corr recalibrated on the
+        # remaining (2025-2026) pairs only.
+        'swot_exclude_dates': ['2024-10-18', '2024-11-08', '2024-11-29'],
+        'swot_bias_corr': -2.72,
         'boletin_cfg':  {
             'cod':        'dig-01',
             'curve_xls':  CURVE_DIR / 'Ancipa.xls',
@@ -272,7 +301,15 @@ CONFIGS = {
         # Pozzillo): SWOT has 21 real, varying observations inside the window (368.2->370.1 m,
         # a genuine refill trend) that substitute for the frozen gauge.
         'gauge_bad_window': ('2023-11-15', '2025-01-17'),
-        'swot_bias_corr': 1.47,
+        # 2026-07-28: the gauge-vs-SWOT offset is NOT constant across the record (author
+        # flagged this). No valid comparison exists before 2025 (gauge starts 2023-11-15,
+        # then frozen until 2025-01-17, per the window above). From 2025-02-19 through
+        # 2026-02-11 the offset is remarkably tight (-1.89 m, std=0.03 m over 40+ pairs) --
+        # used here. From 2026-03-23 onward it shifts to a smaller -0.2 to -0.6 m, a real,
+        # unexplained regime change (possible gauge recalibration), not noise -- an open
+        # limitation: the last few months of this comparison carry a residual ~1.3-1.7 m
+        # bias this single constant does not remove.
+        'swot_bias_corr': 1.89,
         'boletin_cfg':  {
             'cod':        'dig-13',
             'curve_xls':  CURVE_DIR / 'Nicoletti.xls',
@@ -291,11 +328,18 @@ CONFIGS = {
         # confirmed against SWOT, which shows a real decline to ~172 m over the same
         # window; the gauge then recovers and tracks a real 176.5->189.8 m refill from
         # 2026-02-04 on. Dates in this window use SWOT instead of the gauge.
-        'gauge_bad_window': ('2025-08-06', '2026-02-03'),
+        # SECOND episode found 2026-07-28 (author flagged it, same recurring dry-lakebed-
+        # floor fault, ~1 year earlier): the gauge's smooth decline stops on 2024-09-03 and
+        # is replaced by noisy pinning around 175.7-176.3 m through 2025-02-13, then a clear
+        # sustained rise resumes 2025-02-14 -- confirmed against SWOT, which shows a real
+        # drawdown-refill cycle over the same window (178.06 m on 2024-08-07 down to 174.99 m
+        # on 2024-12-10, back up to 179.24 m by 2025-03-04). Like Rosamarina's two episodes,
+        # a single fault recurs at two different times, not two different faults.
+        'gauge_bad_window': [('2024-09-04', '2025-02-13'), ('2025-08-06', '2026-02-03')],
         # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py), added to raw
         # SWOT wherever it's loaded -- otherwise splicing SWOT into the gauge series at
         # the bad-window boundary would inject a fake step of this size.
-        'swot_bias_corr': -1.19,
+        'swot_bias_corr': -1.55,
         # V->h validation vs AEGIS gauge: n=44, bias=-0.10 m, RMSE=1.04 m, R2=0.954
         # Bias essentially zero — no significant sedimentation signal in design curve.
         'boletin_cfg':  {
@@ -402,13 +446,55 @@ def _remove_local(s: pd.Series, window: int = 5, threshold: float = 1.5) -> pd.S
     return s.loc[keep]
 
 
-def load_swot(path: Path) -> pd.Series:
+def _rescue_corroborated(raw: pd.Series, cleaned: pd.Series, tol: float = 1.5,
+                          window_days: int = 45, min_support: int = 2) -> pd.Series:
+    """Restores points the local filter removed if >=min_support OTHER raw observations
+    within +-window_days agree within tol -- added 2026-07-28 (author flagged good, real
+    SWOT points being cut during the most recent 2026 refill at Olivo/Castello/Rosamarina/
+    Garcia). _remove_local assumes local stationarity, so a genuine SUSTAINED level change
+    (several consecutive real passes agreeing on a new level) reads as a run of outliers
+    relative to the older, lower window it's compared against -- exactly what happened at
+    the tail of the record once each reservoir kept rising past where the sparse SAR mask
+    sampling had it topping out. A true instrument artifact is an uncorroborated one-off, so
+    this only restores points with independent nearby agreement, never isolated spikes
+    (verified: correctly leaves out Rosamarina's 165.29 m one-off and Garcia/Castello's
+    isolated jumps, while restoring e.g. Garcia's 5-month 191+-0.2 m plateau)."""
+    removed = raw.index.difference(cleaned.index)
+    rescued = []
+    for d in removed:
+        v = raw.loc[d]
+        nearby = raw[(raw.index >= d - pd.Timedelta(days=window_days)) &
+                     (raw.index <= d + pd.Timedelta(days=window_days)) & (raw.index != d)]
+        if ((nearby - v).abs() <= tol).sum() >= min_support:
+            rescued.append(d)
+    if not rescued:
+        return cleaned
+    return pd.concat([cleaned, raw.loc[rescued]]).sort_index()
+
+
+def _drop_excluded(name: str, s: pd.Series) -> pd.Series:
+    """Drops CONFIGS[name]['swot_exclude_dates'] -- individually documented, one-off SWOT
+    spikes confirmed to have no corroborating nearby observation (see CONFIGS comments),
+    that the standard cleaning + rescue pipeline doesn't catch on its own. Matches by
+    CALENDAR DAY, not exact timestamp: schwatke_bathymetry_3d.load_swot() resamples to
+    daily (midnight index), but fullrs_wl_ladder.py's own loader keeps the original
+    time-of-day, so an exact-Timestamp match silently drops nothing there (found
+    2026-07-28 debugging why Ancipa's ladder-script RMSE didn't reflect this exclusion)."""
+    exclude = {pd.Timestamp(d).normalize() for d in CONFIGS.get(name, {}).get('swot_exclude_dates', [])}
+    if not exclude:
+        return s
+    drop = [d for d in s.index if pd.Timestamp(d).normalize() in exclude]
+    return s.drop(index=drop) if drop else s
+
+
+def load_swot(path: Path, name: str | None = None) -> pd.Series:
     """Load SWOT LakeSP CSV -> daily mean WSE Series (date index), quality-screened
     AND outlier-cleaned with Paper 1's own pipeline (global 2sigma + local (5,1.5)x2
     + (10,1.5) -- see wl_gauge_swot_validation.py for the cross-check that motivated
     this: raw SWOT had occasional clear outliers, e.g. Garcia/Pozzillo isolated points
     tens of metres off neighbouring observations, that a quality_f filter alone
-    doesn't catch)."""
+    doesn't catch), then a corroboration-based rescue pass (_rescue_corroborated) that
+    restores genuine sustained level changes the local filter alone over-removes."""
     df = pd.read_csv(path, parse_dates=['datetime'])
     df = df[df['quality_f'].isin([0, 1])]
     df['_dt'] = df['datetime'].dt.tz_localize(None)
@@ -419,14 +505,17 @@ def load_swot(path: Path) -> pd.Series:
     cleaned = _remove_local(cleaned, 5, 1.5)
     cleaned = _remove_local(cleaned, 5, 1.5)
     cleaned = _remove_local(cleaned, 10, 1.5)
+    cleaned = _rescue_corroborated(daily, cleaned)
+    if name:
+        cleaned = _drop_excluded(name, cleaned)
     return cleaned.rename('wl_swot')
 
 
-def load_swot_corrected(cfg: dict, path: Path) -> pd.Series:
+def load_swot_corrected(cfg: dict, path: Path, name: str | None = None) -> pd.Series:
     """load_swot() plus the reservoir's gauge-vs-SWOT datum offset (swot_bias_corr,
     see CONFIGS comments): the raw loader must stay pure (path-only) since
     wl_gauge_swot_validation.py uses it to *derive* that offset in the first place."""
-    swot = load_swot(path)
+    swot = load_swot(path, name)
     corr = cfg.get('swot_bias_corr', 0.0)
     return (swot + corr).rename('wl_swot') if corr and len(swot) else swot
 
@@ -610,7 +699,7 @@ def phase1():
         swot = pd.Series(dtype=float, name='wl_swot')
         if 'swot_csv' in cfg and cfg['swot_csv'].exists():
             try:
-                swot = load_swot_corrected(cfg, cfg['swot_csv'])
+                swot = load_swot_corrected(cfg, cfg['swot_csv'], res)
                 print(f'  SWOT: {swot.index.min().date()} to {swot.index.max().date()}'
                       f'  ({len(swot)} obs)  WL {swot.min():.1f}-{swot.max():.1f} m')
             except Exception as e:

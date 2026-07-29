@@ -85,11 +85,13 @@ def load_wl(site, cfg):
         return gauge, None
     swot = _wl(pd.read_csv(sp), 'datetime', 'wse')
     # Paper 1's outlier-cleaning pipeline (same as schwatke_bathymetry_3d.load_swot)
-    s = swot.set_index('date')['wl']
-    s = _remove_global(s, 2.0)
+    raw = swot.set_index('date')['wl']
+    s = _remove_global(raw, 2.0)
     s = _remove_local(s, 5, 1.5)
     s = _remove_local(s, 5, 1.5)
     s = _remove_local(s, 10, 1.5)
+    s = m3d._rescue_corroborated(raw, s)
+    s = m3d._drop_excluded(site, s)
     # gauge-vs-SWOT datum offset (see wl_gauge_swot_validation.py / CONFIGS comments
     # in schwatke_bathymetry_3d.py) -- otherwise a per-site constant reference-frame
     # mismatch gets scored as pixel-elevation "error" against the gauge-calibrated SAR DEM.

@@ -3,7 +3,7 @@
 
 Reservoirs regulate water supply, irrigation, hydropower and flood risk, and their
 operation depends on knowing how much water is stored as a function of level, i.e.\ the
-area--elevation--volume (AEV) relationship. That relationship is not static: sediment
+area--elevation--volume (AEV) relationship. That relationship is not static. Sediment
 delivered by the contributing basin accumulates on the reservoir floor, progressively
 reducing capacity. Yet updating it requires a bathymetric survey, and in-situ lake and
 reservoir records worldwide are sparse, have if anything decreased in recent years, and,
@@ -15,8 +15,8 @@ over-estimation of storage typically goes unquantified.
 Satellite remote sensing offers a way to update this information without field
 campaigns, because two complementary and freely available signals together contain
 everything the AEV relationship requires. Satellite altimetry measures water-surface
-\emph{elevation}: nadir radar missions, harmonised in databases such as DAHITI
-\citep{Schwatke2015}, and, since 2022, the wide-swath mission SWOT
+\emph{elevation}, from nadir radar missions, harmonised in databases such as DAHITI
+\citep{Schwatke2015}, to, since 2022, the wide-swath mission SWOT
 \citep{Biancamaria2016}. Synthetic Aperture Radar (SAR) measures water-surface
 \emph{area} directly and, unlike optical sensors, is not affected by cloud cover or
 solar illumination \citep{Torres2012, Mullissa2021}, a critical advantage in
@@ -27,65 +27,52 @@ companion study shows can be predicted \emph{a priori} from shoreline geometry
 \citep{PaperOne}. Optical imagery remains just as fundamental, though, since its failure
 modes (sun glint, turbidity, algae) are different from SAR's, giving an independent
 perspective on the same water surface. \citet{Schwatke2020} combined optical water masks
-with altimetry to reconstruct lake hypsometry, an approach so far demonstrated only
-where cloud-free optical imagery and a nadir altimetry ground track coincide. This
-raises a specific question: can the same waterline-stacking principle be adapted to
-SAR-derived water masks and wide-swath altimetry, removing both constraints at once, and
-with what accuracy? We answer it here, adapting \citet{Schwatke2020} to Sentinel-1
-waterlines and SWOT.
+with altimetry to reconstruct lake hypsometry, an approach made viable through
+cloud-free optical imagery and nadir altimetry. This
+raises a specific question. Can the same waterline-stacking principle be adapted to
+SAR-derived water masks and wide-swath altimetry, and with what accuracy?
 
-The idea we pursue is that the shoreline exposed as a reservoir draws down is a sequence
-of contour lines at known water levels: stacking Sentinel-1 waterlines ordered by level
-reconstructs a digital elevation model (DEM) of the emerged basin, from which an updated
-AEV curve and a storage time series follow by integration. The water level needed to
-label each waterline is the single indispensable ingredient. Where a gauge exists this
+The idea we pursue, adapting \citet{Schwatke2020} to Sentinel-1 waterlines and SWOT, is
+that the shoreline exposed as a reservoir draws down forms a
+sequence of contour lines at known water levels. Stacking Sentinel-1 waterlines ordered
+by level reconstructs a digital elevation model (DEM) of the emerged basin, from which an
+updated AEV curve and a storage time series follow by integration. The water level needed
+to label each waterline is the single indispensable ingredient. Where a gauge exists this
 is trivial; where it does not, the level must itself be remotely sensed. We therefore
-treat the water-level source as a variable to be substituted: keeping the SAR area and
-the reconstruction fixed, we replace the in-situ gauge first with nadir altimetry and
-then with SWOT. Nadir altimetry, by construction, only reaches the reservoirs a ground
+treat the water-level source as a variable to be substituted, keeping the SAR area and
+the reconstruction fixed and replacing the in-situ gauge with SWOT. Nadir altimetry, by
+construction, only reaches the reservoirs a ground
 track happens to cross; SWOT's wide swath observes a reservoir regardless of track,
 addressing precisely the ungauged, track-missed case that orbit geometry alone excludes
 from nadir altimetry.
 
-A shared regional drought-to-refill event across Sicily in 2025--2026 --- most of our
-study reservoirs drew down sharply and refilled within a few months --- gave an
-unplanned but valuable opportunity: a short, temporally consistent image window in
-which each reservoir traversed an unusually wide fraction of its observable elevation
-range, which we exploit with a water-level-targeted sampling strategy rather than the
-wider, sparser sampling a multi-year record would otherwise require
-(Section~\ref{sec:methods}). The same event also stress-tested the input pipeline in
-practice: three of the nine reservoirs' in-situ gauges suffered a documented
-malfunction during the drawdown --- a reading stuck for months, or a sensor unable to
-register levels below the dry lakebed floor --- and a fourth gauge (Pozzillo) was found
-to persistently under-represent its true water-level range throughout the record,
-caught only by checking an independent signal (SAR area) against both candidate water
-levels rather than trusting the gauge by default. In each case a satellite water level
-(SWOT, or the design curve's own volume record) recovered a physically consistent
-reading (Section~\ref{sec:data}, Section~\ref{sec:res_inputvalid}), a concrete
-illustration of why the substitution this paper studies is not merely a hypothetical
-convenience.
+As one of the regions potentially most affected by drought in recent years, we use a
+shared regional drought-to-refill event across Sicily in 2025--2026, in which most of
+our study reservoirs drew down sharply and refilled within a few months. This produced a
+short, temporally consistent image window in which each reservoir traversed an
+unusually wide fraction of its observable elevation range, which we exploit with a
+water-level-targeted sampling strategy (Section~\ref{sec:methods}).
 
-The contributions of this paper are: (i) a SAR-based adaptation of
-\citet{Schwatke2020}'s waterline-stacking principle, substituting Sentinel-1 water masks
-for optical imagery and SWOT for nadir altimetry, that reconstructs updated bathymetry
-and storage for the SAR-observable, drawdown-exposed band without an in-situ gauge or
-altimetry ground track; (ii) three
-converging lines of validation evidence for that reconstruction's accuracy: a
-nine-reservoir comparison against a December-2025 echo-sounder survey and recent
-official bathymetric curves, a water-level-substitution experiment showing SWOT
-altimetry reproduces gauge-based and field-truth storage, and an independent PlanetScope
-optical cross-sensor reconstruction; and (iii) an uncertainty and observability analysis
-linking reconstruction reliability to shoreline geometry and drawdown amplitude,
-released together with open-source code that makes the method and its limits usable in
-practice.
+This paper's main contribution is a SAR-based adaptation of \citet{Schwatke2020}'s
+waterline-stacking principle. It replaces optical imagery with Sentinel-1 water masks
+and a nadir ground track with SWOT altimetry, reconstructing updated bathymetry and
+storage for the SAR-observable, drawdown-exposed band of a reservoir without an in-situ
+gauge or altimetry track. We validate it at nine Sicilian reservoirs against a
+December-2025 echo-sounder survey, recent official bathymetric curves, a
+water-level-substitution experiment testing whether SWOT reproduces gauge-based and
+field-truth storage, and an independent PlanetScope optical reconstruction. We further quantify what
+the method can and cannot see. This means how much of each reservoir's total storage the
+drawdown-exposed band represents, and how reconstruction reliability depends on
+shoreline geometry and drawdown amplitude. The full pipeline is released as open-source
+code, making both the method and its documented limits usable in practice.
 
 The remainder of the paper is organised as follows. Section~\ref{sec:data} describes
 the nine Sicilian reservoirs and the SAR, water-level, ground-truth and optical data
-used. Section~\ref{sec:methods} first validates the SAR area and water-level inputs,
-then details the waterline-stacking reconstruction, validates the resulting curves and
-bathymetry against independent references, quantifies capacity-change and uncertainty,
-and describes how the validated curves are applied in the released code.
-Section~\ref{sec:results} presents
+used. Section~\ref{sec:methods} defines the reconstruction method. It covers how the SAR
+area and water-level inputs are validated, the waterline-stacking DEM and scalar
+hypsometry, the approach used to validate the resulting curves and bathymetry, the
+capacity-change and uncertainty metrics, and how the method is applied in the released
+code. Section~\ref{sec:results} reports
 the reconstructed bathymetry and capacity change, the field and reference-curve
 validation, the water-level-substitution and cross-sensor results, and the uncertainty
 budget. Section~\ref{sec:discussion} discusses the gauge-free, track-free implications,

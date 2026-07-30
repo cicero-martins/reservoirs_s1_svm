@@ -191,20 +191,60 @@ def panel_c(fig, rect, name):
 
 
 def panel_d(fig, rect, name, dem):
+    """Area-elevation-volume curve built by simple linear interpolation between the
+    real observed (area, level) mask pairs themselves -- not from the reconstructed
+    DEM's pixel count (that mixes in the per-pixel optimal-threshold and Gaussian
+    smoothing used for the *spatial* DEM, which forces area to 0 at the exact floor
+    elevation, a smoothing artefact with no physical meaning: the driest observed
+    mask already covers a large, nonzero area). The design curve's own deep,
+    unobserved branch is added below the lowest observed pair. Area is pointwise
+    and plotted on its natural scale, directly comparable to the design curve's;
+    volume is cumulative and has no natural absolute scale (integration only sums
+    volume above the lowest observed pair), so it is anchored to the design
+    curve's own volume there -- the same estimate already used for the
+    deep-zone/band-capacity split in Section 3.4 -- so it connects continuously
+    into the deep-zone branch below."""
     ax = fig.add_axes(rect)
-    levels = np.arange(dem['floor'], dem['top'] + 1e-6, 0.5)
-    a_dem, _ = bt.aev(dem['arr'], dem['mask'], levels, dem['pixel_ha'])
-    ax.plot(a_dem, levels, color=BLUE, lw=2.6, label='Reconstructed (SAR)', zorder=3)
+    p = pd.read_csv(REPO / 'analysis' / 'schwatke_output' / f'mask_wl_pairs_{name}.csv')
+    p = p[p.period == 'B'].sort_values('wl_m')
+    levels = np.linspace(p.wl_m.min(), p.wl_m.max(), 200)
+    a_obs = np.interp(levels, p.wl_m, p.area_ha)
+    v_rel = np.zeros_like(a_obs)
+    for i in range(1, len(levels)):
+        v_rel[i] = v_rel[i - 1] + (a_obs[i] + a_obs[i - 1]) / 2 * (levels[i] - levels[i - 1]) * 0.01
+
+    VOLCOL, AREACOL = BLUE, '#2e7d32'
     dc = bt.design_curve(name)
+    deep_levels = None
     if dc is not None:
-        ax.plot(dc[0](levels), levels, color='0.25', ls='--', lw=1.6, label='Design curve')
-    uc = bt.updated_curve(name)
-    if uc is not None and uc[0] is not None:
-        ax.plot(uc[0](levels), levels, color='#2e7d32', lw=1.8, label='Updated survey')
-    ax.set_xlabel('Area (ha)', fontsize=9.5)
+        v_obs = v_rel + float(dc[1](levels[0]))
+        deep_min = float(dc[1].x.min())
+        if deep_min < levels[0]:
+            deep_levels = np.linspace(deep_min, levels[0], 40)
+    else:
+        v_obs = v_rel
+
+    l1, = ax.plot(v_obs, levels, color=VOLCOL, lw=2.6, label='Volume (SAR-reconstructed)')
+    if deep_levels is not None:
+        ax.plot(dc[1](deep_levels), deep_levels, color=VOLCOL, lw=1.6, ls=':', alpha=0.75)
+    ax.set_xlabel('Volume (Mm$^3$)', fontsize=9.5, color=VOLCOL)
+    ax.tick_params(axis='x', labelsize=8, labelcolor=VOLCOL)
     ax.set_ylabel('Water level (m ASL)', fontsize=9.5)
-    ax.tick_params(labelsize=8)
-    ax.legend(fontsize=7.5, loc='lower right', frameon=False)
+    ax.tick_params(axis='y', labelsize=8)
+
+    ax_top = ax.twiny()
+    l2, = ax_top.plot(a_obs, levels, color=AREACOL, lw=2.2, ls='--', label='Area (SAR-reconstructed)')
+    if deep_levels is not None:
+        ax_top.plot(dc[0](deep_levels), deep_levels, color=AREACOL, lw=1.6, ls=':', alpha=0.75)
+    ax_top.scatter(p.area_ha, p.wl_m, s=16, color=AREACOL, zorder=5,
+                   edgecolors='white', linewidths=0.5, label='Observed mask/level pairs')
+    ax_top.set_xlabel('Area (ha)', fontsize=9.5, color=AREACOL)
+    ax_top.tick_params(axis='x', labelsize=8, labelcolor=AREACOL)
+
+    ax.legend(handles=[l1, l2], fontsize=7.5, loc='lower right', frameon=False)
+    if deep_levels is not None:
+        ax.text(0.03, 0.03, 'dotted: design curve,\nunobserved deep zone',
+                transform=ax.transAxes, fontsize=6.5, color='#5a6b7b', va='bottom')
     ax.grid(alpha=0.25)
     return ax
 
@@ -226,41 +266,48 @@ def main():
     area_curve, _ = bt.aev(dem['arr'], dem['mask'], aev_levels, dem['pixel_ha'])
     levels_m = {d_: float(np.interp(areas[d_], area_curve, aev_levels)) for d_ in DATES}
 
-    fig = plt.figure(figsize=(15.5, 4.6))
-    w0 = 0.005
-    pw = 0.225
-    gap = 0.028
-    y0, ph = 0.13, 0.72
+    # 2x2 grid, laid out as a Z: A(top-left) -> B(top-right) -> C(bottom-right)
+    # -> D(bottom-left), so every connecting arrow is a plain horizontal/vertical
+    # segment (no diagonal routing across the title/subtitle text band).
+    fig = plt.figure(figsize=(11.6, 12.6))
+    x0, colw, gapx = 0.05, 0.44, 0.055
+    x1 = x0 + colw + gapx
+    rowh, gapy = 0.32, 0.22
+    y_bot = 0.055
+    y_top = y_bot + rowh + gapy
 
-    rectA = [w0, y0, pw, ph]
-    rectB = [w0 + pw + gap, y0, pw, ph]
-    rectC = [w0 + 2 * (pw + gap), y0, pw, ph]
-    rectD = [w0 + 3 * (pw + gap) + 0.01, y0, pw - 0.005, ph]
+    rectA = [x0, y_top, colw, rowh]
+    rectB = [x1, y_top, colw, rowh]
+    rectC = [x1, y_bot, colw, rowh]
+    rectD = [x0, y_bot, colw, rowh]
 
     panel_a(fig, rectA, dates_sorted, arrs, areas)
     panel_b(fig, rectB, dates_sorted, arrs, levels_m)
     panel_c(fig, rectC, RES)
     panel_d(fig, rectD, RES, dem)
 
-    titles = ['A · SAR water masks', 'B · Waterlines + remote level',
-              'C · Reconstructed DEM', 'D · Updated AEV curve']
-    for rect, t in zip([rectA, rectB, rectC, rectD], titles):
-        fig.text(rect[0] + rect[2] / 2, y0 + ph + 0.075, t, ha='center',
-                 fontsize=11.5, color=DARK, weight='bold')
+    panels = [
+        (rectA, 'A · SAR water masks', 'stacked, one per\nacquisition date'),
+        (rectB, 'B · Waterlines + remote level', 'level source: gauge\nor SWOT altimetry'),
+        (rectC, 'C · Reconstructed DEM', 'level-slice stack,\nexposed band only'),
+        (rectD, 'D · Updated AEV curve', 'observed band + design\ncurve deep zone'),
+    ]
+    for rect, title, sub in panels:
+        fig.text(rect[0] + rect[2] / 2, rect[1] + rect[3] + 0.055, title, ha='center',
+                 va='bottom', fontsize=13, color=DARK, weight='bold')
+        fig.text(rect[0] + rect[2] / 2, rect[1] - 0.055, sub, ha='center', va='top',
+                 fontsize=10.5, color='#5a6b7b', linespacing=1.3)
 
-    subtitles = ['stacked, one per\nacquisition date', 'level source: gauge\nor SWOT altimetry',
-                 'level-slice stack,\nexposed band only', 'replaces the design\ncurve, band-relative']
-    for rect, s in zip([rectA, rectB, rectC, rectD], subtitles):
-        fig.text(rect[0] + rect[2] / 2, y0 - 0.09, s, ha='center', va='top',
-                 fontsize=8, color='#5a6b7b')
+    ymid_top = y_top + rowh / 2
+    ymid_bot = y_bot + rowh / 2
+    xvert = x1 + colw - 0.03           # near column 2's right edge, clear of the
+                                        # centred title/subtitle text below it
+    arrow(fig, (rectA[0] + rectA[2] + 0.008, ymid_top), (rectB[0] - 0.008, ymid_top))
+    arrow(fig, (xvert, rectB[1] - 0.008), (xvert, rectC[1] + rectC[3] + 0.008))
+    arrow(fig, (rectC[0] - 0.008, ymid_bot), (rectD[0] + rectD[2] + 0.008, ymid_bot))
 
-    yarrow = y0 + ph / 2
-    arrow(fig, (rectA[0] + rectA[2] + 0.003, yarrow), (rectB[0] - 0.003, yarrow))
-    arrow(fig, (rectB[0] + rectB[2] + 0.003, yarrow), (rectC[0] - 0.003, yarrow))
-    arrow(fig, (rectC[0] + rectC[2] + 0.003, yarrow), (rectD[0] - 0.003, yarrow))
-
-    fig.text(0.5, 0.99, f'{RES}: Sentinel-1 waterline stacking to updated bathymetry and AEV curve',
-             ha='center', va='top', fontsize=13, weight='bold', color=DARK)
+    fig.text(0.5, y_top + rowh + 0.16, f'{RES}: Sentinel-1 waterline stacking to updated bathymetry and AEV curve',
+             ha='center', va='bottom', fontsize=15, weight='bold', color=DARK)
 
     OUT_FIG.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT_FIG, dpi=220, facecolor='white', bbox_inches='tight', pad_inches=0.15)

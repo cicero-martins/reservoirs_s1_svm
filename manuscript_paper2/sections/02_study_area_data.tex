@@ -19,9 +19,9 @@ independent line of evidence.
 \begin{table}[htbp]\centering\small
 \caption{Validation coverage by reservoir, ordered by shoreline area-to-perimeter
 ratio (A/P) --- the reliability axis established in \citet{PaperOne}. Every reservoir
-has both a Period-A (2014--2016) and Period-B (2022--2026) SAR-reconstructed DEM;
-``ground truth'' distinguishes a controlled field survey from an official curve of
-undocumented survey methodology (Section~\ref{sec:data} below).}
+has a 2022--2026 SAR-reconstructed DEM; ``ground truth'' distinguishes a controlled
+field survey from an official curve of undocumented survey methodology
+(Section~\ref{sec:data} below).}
 \label{tab:coverage}
 \begin{tabular}{lrll}
 \toprule
@@ -29,7 +29,7 @@ Reservoir & A/P (m) & Independent reference & PlanetScope \\
 \midrule
 Olivo       &  50.7 & Updated curve            & --- \\
 Ancipa      &  90.5 & ---                       & \checkmark \\
-Nicoletti   & 119.7 & Updated curve\textsuperscript{a} & --- \\
+Nicoletti   & 119.7 & Updated curve             & --- \\
 Castello    & 126.7 & Updated curve            & --- \\
 Garcia      & 167.7 & Echo-sounder survey (ground truth) & --- \\
 Arancio     & 182.2 & Updated curve            & --- \\
@@ -38,12 +38,6 @@ Poma        & 190.1 & Updated curve            & \checkmark \\
 Pozzillo    & 240.5 & ---                       & \checkmark \\
 \bottomrule
 \end{tabular}
-
-\vspace{2pt}
-{\footnotesize\textsuperscript{a}Nicoletti's Period-A and Period-B water-level ranges
-share only a narrow overlap band (${\sim}12\%$ of the change-map pixels), so its
-capacity-change estimate is reported over a correspondingly narrow elevation window
-(Section~\ref{sec:results}).}
 \end{table}
 
 \begin{figure}[htbp]\centering
@@ -62,49 +56,14 @@ GRD collection in Google Earth Engine using the scene-adaptive classifier of
 per acquisition after outlier removal and smoothing. For the spatial DEM the same
 pipeline exports binary water masks (10~m, EPSG:32633).
 
-\subsection{Water level: gauge, DAHITI, SWOT}
-Three water-level sources are used. (i) \emph{In-situ gauges} from the regional
-civil-protection network (AEGIS), daily, 2022--2026. (ii) \emph{DAHITI}
-\citep{Schwatke2015} nadir-altimetry water level. (iii) \emph{SWOT}
-\citep{Biancamaria2016} water-surface elevation from the \texttt{SWOT\_L2\_HR\_LakeSP}
-Prior-lake product, retrieved through the PO.DAAC Hydrocron API by prior-lake
-identifier, 2023-07 onward, quality-screened. We note (Section~\ref{sec:results})
-that for these small reservoirs DAHITI is itself SWOT-derived, so the independent
-comparison is gauge versus SWOT.
-
-Four of the nine gauges have a documented reliability problem during which the
-recorded level is not usable at face value. Three are intermittent malfunctions with
-a clear onset and recovery: Rosamarina's sensor froze at two different flat readings
-(2024-01-24--2025-04-02 and 2025-07-24--2026-01-29); Garcia's sensor reads the dry
-lakebed floor (${\sim}176$~m) rather than the true water level whenever the reservoir
-empties below that elevation, a fault that recurred twice a year apart
-(2024-09-04--2025-02-13 and 2025-08-06--2026-02-03, each confirmed against a real
-decline in SWOT over the same window); and Nicoletti's sensor was inoperative
-until 2023-11, then, once it began reporting, frozen at a single flat value
-(${\sim}372.7$~m) for a further 14 months (2023-11-15--2025-01-17) --- found from a
-long-flat-run scan of the raw record, since the generic day-to-day stuck-sensor filter
-used elsewhere in the pipeline only catches part of a freeze this long. The fourth,
-Pozzillo, combines both patterns: a 13-month frozen episode of its own
-(2023-08-27--2024-10-03, ${\sim}347.6$~m, confirmed the same way) sits on top of a
-persistent range-compression that holds across the rest of the record too, caught only
-because the independently-measured SAR water-surface area correlates more strongly with
-SWOT than with the gauge over the same period ($r=0.90$ vs.\ $r=0.76$), with an implied
-range matching SWOT's, not the gauge's (Section~\ref{sec:res_inputvalid}). A fifth
-reservoir's SWOT record, not its gauge, needed a comparable fix: three isolated Ancipa
-SWOT dates (2024-10-18, 2024-11-08, 2024-11-29) read a near-constant level while the
-gauge and the SAR area both showed a real, continuous drawdown to near-empty, evidently
-because SWOT's lake detection failed once the water body shrank to a sliver
-(Section~\ref{sec:res_ladder}). In each case we substitute SWOT (Rosamarina, Garcia,
-Pozzillo) or the design curve inverted from official monthly volumes (as a fallback
-where neither gauge nor SWOT is available) for the affected dates rather than
-discarding them; Nicoletti's own selected reconstruction dates all happen to postdate
-its gauge's recovery, so its frozen window affects only the water-level validation
-(Section~\ref{sec:res_inputvalid}), not the reconstruction itself. The water-level
-source actually used for every paired date is recorded and reported per reservoir
-(Section~\ref{sec:results}). This recurring, independently-confirmed failure mode ---
-on either side of the comparison --- is itself an argument for pairing SAR imagery with
-a gauge-independent altimetry source rather than relying on any single record, in-situ
-or satellite, by default.
+\subsection{Water level: gauge and SWOT}
+Two water-level sources are used. \emph{In-situ gauges} from the regional
+civil-protection network (AEGIS) provide a daily record, 2022--2026.
+\emph{SWOT} \citep{Biancamaria2016} provides water-surface elevation from the
+\texttt{SWOT\_L2\_HR\_LakeSP} Prior-lake product, retrieved through the PO.DAAC
+Hydrocron API by prior-lake identifier, 2023-07 onward, quality-screened. The
+water-level source actually used for every paired date is recorded and reported per
+reservoir (Section~\ref{sec:results}).
 
 \subsection{Ground truth}
 Independent references are of two different kinds. Garcia has a genuine field survey

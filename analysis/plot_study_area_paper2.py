@@ -11,9 +11,11 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SICILY = os.path.join(HERE, "geo", "sicily_gaul.geojson")
+EUROPE = os.path.join(HERE, "geo", "europe_context.geojson")
 OUTDIR = os.path.normpath(os.path.join(HERE, "..", "manuscript_paper2", "figures"))
 os.makedirs(OUTDIR, exist_ok=True)
 
@@ -70,7 +72,7 @@ for _, r in R.iterrows():
                 ha=ha, va="center", fontsize=8, color=INK, zorder=6,
                 linespacing=0.95)
 
-ax.set_xlim(12.35, 15.35); ax.set_ylim(36.62, 38.32); ax.set_aspect("equal")
+ax.set_xlim(12.35, 15.75); ax.set_ylim(36.62, 38.32); ax.set_aspect("equal")
 ax.set_xlabel("Longitude ($^{\\circ}$E)", color=MUTED, fontsize=9)
 ax.set_ylabel("Latitude ($^{\\circ}$N)", color=MUTED, fontsize=9)
 ax.tick_params(colors=MUTED, labelsize=8)
@@ -86,6 +88,39 @@ ax.legend(handles=handles, loc="lower left", fontsize=8, framealpha=0.9, ncol=1)
 ax.text(0.005, -0.13, "A/P classes: Low < %d m · Medium %d–%d m · High ≥ %d m. "
         "Basemap: FAO GAUL." % (LOW_MAX, LOW_MAX, HIGH_MIN, HIGH_MIN),
         transform=ax.transAxes, fontsize=7, color=MUTED)
+
+# Europe locator inset: where Sicily sits in the wider Mediterranean/Europe
+# context (FAO GAUL level-0 country boundaries, cached at analysis/geo/
+# europe_context.geojson, same source/pipeline as the Sicily basemap itself).
+ax_loc = ax.inset_axes([0.66, 0.03, 0.32, 0.32])
+ax_loc.set_facecolor(SURFACE)
+def draw_loc(coords):
+    for ring in coords:
+        a = np.asarray(ring)
+        ax_loc.fill(a[:, 0], a[:, 1], facecolor=LAND, edgecolor=LAND_EDGE,
+                    linewidth=0.3, zorder=1)
+def draw_geom(g):
+    if g["type"] == "Polygon":
+        draw_loc(g["coordinates"])
+    elif g["type"] == "MultiPolygon":
+        for poly in g["coordinates"]:
+            draw_loc(poly)
+    elif g["type"] == "GeometryCollection":
+        for sub in g["geometries"]:
+            if sub["type"] in ("Polygon", "MultiPolygon"):
+                draw_geom(sub)
+eu_gj = json.load(open(EUROPE, encoding="utf-8"))
+for feat in eu_gj["features"]:
+    draw_geom(feat["geometry"])
+loc_xlim, loc_ylim = (-11, 30), (33, 58)
+box = Rectangle((11.8, 36.4), 4.2, 2.2, facecolor="none", edgecolor="#c0392b",
+                linewidth=1.1, zorder=5)
+ax_loc.add_patch(box)
+ax_loc.set_xlim(*loc_xlim); ax_loc.set_ylim(*loc_ylim); ax_loc.set_aspect("equal")
+ax_loc.set_xticks([]); ax_loc.set_yticks([])
+for sp in ax_loc.spines.values():
+    sp.set_edgecolor("#b0b0b0"); sp.set_linewidth(0.8)
+ax_loc.set_title("Sicily in Europe", fontsize=7.5, color=MUTED, pad=2)
 
 fig.tight_layout()
 for ext in ("png", "pdf"):

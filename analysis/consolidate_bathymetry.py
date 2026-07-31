@@ -130,18 +130,20 @@ def load_updated_vol(kind):
     return None
 
 
-rows = []
-for name, cfg in RES.items():
-    dem_path = OUT / f'dem_{name}_B.tif'
+def dem_capacity_metrics(dem_path, name, cfg):
+    """Band-observable/capacity-change metrics for one DEM variant. Returns
+    None if the file is missing; otherwise a dict with floor/top/band metrics
+    plus (where an independent curve exists) the truth-band/total comparison.
+    Factored out of the per-reservoir loop so it can run once for the
+    production (gauge+SWOT-fallback) DEM and once for the FRS (SWOT-only) DEM
+    with identical logic -- Fase C, Paper 2 sec:res_change restructuring."""
     if not dem_path.exists():
-        print(f'  ! missing {dem_path.name}, skipping'); continue
+        return None
     with rasterio.open(dem_path) as s:
         dem = s.read(1).astype(np.float64)
     mask = ~np.isnan(dem)
     floor, top = float(np.nanmin(dem[mask])), float(np.nanmax(dem[mask]))
-    levels = np.arange(floor, top + 1e-6, 0.5)
 
-    a_dem, v_dem = aev_from_dem(dem, mask, levels)
     des_vol = load_design_vol(name, cfg)
     vdes_floor_abs = float(des_vol(floor))
     vdes_abs_max = float(des_vol(top))
@@ -153,9 +155,9 @@ for name, cfg in RES.items():
     # zero storage, i.e. the pre-impoundment valley floor) falls inside the SAR-observable
     # band [floor, top] versus the invisible deep zone below floor. Ancipa's curve bottoms
     # out at a small residual area (17.8 ha, not exactly 0) rather than a true zero point;
-    # its lowest tabulated quota also sits ABOVE the SAR-observed floor (898.46 m) after
-    # the corrected AOI/mask fix, so the raw ratio can exceed 100% (extrapolation below
-    # the curve's valid domain, not a real deep zone). Clip to [0, 100] and flag it.
+    # its lowest tabulated quota also sits ABOVE the SAR-observed floor after the corrected
+    # AOI/mask fix, so the raw ratio can exceed 100% (extrapolation below the curve's valid
+    # domain, not a real deep zone). Clip to [0, 100] and flag it.
     band_observable_pct_raw = 100 * vdes_rel_max / vdes_abs_max if vdes_abs_max else np.nan
     extrapolated_below_curve = bool(vdes_abs_max) and band_observable_pct_raw > 100
     band_observable_pct = min(band_observable_pct_raw, 100.0) if vdes_abs_max else np.nan
@@ -184,8 +186,7 @@ for name, cfg in RES.items():
         truth_band  = (vupd_rel_max - vdes_rel_max) / vdes_rel_max * 100 if vdes_rel_max else np.nan
         truth_total = (vupd_abs_max - vdes_abs_max) / vdes_abs_max * 100 if vdes_abs_max else np.nan
 
-    rows.append({
-        'reservoir': name, 'ap_m': cfg['ap'],
+    return {
         'floor_m': round(floor, 2), 'max_m': round(top, 2), 'obs_range_m': round(top - floor, 1),
         'vol_dem_rel_Mm3': round(vdem_rel_max, 2), 'vol_design_rel_Mm3': round(vdes_rel_max, 2),
         'band_observable_pct': round(band_observable_pct, 1), 'deepzone_pct': round(deepzone_pct, 1),
@@ -195,7 +196,20 @@ for name, cfg in RES.items():
         'truth_change_total_pct':None if np.isnan(truth_total) else round(truth_total, 1),
         'indep_ref': ref_lbl,
         'field_rmse_m': None if np.isnan(field_rmse) else round(field_rmse, 2),
-    })
+    }
+
+
+rows = []
+for name, cfg in RES.items():
+    prod = dem_capacity_metrics(OUT / f'dem_{name}_B.tif', name, cfg)
+    if prod is None:
+        print(f'  ! missing dem_{name}_B.tif, skipping'); continue
+    frs = dem_capacity_metrics(OUT / f'dem_{name}_B_swotonly.tif', name, cfg)
+
+    row = {'reservoir': name, 'ap_m': cfg['ap'], **prod}
+    if frs is not None:
+        row.update({f'{k}_frs': v for k, v in frs.items()})
+    rows.append(row)
 
 df = pd.DataFrame(rows).sort_values('ap_m').reset_index(drop=True)
 df.to_csv(OUT / 'bathymetry_consolidated.csv', index=False)

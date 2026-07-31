@@ -62,6 +62,18 @@ def _scene3d(x, y, zlo, zhi, z_exag):
     return dict(aspectmode='manual', aspectratio=dict(x=x_m / D, y=y_m / D, z=az),
                 zaxis=dict(title='Elev (m)', range=[zlo, zhi]))
 
+# Default plotly Surface lighting has specular highlights that dither into a
+# salt-and-pepper speckle over large perfectly-flat regions (found 2026-07-31
+# on Arancio/Garcia's deepest exposed area, a big flat plateau since it's all
+# assigned one calibration mask's single water level) -- the surface normal is
+# degenerate there and specular reflection amplifies floating-point noise into
+# visible dots. Dropping specular to 0 removes it; ambient/diffuse are kept at
+# plotly's own defaults (0.8 each) rather than a dimmer 0.6 -- an earlier version
+# of this fix cut ambient too, making the whole terrain visibly darker than the
+# unlit default for no reason (specular was the only offending term).
+_FLAT_LIGHTING = dict(specular=0, diffuse=0.8, ambient=0.8, roughness=1.0)
+_FLAT_LIGHTPOS = dict(x=0, y=0, z=100000)
+
 st.set_page_config(page_title='Reservoir SAR Bathymetry Explorer', layout='wide')
 
 AP_COLORS = {'low': '#f88f4d', 'med': '#d64a02', 'high': '#8a2d04'}
@@ -78,8 +90,8 @@ def get_change(name):
     return bt.change_map(name)
 
 @st.cache_data(show_spinner=False)
-def get_capacity(name):
-    return bt.capacity_change(name)
+def get_capacity(name, period='B'):
+    return bt.capacity_change(name, period)
 
 @st.cache_data(show_spinner=False)
 def get_topobathy(name, period):
@@ -197,6 +209,21 @@ PLABEL = {'B': 'B — 2022–2026', 'A': 'A — 2014–2016', 'Planet': 'PlanetS
 periods = ['B', 'A']  # PlanetScope reconstruction hidden for now (confusing in demos)
 period = st.sidebar.radio('Reconstruction', periods,
                           format_func=lambda p: PLABEL[p], horizontal=True)
+
+# Gauge+SWOT-fallback (production) vs full-remote-sensing (FRS, SWOT-only, no gauge
+# anywhere in the chain) -- only meaningful for Period B, and only where build_frs_dem.py
+# has produced a dem_{name}_B_swotonly.tif for this reservoir.
+dem_period = period
+if period == 'B' and bt.has_period(name, 'B_swotonly'):
+    method = st.sidebar.radio(
+        'Water-level source', ['Gauge + SWOT-fallback', 'Full remote sensing (SWOT-only)'],
+        horizontal=True,
+        help='Gauge + SWOT-fallback is the production reconstruction used elsewhere in the '
+             'paper (gauge primary, SWOT substituted only in documented malfunction windows). '
+             'Full remote sensing uses SWOT altimetry alone, with no gauge anywhere in the '
+             'chain, to test how much of the reconstruction survives without any in-situ input.')
+    if method.startswith('Full'):
+        dem_period = 'B_swotonly'
 downsample = st.sidebar.slider('3D detail (downsample factor)', 1, 6, 3,
                                help='Higher = coarser/faster 3D surface')
 show_terrain = st.sidebar.toggle('Surrounding terrain (3D)', value=True,
@@ -212,20 +239,25 @@ st.sidebar.markdown(f"**A/P** = {cfg['ap']:.0f} m &nbsp; "
                     unsafe_allow_html=True)
 st.sidebar.caption(cfg['notes'])
 
-dem = get_dem(name, period)
+dem = get_dem(name, dem_period)
 dem_label = 'PlanetScope DEM' if period == 'Planet' else 'SAR DEM'
-st.title(f'{name} — {PLABEL[period]}')
+title_suffix = ' (full remote sensing, SWOT-only)' if dem_period == 'B_swotonly' else ''
+st.title(f'{name} — {PLABEL[period]}{title_suffix}')
 if period == 'Planet':
     st.caption('Optical reconstruction (PlanetScope 3 m NDWI waterlines) — an independent '
                'cross-check of the SAR (Period B) reconstruction.')
+elif dem_period == 'B_swotonly':
+    st.caption('Full-remote-sensing reconstruction: water levels from SWOT altimetry alone, '
+               'no gauge anywhere in the chain — an independent test of the gauge+SWOT-fallback '
+               'reconstruction shown in the other mode.')
 
 if dem is None:
     st.warning(f'No reconstructed DEM found for {name} (Period {period}). '
-               f'Expected {bt.dem_file(name, period)}.')
+               f'Expected {bt.dem_file(name, dem_period)}.')
     st.stop()
 
 # ── Metrics row ─────────────────────────────────────────────────────────────────
-cap = get_capacity(name) if period == 'B' else None
+cap = get_capacity(name, dem_period) if period == 'B' else None
 c1, c2, c3, c4 = st.columns(4)
 c1.metric('Observable floor', f"{dem['floor']:.1f} m")
 c2.metric('Max reconstructed WL', f"{dem['top']:.1f} m")
@@ -261,7 +293,7 @@ with tab2d:
 
 with tab3d:
     f = downsample
-    tb = get_topobathy(name, period) if bt.has_terrain(name) else None
+    tb = get_topobathy(name, dem_period) if bt.has_terrain(name) else None
     if tb is not None:
         # Continuous topo-bathymetry grid (bathymetry below the shoreline, real GLO-30
         # terrain above); gap-free, so no ragged edge / sawtooth in either mode. Works
@@ -280,7 +312,8 @@ with tab3d:
     xd = x3[:W2].reshape(W2 // f, f).mean(1); yd = y3[:H2].reshape(H2 // f, f).mean(1)
     fig = go.Figure(go.Surface(
         z=z, x=xd, y=yd, colorscale=_topo_colorscale(zlo, zhi, nmax),
-        cmin=zlo, cmax=zhi, colorbar=dict(title='m ASL')))
+        cmin=zlo, cmax=zhi, colorbar=dict(title='m ASL'),
+        lighting=_FLAT_LIGHTING, lightposition=_FLAT_LIGHTPOS))
     fig.update_layout(height=620, margin=dict(l=0, r=0, t=10, b=0),
                       scene=_scene3d(xd, yd, zlo, zhi, z_exag))
     st.plotly_chart(fig, width='stretch')
@@ -290,11 +323,25 @@ with tabaev:
     a_dem, v_dem = bt.aev(dem['arr'], dem['mask'], levels, dem['pixel_ha'])
     dc = bt.design_curve(name)
     uc = bt.updated_curve(name)
-    dz = bt.deepzone_split(name, period)
+    dz = bt.deepzone_split(name, dem_period)
+
+    def _drop_zero_floor(x, y):
+        """bt.aev()'s area(h)=pixels-below-h is 0 by construction at h=floor (nothing is
+        strictly below the reconstruction's own minimum), so the SAR-DEM/echo-sounder
+        curve's leading point is a level-slicing artifact, not an observed area -- it
+        reads as the line free-falling to zero right at the bottom. Drop any leading
+        points at or below this near-zero floor value; the curve starts at the first
+        genuinely observed (level, area) pair instead."""
+        x = np.asarray(x); y = np.asarray(y)
+        nz = np.flatnonzero(x > 1e-6)
+        if len(nz) == 0:
+            return x, y
+        return x[nz[0]:], y[nz[0]:]
 
     colA, colV = st.columns(2)
     figA = go.Figure()
-    figA.add_scatter(x=a_dem, y=levels, name=dem_label, line=dict(color='#1565c0', width=3))
+    xa, ya = _drop_zero_floor(a_dem, levels)
+    figA.add_scatter(x=xa, y=ya, name=dem_label, line=dict(color='#1565c0', width=3))
     if dc:
         figA.add_scatter(x=dc[0](levels), y=levels, name='Design curve',
                          line=dict(color='black', dash='dash'))
@@ -309,7 +356,8 @@ with tabaev:
                              line=dict(color='#b5843f', dash='dot', width=2))
     if uc and cfg['updated'] in ('poma_new', 'rosamarina_2025', 'garcia_survey'):
         uc_label = 'Echo-sounder survey' if cfg['updated'] == 'garcia_survey' else 'Updated survey'
-        figA.add_scatter(x=uc[0](levels), y=levels, name=uc_label,
+        xu, yu = _drop_zero_floor(uc[0](levels), levels)
+        figA.add_scatter(x=xu, y=yu, name=uc_label,
                          line=dict(color='#2e7d32', width=2))
     figA.update_layout(title='Area–elevation', xaxis_title='Area (ha)',
                        yaxis_title='Water level (m ASL)', height=460, margin=dict(t=40))
@@ -366,7 +414,8 @@ with tabchg:
         zlo, basin_hi = (vr[0], vr[1]) if vr else (B['floor'], B['top'])
         fig = go.Figure(go.Surface(
             z=zc, x=xd, y=yd, surfacecolor=dc, colorscale='RdBu_r', cmid=0, cmin=-vmax, cmax=vmax,
-            colorbar=dict(title='B−A (m)'), hovertemplate='%{surfacecolor:+.2f} m<extra></extra>'))
+            colorbar=dict(title='B−A (m)'), hovertemplate='%{surfacecolor:+.2f} m<extra></extra>',
+            lighting=_FLAT_LIGHTING, lightposition=_FLAT_LIGHTPOS))
         fig.update_layout(height=620, margin=dict(l=0, r=0, t=10, b=0),
                           scene=_scene3d(xd, yd, zlo, basin_hi, z_exag))
         st.plotly_chart(fig, width='stretch')
@@ -375,6 +424,6 @@ with tabchg:
                    'in Period B = net deposition (sedimentation proxy); blue = deepening.')
 
 # ── Download ────────────────────────────────────────────────────────────────────
-with open(bt.dem_file(name, period), 'rb') as fh:
+with open(bt.dem_file(name, dem_period), 'rb') as fh:
     st.sidebar.download_button('⬇ Download DEM GeoTIFF', fh.read(),
-                               file_name=f'dem_{name}_{period}.tif', mime='image/tiff')
+                               file_name=f'dem_{name}_{dem_period}.tif', mime='image/tiff')

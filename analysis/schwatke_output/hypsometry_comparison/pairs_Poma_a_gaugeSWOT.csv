@@ -1,0 +1,11 @@
+reservoir,period,date,area_ha,wl_m,wl_source,wl_dahiti,wl_boletin,tier
+Poma,B,2026-01-01,154.77,176.3753,gauge,175.02,,a_gaugeSWOT
+Poma,B,2026-01-25,163.12,177.5167,gauge,,,a_gaugeSWOT
+Poma,B,2026-01-31,186.1,180.3043,gauge,,,a_gaugeSWOT
+Poma,B,2026-02-06,215.86,182.8409,gauge,,,a_gaugeSWOT
+Poma,B,2026-02-18,282.64,187.4975,gauge,186.37,,a_gaugeSWOT
+Poma,B,2026-02-24,288.89,188.4272,gauge,186.53,,a_gaugeSWOT
+Poma,B,2026-03-02,296.43,188.6617,gauge,186.53,,a_gaugeSWOT
+Poma,B,2026-03-20,314.82,189.1879,gauge,187.36,,a_gaugeSWOT
+Poma,B,2026-04-07,349.5,191.8794,gauge,190.12,,a_gaugeSWOT
+Poma,B,2026-05-02,361.16,193.2006,gauge,191.685,,a_gaugeSWOT

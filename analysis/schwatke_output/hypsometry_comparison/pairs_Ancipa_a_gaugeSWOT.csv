@@ -1,0 +1,11 @@
+reservoir,period,date,area_ha,wl_m,wl_source,wl_dahiti,wl_boletin,tier
+Ancipa,B,2024-11-13,0.68,901.3125,gauge,,911.5694,a_gaugeSWOT
+Ancipa,B,2024-11-25,1.64,898.3381,gauge,,910.7273,a_gaugeSWOT
+Ancipa,B,2024-12-07,5.54,912.5863,gauge,,913.8232,a_gaugeSWOT
+Ancipa,B,2024-12-08,2.65,913.4124,gauge,,914.4094,a_gaugeSWOT
+Ancipa,B,2024-12-20,9.99,916.524,gauge,,921.4432,a_gaugeSWOT
+Ancipa,B,2024-12-31,43.46,927.9436,gauge,,927.8909,a_gaugeSWOT
+Ancipa,B,2025-01-01,42.75,928.3244,gauge,,928.477,a_gaugeSWOT
+Ancipa,B,2025-01-13,59.71,935.0038,gauge,,933.7311,a_gaugeSWOT
+Ancipa,B,2025-01-25,68.38,941.3321,gauge,,938.9852,a_gaugeSWOT
+Ancipa,B,2025-02-18,73.15,946.1161,gauge,,945.1021,a_gaugeSWOT

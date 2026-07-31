@@ -1,0 +1,11 @@
+reservoir,period,date,area_ha,wl_m,wl_source,wl_dahiti,wl_boletin,tier
+Rosamarina,B,2025-10-04,148.29,143.096,swot,142.88,,a_gaugeSWOT
+Rosamarina,B,2025-10-10,149.25,146.4342,model,142.395,,a_gaugeSWOT
+Rosamarina,B,2025-12-09,134.9,145.2439,model,141.34,,a_gaugeSWOT
+Rosamarina,B,2025-12-15,133.2,140.62,swot,140.7,,a_gaugeSWOT
+Rosamarina,B,2026-02-07,190.98,149.5826,gauge,146.49,,a_gaugeSWOT
+Rosamarina,B,2026-02-13,208.49,152.2447,gauge,156.03,,a_gaugeSWOT
+Rosamarina,B,2026-02-19,258.85,155.6041,gauge,156.03,,a_gaugeSWOT
+Rosamarina,B,2026-03-09,283.87,157.2376,gauge,157.17,,a_gaugeSWOT
+Rosamarina,B,2026-04-02,299.07,159.6265,gauge,160.315,,a_gaugeSWOT
+Rosamarina,B,2026-05-02,333.55,162.3413,gauge,162.035,,a_gaugeSWOT

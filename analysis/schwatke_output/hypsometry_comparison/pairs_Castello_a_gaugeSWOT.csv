@@ -1,0 +1,11 @@
+reservoir,period,date,area_ha,wl_m,wl_source,wl_dahiti,wl_boletin,tier
+Castello,B,2025-10-10,49.86,277.5081,gauge,,,a_gaugeSWOT
+Castello,B,2025-12-27,57.92,279.5664,gauge,,,a_gaugeSWOT
+Castello,B,2026-01-14,69.11,281.2806,gauge,,,a_gaugeSWOT
+Castello,B,2026-01-20,66.02,282.0837,gauge,,,a_gaugeSWOT
+Castello,B,2026-01-26,75.62,283.0501,gauge,,,a_gaugeSWOT
+Castello,B,2026-02-07,109.75,288.4446,gauge,,,a_gaugeSWOT
+Castello,B,2026-02-25,136.06,292.637,gauge,,,a_gaugeSWOT
+Castello,B,2026-03-09,136.11,292.5823,gauge,,,a_gaugeSWOT
+Castello,B,2026-03-21,132.19,292.6263,gauge,,,a_gaugeSWOT
+Castello,B,2026-04-20,137.29,292.817,gauge,,,a_gaugeSWOT

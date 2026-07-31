@@ -15,6 +15,7 @@ import rasterio
 from rasterio.warp import reproject, Resampling
 from scipy.interpolate import interp1d
 from scipy.ndimage import binary_erosion, distance_transform_edt
+from scipy.signal import savgol_filter
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 DEM_DIR      = REPO / 'analysis' / 'schwatke_output'
@@ -29,11 +30,22 @@ PIXEL_HA  = 0.01
 # Fase-3 extended reservoirs: each official survey curve carries its own volume
 # column directly -- (glob pattern, sheet, [(quota_col, vol_col), ...]) per block.
 # Identical spec to consolidate_bathymetry.py::EXT_CURVE_SPEC (kept in sync).
+# Blocks are (quota_col, vol_col, area_col) triples -- the source spreadsheets
+# DO carry a direct area column next to volume (found 2026-07-31; the previous
+# 2-tuple spec silently dropped it, leaving area_interp=None for all 4 of
+# these reservoirs even though real area data was sitting right there).
+# Castello's sheet ('Quota_V_S') has one complete table at columns (5,6,7)
+# (3001 rows, uniform 0.01 m steps, 267.2-297.2 m, no gaps/duplicates -- fully
+# spans its ~277-297 m operating range) plus ~56 small, separate few-row
+# snippets elsewhere on the same sheet of unclear provenance; only the one
+# complete block is used, matching what the original (pre-area-fix) spec
+# already selected.
 EXT_CURVE_SPEC = {
-    'arancio_2022':      ('ARANCIO*', 'BASE', [(0, 1)]),
-    'castello_updated':  ('CASTELLO*', 'Quota_V_S', [(5, 6)]),
-    'nicoletti_updated': ('NICOLETTI*', 'Dati Aree-Volumi', [(0, 1)]),
-    'olivo_2021':        ('OLIVO*', 'Tabella centimetrica 2021', [(1, 2), (5, 6), (9, 10), (13, 14)]),
+    'arancio_2022':      ('ARANCIO*', 'BASE', [(0, 1, 2)]),
+    'castello_updated':  ('CASTELLO*', 'Quota_V_S', [(5, 6, 7)]),
+    'nicoletti_updated': ('NICOLETTI*', 'Dati Aree-Volumi', [(0, 1, 2)]),
+    'olivo_2021':        ('OLIVO*', 'Tabella centimetrica 2021',
+                          [(1, 2, 3), (5, 6, 7), (9, 10, 11), (13, 14, 15)]),
 }
 
 def _curve_xls(name):
@@ -210,10 +222,52 @@ def updated_curve(name):
             return None
         u = pd.read_excel(hits[0], sheet_name='foglio1', header=None, engine='xlrd')[[0, 1]]
         u.columns = ['quota', 'vol_m3']
-        u = u.apply(pd.to_numeric, errors='coerce').dropna().sort_values('quota')
-        area = np.gradient(u.vol_m3.values, u.quota.values) / 1e4
-        return (interp1d(u.quota, area, bounds_error=False, fill_value='extrapolate'),
-                interp1d(u.quota, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate'))
+        u = u.apply(pd.to_numeric, errors='coerce').dropna().sort_values('quota').reset_index(drop=True)
+        # POMA_new.XLS has no area column at all (verified 2026-07-31 -- neither
+        # 'foglio1' nor 'Tabella centimetrica' carries one), so area must come
+        # from differentiating volume. A genuine data-entry glitch at
+        # 177.00-177.99 m (100 consecutive rows frozen at exactly 15,750,000 m3,
+        # then an instant +1,750,000 m3 jump at 178.00 m -- a spreadsheet
+        # fill-down error, not a real flat-then-cliff reservoir shape) turns
+        # into a spurious 0-then-450 ha spike in np.gradient's area(h) right at
+        # that point; repair it by linearly redistributing the jump across the
+        # frozen span before differentiating (the only such >=20-step flat run
+        # in the whole 2886-row table, confirmed 2026-07-31). The rest of the
+        # table is genuinely tabulated at a coarse, piecewise-near-constant
+        # area resolution (not further rounding noise), so a light smoothing
+        # pass only takes the edge off the resulting staircase's sharp corners
+        # rather than fabricating false precision.
+        vol = u.vol_m3.values.astype(float).copy()
+        q = u.quota.values
+        d = np.diff(vol)
+        i = 0
+        while i < len(d):
+            if d[i] == 0:
+                j = i
+                while j < len(d) and d[j] == 0:
+                    j += 1
+                # d[i]..d[j-1] == 0 means vol is frozen across indices [i, j];
+                # the jump happens at d[j] (vol[j] -> vol[j+1]), so the repaired
+                # ramp must run through j+1 (the point AFTER the jump), not j
+                # (still the frozen value) -- interpolating to vol[j] would
+                # leave the frozen run untouched and the cliff exactly where it was.
+                if j - i >= 20 and j + 1 < len(vol):
+                    vol[i:j + 2] = np.linspace(vol[i], vol[j + 1], j - i + 2)
+                i = j
+            else:
+                i += 1
+        # A light window (41, ~0.4 m) barely touched the underlying tabulation's
+        # own ~2 m-wide steps -- still visibly a staircase. The steps are a real
+        # tabulation-resolution artifact (no independent area measurement backs
+        # each 1 cm row), not a genuine sub-metre feature, so a much wider window
+        # (601, ~6 m) is the right scale to average them into a smooth, still
+        # monotonically-increasing curve without distorting the real large-scale
+        # shape (checked against 1001: both agree closely, 601 chosen as the
+        # tighter of the two well-behaved options).
+        vol_smooth = savgol_filter(vol, window_length=601, polyorder=3)
+        area = np.gradient(vol_smooth, q) / 1e4
+        return (interp1d(q, area, bounds_error=False, fill_value='extrapolate'),
+                interp1d(q, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate'))
     if kind == 'rosamarina_2025':
         fp = UPDATED / 'rosamarina_2025.csv'
         if not fp.exists():
@@ -235,10 +289,6 @@ def updated_curve(name):
         return (interp1d(lv, ar, bounds_error=False, fill_value='extrapolate'),
                 interp1d(lv, vo, bounds_error=False, fill_value=np.nan))
     if kind in EXT_CURVE_SPEC:
-        # Fase-3 extended curves carry volume only (no area column in the same
-        # block) -- area_interp is None, so the AEV tab's area panel simply
-        # skips this reference for these 4 reservoirs; capacity_change() below
-        # only needs the volume interpolator.
         pat, sheet, blocks = EXT_CURVE_SPEC[kind]
         hits = [h for h in glob.glob(str(NEWCURVE_EXT / pat))
                 if h.lower().endswith(('.xls', '.xlsx'))]
@@ -246,13 +296,14 @@ def updated_curve(name):
             return None
         raw = pd.read_excel(hits[0], sheet_name=sheet, header=None, engine='openpyxl')
         parts = []
-        for qc, vc in blocks:
-            p = raw[[qc, vc]].apply(pd.to_numeric, errors='coerce').dropna()
-            p.columns = ['quota', 'vol_m3']
+        for qc, vc, ac in blocks:
+            p = raw[[qc, vc, ac]].apply(pd.to_numeric, errors='coerce').dropna()
+            p.columns = ['quota', 'vol_m3', 'area_m2']
             parts.append(p)
-        u = pd.concat(parts)
+        u = pd.concat(parts).drop_duplicates(subset='quota')
         u = u[(u.quota > 50) & (u.quota < 1000)].sort_values('quota')
-        return (None, interp1d(u.quota, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate'))
+        return (interp1d(u.quota, u.area_m2 / 1e4, bounds_error=False, fill_value='extrapolate'),
+                interp1d(u.quota, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate'))
     return None
 
 
@@ -271,9 +322,12 @@ def change_map(name):
 
 
 # ── Consolidated capacity-change numbers (band-relative + total) ───────────────
-def capacity_change(name):
-    """Return dict of band/total capacity change vs design (see consolidate_bathymetry.py)."""
-    B = load_dem(name, 'B')
+def capacity_change(name, period='B'):
+    """Return dict of band/total capacity change vs design (see consolidate_bathymetry.py).
+    period='B' is the production gauge+SWOT-fallback DEM; period='B_swotonly' is the
+    full-remote-sensing (FRS) DEM built by build_frs_dem.py -- same metrics, computed
+    against the same design/updated curves, for the gauge+SWOT-vs-FRS comparison."""
+    B = load_dem(name, period)
     if B is None:
         return None
     dc = design_curve(name)

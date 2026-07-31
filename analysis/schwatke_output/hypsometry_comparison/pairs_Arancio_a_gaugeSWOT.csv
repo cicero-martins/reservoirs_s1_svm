@@ -1,0 +1,11 @@
+reservoir,period,date,area_ha,wl_m,wl_source,wl_dahiti,wl_boletin,tier
+Arancio,B,2025-09-15,100.91,167.1944,gauge,,,a_gaugeSWOT
+Arancio,B,2025-11-08,117.39,168.1303,gauge,,,a_gaugeSWOT
+Arancio,B,2026-01-07,123.08,169.1752,gauge,,,a_gaugeSWOT
+Arancio,B,2026-01-25,138.38,170.0378,gauge,,,a_gaugeSWOT
+Arancio,B,2026-01-31,155.46,171.7971,gauge,,,a_gaugeSWOT
+Arancio,B,2026-02-06,182.76,172.9949,gauge,,,a_gaugeSWOT
+Arancio,B,2026-02-18,230.75,175.3408,gauge,,,a_gaugeSWOT
+Arancio,B,2026-02-24,233.0,175.7803,gauge,,,a_gaugeSWOT
+Arancio,B,2026-03-02,238.02,175.9478,gauge,,,a_gaugeSWOT
+Arancio,B,2026-03-20,241.06,176.356,gauge,,,a_gaugeSWOT

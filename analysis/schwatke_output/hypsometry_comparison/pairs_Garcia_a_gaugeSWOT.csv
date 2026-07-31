@@ -1,0 +1,11 @@
+reservoir,period,date,area_ha,wl_m,wl_source,wl_dahiti,wl_boletin,tier
+Garcia,B,2025-08-10,166.23,174.937,swot,,176.2601,a_gaugeSWOT
+Garcia,B,2025-08-22,166.37,175.734,swot,,,a_gaugeSWOT
+Garcia,B,2025-10-03,120.47,172.172,swot,,,a_gaugeSWOT
+Garcia,B,2025-11-20,91.75,170.5315,swot,,,a_gaugeSWOT
+Garcia,B,2026-02-06,180.72,176.8204,gauge,,,a_gaugeSWOT
+Garcia,B,2026-02-18,252.61,183.1766,gauge,,,a_gaugeSWOT
+Garcia,B,2026-02-24,255.94,184.4027,gauge,,,a_gaugeSWOT
+Garcia,B,2026-03-14,279.02,185.391,gauge,,,a_gaugeSWOT
+Garcia,B,2026-04-07,343.64,188.0948,gauge,,,a_gaugeSWOT
+Garcia,B,2026-05-19,352.72,189.8238,gauge,,,a_gaugeSWOT

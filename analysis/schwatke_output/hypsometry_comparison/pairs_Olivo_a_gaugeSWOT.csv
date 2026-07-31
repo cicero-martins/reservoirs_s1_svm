@@ -1,0 +1,11 @@
+reservoir,period,date,area_ha,wl_m,wl_source,wl_dahiti,wl_boletin,tier
+Olivo,B,2025-10-21,26.27,432.0875,gauge,,,a_gaugeSWOT
+Olivo,B,2025-11-14,28.33,432.89,gauge,,,a_gaugeSWOT
+Olivo,B,2026-01-07,25.99,433.3512,gauge,,,a_gaugeSWOT
+Olivo,B,2026-01-13,29.38,433.38,gauge,,,a_gaugeSWOT
+Olivo,B,2026-01-25,32.88,436.2656,gauge,,,a_gaugeSWOT
+Olivo,B,2026-01-31,29.31,436.9165,gauge,,,a_gaugeSWOT
+Olivo,B,2026-02-06,32.07,437.2628,gauge,,,a_gaugeSWOT
+Olivo,B,2026-02-18,33.23,437.7513,gauge,,,a_gaugeSWOT
+Olivo,B,2026-03-02,34.63,437.91,gauge,,,a_gaugeSWOT
+Olivo,B,2026-04-01,31.65,438.9945,gauge,,,a_gaugeSWOT

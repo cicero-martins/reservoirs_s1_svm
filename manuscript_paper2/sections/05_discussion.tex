@@ -9,25 +9,25 @@ nadir track, it removes the two constraints that keep small reservoirs off nadir
 altimetry's map: the need for a gauge, and the need for a satellite ground track to
 actually cross the water body. Notably, DAHITI could add these small reservoirs only
 once SWOT existed, so wide-swath altimetry is what makes them observable at all.
-Rosamarina makes the case concretely: its gauge suffered two separate stuck episodes
+Rosamarina makes the case concretely. Its gauge suffered two separate stuck episodes
 at two different flat readings, spanning ${\sim}19$ months combined across
-2024--2026, and only the SWOT level --- corroborated by the optical masks ---
-recovered the true drawdown, without which the optical reconstruction collapsed to a
-flat, unphysical surface (Section~\ref{sec:res_xsensor}). Pozzillo makes a related but
-distinct case: its gauge combines a 13-month frozen episode of its own with a
-persistent range-compression across the rest of the record, and independently-measured
-SAR area corroborates SWOT's wider water-level range over the gauge's narrower one
-throughout (Section~\ref{sec:res_inputvalid}), the highest-A/P reservoir in the set
-nonetheless needing the same substitution --- a reminder that gauge reliability and
-shoreline geometry are separate axes, not the same risk. For Rosamarina and Pozzillo,
-the satellite source was not merely as good as the gauge but strictly better. Ancipa
-illustrates a different lesson: its raw SWOT record first appeared to degrade sharply
+2024--2026, and only the SWOT level, corroborated by the optical masks, recovered the
+true drawdown; without it, the optical reconstruction collapsed to a flat, unphysical
+surface (Section~\ref{sec:res_xsensor}). Pozzillo makes a related but distinct case.
+Its gauge combines a 13-month frozen episode of its own with a persistent
+range-compression across the rest of the record, and independently-measured SAR area
+corroborates SWOT's wider water-level range over the gauge's narrower one throughout
+(Section~\ref{sec:res_inputvalid}); the highest-A/P reservoir in the set nonetheless
+needed the same substitution, a reminder that gauge reliability and shoreline
+geometry are separate axes, not the same risk. For Rosamarina and Pozzillo, the
+satellite source was not merely as good as the gauge but strictly better. Ancipa
+illustrates a different lesson. Its raw SWOT record first appeared to degrade sharply
 at this low-A/P reservoir, but the divergence traced entirely to three dates where
 SWOT's lake detection failed as the water body shrank to a sliver during extreme
 drawdown (Section~\ref{sec:res_ladder}); once excluded, SWOT agrees with the gauge as
 well as anywhere in this study ($r=1.00$). A satellite record that looks unreliable at
 low A/P can therefore fail for a specific, detectable, geometry-linked reason rather
-than a blanket one --- Nicoletti, where SWOT retains real residual scatter beyond a
+than a blanket one. Nicoletti, where SWOT retains real residual scatter beyond a
 confirmed gauge freeze ($\alpha=1.32$, Table~\ref{tab:wlrmse}), is the closer analogue
 to a case needing that scrutiny. Which source is more reliable is therefore
 reservoir-, and sometimes date-, specific, not a fixed property of either technology.
@@ -39,8 +39,8 @@ and can be reconstructed almost completely; a reservoir kept near full exposes o
 thin upper band. Consequently, deep-zone sedimentation is invisible to SAR and the
 band capacity change is a lower bound on total loss (Section~\ref{sec:res_change}).
 The 2025--2026 Sicilian drought-to-refill event, by drawing most reservoirs down
-sharply and refilling them within months, was particularly favourable to the method:
-it exposed an unusually wide elevation range in a short, temporally consistent window
+sharply and refilling them within months, was particularly favourable to the method,
+exposing an unusually wide elevation range in a short, temporally consistent window
 (Section~\ref{sec:intro}). Because every step, from SAR classification to
 water-level substitution, runs on freely available satellite data, the same pipeline
 is directly transferable to any reservoir with a comparable drawdown-exposed range,
@@ -48,27 +48,27 @@ without field access.
 
 \subsection{Reliability scales with A/P}
 The area-to-perimeter ratio that predicts SAR water-area reliability
-\citep{PaperOne} also predicts bathymetric-reconstruction reliability: narrow,
+\citep{PaperOne} also predicts bathymetric-reconstruction reliability. Narrow,
 low-A/P reservoirs (Olivo, Ancipa, Nicoletti) show the largest apparent capacity
 losses in Section~\ref{sec:res_change} and, where an independent curve exists
 (Nicoletti), the widest gap between SAR and truth (Section~\ref{sec:res_curves}). The
-same signature appears in the cross-sensor comparison (Section~\ref{sec:res_xsensor}):
-the PlanetScope and SAR reconstructions agree to $1.3$--$1.7$~m at Pozzillo, Poma and
+same signature appears in the cross-sensor comparison (Section~\ref{sec:res_xsensor}).
+The PlanetScope and SAR reconstructions agree to $1.3$--$1.7$~m at Pozzillo, Poma and
 Rosamarina but diverge ($8.5$~m, widening rather than narrowing once new PlanetScope
-acquisitions filled an archive gap there --- see Section~\ref{sec:res_xsensor}) at the
+acquisitions filled an archive gap there, see Section~\ref{sec:res_xsensor}) at the
 low-A/P Ancipa, which is also revisit-rate limited (only 9 Sentinel-1 acquisitions span
 its drawdown-refill window, all already used, so no denser resampling is possible
-there). Ancipa's SWOT water level is \emph{not} a further example of this degradation:
-once three geometry-linked bad dates are excluded (Section~\ref{sec:res_ladder}), it
-agrees with the gauge as well as anywhere in the study --- a reminder that low A/P
+there). Ancipa's SWOT water level is \emph{not} a further example of this degradation.
+Once three geometry-linked bad dates are excluded (Section~\ref{sec:res_ladder}), it
+agrees with the gauge as well as anywhere in the study, a reminder that low A/P
 degrades some remote-sensing signals at a given reservoir but not necessarily all of
 them, and each source needs its own check rather than a blanket presumption. The
-cross-sensor divergence itself is unlikely to be a classifier artifact: every
+cross-sensor divergence itself is unlikely to be a classifier artifact, since every
 reservoir here is masked with the same per-scene VV-Otsu classifier
 (Section~\ref{sec:data}), whose dual-polarisation SVM alternative performs comparably
 overall \citep{PaperOne}, though we have not tested SVM masks specifically at Ancipa.
-Multiple independent lines of evidence --- apparent capacity loss, curve validation
-gap, and PlanetScope cross-sensor divergence --- therefore converge on the same
+Multiple independent lines of evidence (apparent capacity loss, curve validation
+gap, and PlanetScope cross-sensor divergence) therefore converge on the same
 low-A/P reservoirs, so A/P offers an a-priori screen for where the fully remote
 pipeline can be trusted, though which \emph{specific} input degrades there is not
 automatic and must be checked reservoir by reservoir.
@@ -92,7 +92,7 @@ but in general the SAR estimate remains a lower bound on total capacity loss.
 
 Three avenues would strengthen the validation directly. A field campaign combining an
 uncrewed surface vehicle (echo-sounding the deep zone) with drone photogrammetry (the
-exposed margin) would yield a complete, independently-measured basin DEM --- turning the
+exposed margin) would yield a complete, independently-measured basin DEM, turning the
 lower bound into a measured total and extending the bias calibration beyond the single
 Garcia survey; the low-A/P reservoirs (Ancipa) and a sedimenting mid-A/P case
 (Rosamarina) are the most informative targets. Separately, Sentinel-1 interferometry
@@ -102,9 +102,9 @@ stress that interferometry cannot retrieve open-water level, because the water s
 decorrelates between passes, so it is a complement to the margin geometry, not a
 water-level source. Third, Ancipa's specific SWOT gap during extreme drawdown
 (Section~\ref{sec:res_ladder}) points to a concrete data-level fix rather than only a
-methodological caveat: the LakeSP product we use aggregates the finer-grained Pixel
+methodological caveat. The LakeSP product we use aggregates the finer-grained Pixel
 Cloud (L2\_HR\_PIXC) into one integrated level per lake per pass, and produces nothing
-at all if too few pixels are classified as a coherent water feature --- exactly what
+at all if too few pixels are classified as a coherent water feature, exactly what
 happens once a reservoir shrinks to a sliver. Reprocessing the Pixel Cloud directly
 (via its PIXCVec attribute file, which tags individual pixels to a Prior Lake Database
 feature even when the aggregate LakeSP entry fails) could recover a usable water level

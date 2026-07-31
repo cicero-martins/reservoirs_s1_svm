@@ -20,7 +20,8 @@ from rasterio.warp import reproject, Resampling
 REPO = pathlib.Path(__file__).resolve().parent.parent
 DEM_DIR = REPO / 'analysis' / 'schwatke_output'
 OUT_DIR = DEM_DIR / 'terrain'
-RESERVOIRS = ['Ancipa', 'Garcia', 'Rosamarina', 'Poma', 'Pozzillo']
+RESERVOIRS = ['Ancipa', 'Garcia', 'Rosamarina', 'Poma', 'Pozzillo',
+              'Arancio', 'Castello', 'Olivo', 'Nicoletti']
 BUFFER_M = 600.0          # surrounding context shown around the reservoir
 PIX = 10.0                # match the SAR DEM grid
 GLO30 = 'COPERNICUS/DEM/GLO30_2024_1'   # current asset (GLO30 is deprecated)
@@ -92,6 +93,9 @@ def fetch(name, ee):
 if __name__ == '__main__':
     ee = _init_ee()
     for r in RESERVOIRS:
+        if (OUT_DIR / f'terrain_{r}.tif').exists():
+            print(f'{r:11s} already have terrain_{r}.tif, skipping')
+            continue
         try:
             fetch(r, ee)
         except Exception as e:

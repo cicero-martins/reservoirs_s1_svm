@@ -1,0 +1,11 @@
+reservoir,period,date,area_ha,wl_m,wl_source,wl_dahiti,wl_boletin,tier
+Pozzillo,B,2025-10-03,190.34,342.937,swot,,,a_gaugeSWOT
+Pozzillo,B,2025-10-27,189.56,344.7661,gauge,,,a_gaugeSWOT
+Pozzillo,B,2025-11-08,181.68,344.7787,gauge,,,a_gaugeSWOT
+Pozzillo,B,2026-01-13,242.0,345.4332,gauge,,,a_gaugeSWOT
+Pozzillo,B,2026-01-25,406.59,348.0133,gauge,,,a_gaugeSWOT
+Pozzillo,B,2026-02-06,512.08,353.178,swot,,,a_gaugeSWOT
+Pozzillo,B,2026-02-18,557.22,353.178,swot,,,a_gaugeSWOT
+Pozzillo,B,2026-02-24,546.86,354.127,swot,,,a_gaugeSWOT
+Pozzillo,B,2026-03-02,525.26,354.127,swot,,,a_gaugeSWOT
+Pozzillo,B,2026-03-14,546.18,354.9,swot,,,a_gaugeSWOT

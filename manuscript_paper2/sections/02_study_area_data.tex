@@ -6,11 +6,11 @@ We study nine reservoirs in Sicily, Italy, spanning a shoreline area-to-perimete
 ratio (A/P) of ${\approx}50$--$240$~m and a range of sizes and dam ages: \emph{Olivo},
 \emph{Ancipa}, \emph{Nicoletti}, \emph{Castello}, \emph{Garcia}, \emph{Arancio},
 \emph{Rosamarina}, \emph{Poma} and \emph{Pozzillo} (Fig.~\ref{fig:studyarea}). Coverage
-is heterogeneous by design rather than by omission: Table~\ref{tab:coverage} makes this
-explicit rather than leaving it implicit. \emph{Garcia} has a genuine field survey
-(December-2025 echo-sounder) and is our only true ground truth. Six reservoirs ---
-\emph{Poma}, \emph{Rosamarina}, \emph{Arancio}, \emph{Castello}, \emph{Olivo} and
-\emph{Nicoletti} --- have a recent official area--volume curve from the regional water
+is heterogeneous by design rather than by omission, and Table~\ref{tab:coverage} makes
+this explicit rather than leaving it implicit. \emph{Garcia} has a genuine field survey
+(December-2025 echo-sounder) and is our only true ground truth. Six reservoirs
+(\emph{Poma}, \emph{Rosamarina}, \emph{Arancio}, \emph{Castello}, \emph{Olivo} and
+\emph{Nicoletti}) have a recent official area--volume curve from the regional water
 authority, our secondary reference. \emph{Ancipa} and \emph{Pozzillo} lack any modern
 survey or curve and rely solely on the PlanetScope cross-sensor check
 (Section~\ref{sec:xsensor}), which also covers Poma and Rosamarina as a second,
@@ -18,7 +18,7 @@ independent line of evidence.
 
 \begin{table}[htbp]\centering\small
 \caption{Validation coverage by reservoir, ordered by shoreline area-to-perimeter
-ratio (A/P) --- the reliability axis established in \citet{PaperOne}. Every reservoir
+ratio (A/P), the reliability axis established in \citet{PaperOne}. Every reservoir
 has a 2022--2026 SAR-reconstructed DEM; ``ground truth'' distinguishes a controlled
 field survey from an official curve of undocumented survey methodology
 (Section~\ref{sec:data} below).}
@@ -43,18 +43,21 @@ Pozzillo    & 240.5 & ---                       & \checkmark \\
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{study_area.png}
   \caption{The nine validated Sicilian reservoirs, coloured by shoreline
-  area-to-perimeter class (the reliability axis). Star = independent survey ground
-  truth (Garcia echo-sounder; Poma, Rosamarina, Arancio, Castello, Olivo, Nicoletti
-  survey curves); circle = cross-sensor / scalar validation only (Ancipa, Pozzillo).}
+  area-to-perimeter class (the reliability axis). Marker shows the kind of independent
+  reference available: star = field-survey ground truth (Garcia echo-sounder);
+  diamond = updated official area--volume curve, our secondary reference (Poma,
+  Rosamarina, Arancio, Castello, Olivo, Nicoletti); circle = no modern survey or curve,
+  cross-sensor check only (Ancipa, Pozzillo).}
   \label{fig:studyarea}
 \end{figure}
 
 \subsection{Sentinel-1 SAR water area}
-Water-surface area time series (2014--2026) are derived from the Sentinel-1 C-band
-GRD collection in Google Earth Engine using the scene-adaptive classifier of
-\citet{PaperOne} (per-scene VV Otsu, JRC-auto-trained), which yields one area value
-per acquisition after outlier removal and smoothing. For the spatial DEM the same
-pipeline exports binary water masks (10~m, EPSG:32633).
+Water-surface area time series (2014--2026) are derived from the Sentinel-1 C-band GRD
+collection in Google Earth Engine using the scene-adaptive classification of
+\citet{PaperOne}, one area value per acquisition on a single automatically selected
+orbit, with partial swath coverage filled by mosaicking scenes within $\pm6$~days.
+For the spatial DEM the same pipeline exports binary water masks (10~m,
+EPSG:32633).
 
 \subsection{Water level: gauge and SWOT}
 Two water-level sources are used. \emph{In-situ gauges} from the regional
@@ -66,23 +69,24 @@ water-level source actually used for every paired date is recorded and reported 
 reservoir (Section~\ref{sec:results}).
 
 \subsection{Ground truth}
-Independent references are of two different kinds. Garcia has a genuine field survey
---- a December-2025 single-beam echo-sounder / GPS survey ($\sim$194{,}000 XYZ points,
-EPSG:32633) whose acquisition we control and describe in full (Section~\ref{sec:res_garcia})
---- which we treat as \emph{ground truth}. Poma, Rosamarina (2025), Arancio (2022),
-Castello, Olivo and Nicoletti instead have updated centimetric area--volume curves
-supplied by the regional water authority: the best available reference for those
-reservoirs, but with a surveying methodology not documented to us, so we report them
-as a secondary reference rather than ground truth. The design AEV curves --- predating
-each reservoir's operational history, not uniformly from the 1960s --- serve as the
-pre-existing baseline against which the SAR-observable \emph{band} capacity change is
-compared; the corresponding \emph{total} change is not directly measured
-(Section~\ref{sec:uncertainty}).
+Independent references are of two different kinds. Garcia has a genuine field survey, a
+December-2025 single-beam echo-sounder / GPS survey ($\sim$194{,}000 XYZ points,
+EPSG:32633) whose acquisition we control and describe in full
+(Section~\ref{sec:res_garcia}), and we treat it as \emph{ground truth}. Poma, Rosamarina
+(2025), Arancio (2022), Castello, Olivo and Nicoletti instead have updated centimetric
+area--volume curves supplied by the regional water authority. These are the best
+available reference for those reservoirs, but their surveying methodology is not
+documented to us, so we report them as a secondary reference rather than ground truth.
+The design AEV curves, which predate each reservoir's operational history and are not
+uniformly from the 1960s, serve as the pre-existing baseline against which the
+SAR-observable \emph{band} capacity change is compared. The corresponding \emph{total}
+change is not directly measured (Section~\ref{sec:capmetrics}).
 
 \subsection{PlanetScope optical imagery}
 For an independent cross-sensor check we use PlanetScope surface-reflectance imagery
-(3~m, four-band) over the four reservoirs it covers (Poma, Rosamarina, Pozzillo,
-Ancipa) for 2024--2025. Water is classified per scene by an NDWI threshold selected
-per image; the resulting ${\sim}130$ optical water masks feed the same reconstruction
-as the SAR masks (Section~\ref{sec:xsensor}). PlanetScope is the only modern
-independent reference available for Pozzillo and Ancipa.
+(3~m, four-band) over four of the nine reservoirs (Poma, Rosamarina, Pozzillo and
+Ancipa), 2022--2026. Water is classified per scene by an NDWI threshold selected per
+image, giving $132$ optical water masks, of which the $115$ falling within $\pm7$~days
+of a water-level observation feed the same reconstruction as the SAR masks
+(Section~\ref{sec:xsensor}). PlanetScope is the only modern independent reference
+available for Pozzillo and Ancipa.

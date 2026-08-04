@@ -56,21 +56,33 @@ sys.path.insert(0, str(REPO / 'analysis'))
 import bathymetry as bt
 import schwatke_bathymetry_3d as sb   # noqa: E402 (power_law, fit_hyps_model)
 from build_frs_dem import fit_swot_curve   # noqa: E402
+from clean_and_smooth_sar_series import clean_and_smooth   # noqa: E402
 
 OUT = REPO / 'analysis' / 'schwatke_output' / 'area_volume_timeseries'
 OUT.mkdir(parents=True, exist_ok=True)
 
-# reservoir -> (area-series file, date col, area col, opendatasicilia cod)
+# reservoir -> (area-series file, date col, area col, opendatasicilia cod, needs_smoothing)
+#
+# needs_smoothing marks series that arrive RAW and must therefore have the published
+# Paper-1 post-processing (cleanAndSmooth: 2-sigma global outlier rejection, three
+# local-window passes, then LOWESS) applied here, so that all nine reservoirs are
+# scored on the same kind of product. The first five already arrive smoothed --
+# Ancipa/Poma/Pozzillo/Rosamarina through the 'value' column (its median
+# scene-to-scene jump is about half that of the raw 'areaLago' column sitting beside
+# it) and Garcia through 'areaLago_smoothed'. The four rebuilt by
+# rebuild_sar_series_otsufix.py are raw per-acquisition areas. Mixing the two
+# silently favoured the smoothed five, since smoothing suppresses per-scene
+# classification noise and so mechanically lowers RMSE.
 AREA_SERIES = {
-    'Ancipa':     ('validation_data/morphometric_analysis/shoreline_compactness/area_ancipa_2014-25.csv', 'date', 'value', 'dig-01'),
-    'Poma':       ('validation_data/morphometric_analysis/shoreline_compactness/area_poma_2014-25.csv', 'date', 'value', 'dig-18'),
-    'Pozzillo':   ('validation_data/morphometric_analysis/shoreline_compactness/area_pozzillo_2014-25.csv', 'date', 'value', 'dig-19'),
-    'Rosamarina': ('validation_data/morphometric_analysis/shoreline_compactness/area_rosamarina_2014-25.csv', 'date', 'value', 'dig-22'),
-    'Garcia':     ('validation_data/statistics/area_statistics/ee-chart_garcia2022-26.csv', 'data', 'areaLago_smoothed', 'dig-09'),
-    'Olivo':      ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Olivo.csv', 'date', 'area_ha', 'dig-15'),
-    'Nicoletti':  ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Nicoletti.csv', 'date', 'area_ha', 'dig-13'),
-    'Castello':   ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Castello.csv', 'date', 'area_ha', 'dig-03'),
-    'Arancio':    ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Arancio.csv', 'date', 'area_ha', 'dig-02'),
+    'Ancipa':     ('validation_data/morphometric_analysis/shoreline_compactness/area_ancipa_2014-25.csv', 'date', 'value', 'dig-01', False),
+    'Poma':       ('validation_data/morphometric_analysis/shoreline_compactness/area_poma_2014-25.csv', 'date', 'value', 'dig-18', False),
+    'Pozzillo':   ('validation_data/morphometric_analysis/shoreline_compactness/area_pozzillo_2014-25.csv', 'date', 'value', 'dig-19', False),
+    'Rosamarina': ('validation_data/morphometric_analysis/shoreline_compactness/area_rosamarina_2014-25.csv', 'date', 'value', 'dig-22', False),
+    'Garcia':     ('validation_data/statistics/area_statistics/ee-chart_garcia2022-26.csv', 'data', 'areaLago_smoothed', 'dig-09', False),
+    'Olivo':      ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Olivo.csv', 'date', 'area_ha', 'dig-15', True),
+    'Nicoletti':  ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Nicoletti.csv', 'date', 'area_ha', 'dig-13', True),
+    'Castello':   ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Castello.csv', 'date', 'area_ha', 'dig-03', True),
+    'Arancio':    ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Arancio.csv', 'date', 'area_ha', 'dig-02', True),
 }
 
 MONTHLY_FP = REPO / 'raw_data' / 'opendatasicilia' / 'sicilia_dighe_volumi.csv'
@@ -171,11 +183,18 @@ def current_curve_area_to_vol(name):
 
 
 def load_area_series(name):
-    fp, dcol, acol, _ = AREA_SERIES[name]
+    fp, dcol, acol, _, needs_smoothing = AREA_SERIES[name]
     df = pd.read_csv(REPO / fp)
     df['date'] = pd.to_datetime(df[dcol])
     df = df[['date', acol]].rename(columns={acol: 'area_ha'}).dropna().sort_values('date')
-    return df.reset_index(drop=True)
+    df = df.reset_index(drop=True)
+    if needs_smoothing:
+        n0 = len(df)
+        df = clean_and_smooth(df, 'area_ha')
+        df['area_ha'] = df['area_ha_smoothed']
+        print(f'  {name}: cleanAndSmooth {n0} -> {len(df)} rows kept')
+        df = df[['date', 'area_ha']].reset_index(drop=True)
+    return df
 
 
 def load_official(cod, kind):
@@ -190,19 +209,38 @@ def load_official(cod, kind):
 
 
 def score(a, b):
+    """a = modelled (curve-derived) volume, b = officially registered volume.
+
+    KGE is reported alongside RMSE to keep this comparison on the same footing as the
+    water-level validation and as Paper 1, which score skill with KGE throughout.
+    Unlike the water-level case, beta is informative here: these are volumes, not
+    absolute elevations, so a systematic over- or under-estimate moves the mean ratio
+    instead of being swamped by a large common offset.
+    """
     if len(a) < 4:
-        return dict(n=len(a), rmse=np.nan, bias=np.nan, r=np.nan)
+        return dict(n=len(a), rmse=np.nan, bias=np.nan, r=np.nan,
+                    alpha=np.nan, beta=np.nan, kge=np.nan)
     rmse = float(np.sqrt(np.mean((a - b) ** 2)))
     bias = float(np.mean(a - b))
     r = float(np.corrcoef(a, b)[0, 1]) if a.std() > 0 and b.std() > 0 else np.nan
-    return dict(n=len(a), rmse=round(rmse, 2), bias=round(bias, 2), r=round(r, 2))
+    alpha = float(a.std() / b.std()) if b.std() > 0 else np.nan
+    beta = float(a.mean() / b.mean()) if b.mean() != 0 else np.nan
+    kge = (np.nan if not np.isfinite([r, alpha, beta]).all()
+           else float(1 - np.sqrt((r - 1) ** 2 + (alpha - 1) ** 2 + (beta - 1) ** 2)))
+    return dict(n=len(a), rmse=round(rmse, 2), bias=round(bias, 2), r=round(r, 2),
+                alpha=round(alpha, 2), beta=round(beta, 2), kge=round(kge, 2))
 
 
 rows = []
 merged_monthly = {}
-fig, axes = plt.subplots(len(AREA_SERIES), 1, figsize=(9, 2.6 * len(AREA_SERIES)), sharex=False)
+# 3x3 rather than 9x1: stacked in a single column the figure is ~2.6x taller than
+# the text width, so at \linewidth it overflowed the page and LaTeX clipped it from
+# Olivo down. Ordered by A/P, matching Figs. hyps/aevgrid.
+AP_ORDER = sorted(AREA_SERIES, key=lambda n: bt.RESERVOIRS[n]['ap'])
+fig, axes = plt.subplots(3, 3, figsize=(17, 10.5), sharex=False)
 
-for ax, (name, (_, _, _, cod)) in zip(axes, AREA_SERIES.items()):
+for ax, name in zip(axes.flat, AP_ORDER):
+    cod = AREA_SERIES[name][3]
     area_df = load_area_series(name)
     f_frs, area_min, area_max = frs_curve(name)
     f_cur, cur_area_min, cur_area_max = current_curve_area_to_vol(name)
@@ -279,8 +317,9 @@ print(f'\nSaved to {OUT}')
 # plus the real (area, official-volume) pairs -- shows directly whether the
 # FRS curve diverges from real data by a shift or by a different slope/shape,
 # rather than inferring it indirectly from a time series RMSE number.
-fig2, axes2 = plt.subplots(1, len(AREA_SERIES), figsize=(4 * len(AREA_SERIES), 4.2))
-for ax2, (name, (_, _, _, cod)) in zip(axes2, AREA_SERIES.items()):
+fig2, axes2 = plt.subplots(3, 3, figsize=(15, 12))
+for ax2, name in zip(axes2.flat, AP_ORDER):
+    cod = AREA_SERIES[name][3]
     f_frs, area_min, area_max = frs_curve(name)
     f_cur, cur_area_min, cur_area_max = current_curve_area_to_vol(name)
     a_grid = np.linspace(area_min, area_max, 200)

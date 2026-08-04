@@ -98,7 +98,7 @@ for ax, name in zip(axes.flat, RESERVOIRS):
     ))
 
     ax.scatter(pairs_a.area_ha, pairs_a.wl_m, s=14, color='#999999', alpha=0.7,
-               zorder=1, label='production pairs (gauge+SWOT)')
+               zorder=1, label='gauge+SWOT pairs')
     ax.plot(m.power_law(hs, *fit_a), hs, color='#1565c0', lw=2.2, label='(a) gauge+SWOT-fallback')
     ax.plot(m.power_law(hs, *fit_b), hs, color='#8e24aa', lw=2.2, label='(b) SWOT-only (FRS)')
     if area_c is not None:

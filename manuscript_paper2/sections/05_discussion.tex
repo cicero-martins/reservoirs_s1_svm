@@ -62,9 +62,8 @@ agrees with the gauge as well as anywhere in the study, a reminder that low A/P
 degrades some remote-sensing signals at a given reservoir but not necessarily all of
 them, and each source needs its own check rather than a blanket presumption. The
 cross-sensor divergence itself is unlikely to be a classifier artifact, since every
-reservoir here is masked with the same per-scene VV-Otsu classifier
-(Section~\ref{sec:data}), whose dual-polarisation SVM alternative performs comparably
-overall \citep{PaperOne}, though we have not tested SVM masks specifically at Ancipa.
+reservoir here is masked with the same classifier (Section~\ref{sec:data}), though we
+have not tested an alternative classifier specifically at Ancipa.
 Multiple independent lines of evidence (apparent capacity loss, curve validation
 gap, and PlanetScope cross-sensor divergence) therefore converge on the same
 low-A/P reservoirs, so A/P offers an a-priori screen for where the fully remote
@@ -73,14 +72,12 @@ automatic and must be checked reservoir by reservoir.
 
 \subsection{Systematic bias, and why we do not correct for it}
 The elevation-dependent bias (Section~\ref{sec:res_garcia}) is intrinsic to the
-level-slicing reconstruction, but a single field calibration does not transfer:
-applying Garcia's bias model to Rosamarina and Poma \emph{increases} their
-band-capacity-change error rather than reducing it (Section~\ref{sec:res_unc}), so we
-report the raw, uncorrected estimate throughout and budget for its own
-$\sim10\%$ disagreement with independent truth at Garcia's A/P and above, rather than
-apply a one-reservoir correction elsewhere. More field surveys, ideally spanning a
-range of sedimentation histories rather than one more confirmatory case, would be
-needed before any part of this bias could be treated as reservoir-general.
+level-slicing reconstruction, but one field calibration is a thin basis for correcting
+eight other reservoirs, so we report the raw, uncorrected estimate throughout and
+budget instead for its own ${\sim}10\%$ disagreement with independent truth at Garcia's
+A/P and above. More field surveys, ideally spanning a range of sedimentation histories
+rather than one more confirmatory case, would be needed before any part of this bias
+could be treated as reservoir-general.
 
 \subsection{Limitations and future work}
 Three limitations bound the present results. First, the SWOT record begins only in mid

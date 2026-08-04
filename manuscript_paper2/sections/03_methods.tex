@@ -9,9 +9,7 @@ continents, that classification accuracy can be predicted \emph{a priori} from t
 shoreline area-to-perimeter ratio (A/P). The boundary strip of ambiguous pixels scales
 with shoreline length rather than water area, so a mixed-pixel argument predicts
 increasing reliability as A/P grows, and this prediction holds empirically against
-independent truth. The same study compares a single-polarisation (VV) per-scene
-threshold against a dual-polarisation (VV+VH) SVM classifier and finds the two perform
-comparably. We use the simpler VV threshold here (Section~\ref{sec:data}).
+independent truth.
 
 For the water-level input, SWOT is compared to the in-situ gauge, giving a per-reservoir
 water-level RMSE (Section~\ref{sec:res_inputvalid}). SWOT is first screened for outliers,
@@ -19,6 +17,17 @@ then matched to the gauge record within a short time tolerance. SWOT and the gau
 not guaranteed to share a common reference, so a per-reservoir constant shift, estimated
 once from their overlap, is removed from SWOT before this comparison, correcting a
 systematic offset rather than a genuine difference between the two records' levels.
+
+Agreement is reported as both RMSE and the Kling--Gupta efficiency (KGE)
+\citep{Gupta2009}, the same skill score used throughout \citet{PaperOne}, so the two
+studies' notions of agreement are directly comparable. KGE decomposes skill into three
+components, the correlation $r$, the variability ratio $\alpha$ (ratio of standard
+deviations) and the mean ratio $\beta$, combined as
+$\mathrm{KGE}=1-\sqrt{(r-1)^2+(\alpha-1)^2+(\beta-1)^2}$, with $1$ a perfect score.
+Reporting the components alongside the total matters here because they separate an
+offset or a variance mismatch from a genuine failure to track the signal. One caveat
+applies throughout: because these series are absolute elevations rather than anomalies,
+$\beta$ sits at essentially $1.00$ everywhere and is a weak discriminator at this scale.
 
 \subsection{Bathymetric reconstruction: DEM and scalar hypsometry}
 \label{sec:dem}
@@ -51,13 +60,14 @@ The same paired masks and levels also fit a scalar power-law hypsometry,
 \label{eq:powerlaw}
 \end{equation}
 integrated to storage $V(h)=\int A\,\mathrm{d}h$. This scalar fit gives a robust storage
-curve on its own, and it does something else too. Inverting the fit at a mask's own
-observed area assigns that mask a water level even when no gauge or SWOT observation
-falls near its acquisition date. This is what lets the mask stack extend beyond the
-dates used to calibrate the fit in the first place. Within the same reconstruction
-window, additional Sentinel-1 acquisitions are typically available at $2$--$4\times$ the
-density of the stratified calibration set. Each contributes one further waterline once
-assigned a level, either directly by the same source-priority rule as
+curve on its own, and inverting it at a mask's own observed area assigns that mask a
+water level even when no gauge or SWOT observation falls near its acquisition date.
+This is what lets the mask stack extend beyond the dates used to calibrate the fit in
+the first place. Sentinel-1 acquires considerably more often than SWOT overpasses the
+same reservoir, giving a median of $3.3\times$ as many distinct dates across the nine
+reservoirs within the reconstruction window (range $1.9$--$5.8\times$), so a substantial
+surplus of masks is available for densification. Each contributes one further waterline
+once assigned a level, either directly by the same source-priority rule as
 Section~\ref{sec:inputvalid}, or, for the few dates neither gauge nor SWOT reaches, by
 this inversion. Because the fit itself is calibrated solely on the original gauge/SWOT
 pairs, this densification adds spatial detail to the DEM without feeding back into the
@@ -101,8 +111,8 @@ volume.
 
 Because the reconstruction (Section~\ref{sec:dem}) is agnostic to the mask source, we
 additionally rebuild the bathymetry from PlanetScope 3~m optical water masks and
-compare it, pixel-wise and in AEV, to the Sentinel-1 reconstruction over the four
-reservoirs PlanetScope covers (2024--2025). Water is delineated per scene by a
+compare it, pixel-wise and in AEV, to the Sentinel-1 reconstruction over four of the
+nine reservoirs (2022--2026). Water is delineated per scene by a
 normalised difference water index,
 $\mathrm{NDWI}=(\rho_\text{green}-\rho_\text{NIR})/(\rho_\text{green}+\rho_\text{NIR})$,
 thresholded per scene. As with the water-level substitution above, each site is
@@ -116,33 +126,18 @@ Because optical detection carries error modes orthogonal to SAR (surface algae a
 macrophytes, turbidity, sun glint), agreement between the two reconstructions is
 strong evidence that neither is dominated by sensor-specific error.
 
-\subsection{Capacity-change metrics and uncertainty}
-\label{sec:uncertainty}
-Capacity change relative to the design curve is quantified two ways: \emph{band}
-(relative to the DEM floor, i.e.\ the SAR-observable exposed zone, the fair
-comparison against survey truth) and \emph{total} (the full design curve, including
-the deep zone below the floor that SAR cannot see). Because sedimentation concentrates
-in the deep zone, the SAR band change is a validated \emph{lower bound} on total loss.
-We additionally quantify how much of each reservoir's total capacity the exposed band
-represents, using the design curve's own volume at the DEM floor as the deep-zone
-estimate. Every core reservoir's design curve is tabulated down to at or near zero
-volume, i.e.\ its own lowest surveyed point is effectively the pre-impoundment valley
-floor, so this estimate is read directly from data already in use rather than requiring
-a new terrain source.
-
-The one field-validated reservoir (Garcia) yields a normalised, elevation-dependent
-bias model $\mathrm{bias}(f)$, $f=(z-\text{floor})/(\text{max}-\text{floor})$, which
-we test for transfer to the other reservoirs rather than assume it applies there. Two
-distinct questions follow from it. The first is calibration uncertainty in the bias
-model itself. We draw 500 samples of its two regression coefficients from their joint
-covariance and propagate each through the band-capacity-change calculation, giving a
-5th--95th-percentile confidence interval that reflects only the fitted line's own
-uncertainty, not independent per-pixel noise. The second is whether the bias model
-\emph{transfers} to other reservoirs at all: we compare the mean absolute
-band-capacity-change error against independent truth at Rosamarina and Poma, with and
-without the Garcia-derived correction applied, excluding the self-calibrated Garcia
-itself. Both questions, and what the answers mean for operational use of the
-reconstruction, are reported in Section~\ref{sec:res_unc}.
+Capacity change relative to the design curve is quantified two ways. The \emph{band}
+change is measured relative to the DEM floor, that is over the SAR-observable exposed
+zone, and is the fair comparison against survey truth. The \emph{total} change refers to
+the full design curve, including the deep zone below the floor that SAR cannot see.
+Because sedimentation concentrates in the deep zone, the SAR band change is a validated
+\emph{lower bound} on total loss. We additionally quantify how much of each reservoir's
+total capacity the exposed band represents, using the design curve's own volume at the
+DEM floor as the deep-zone estimate. Every core reservoir's design curve is tabulated
+down to at or near zero volume, so its own lowest surveyed point is effectively the
+pre-impoundment valley floor, and this estimate is read directly from data already in
+use rather than requiring a new terrain source.
+\label{sec:capmetrics}
 
 \subsection{Application: updating the monitoring tool}
 \label{sec:tool}

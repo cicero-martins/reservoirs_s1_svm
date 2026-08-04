@@ -7,9 +7,7 @@ The Sentinel-1 water-surface-area input carries the reliability \citet{PaperOne}
 across 66 reservoirs, including 5 Sicilian ones: surface-area skill correlates with shoreline
 area-to-perimeter ratio (Spearman $\rho=0.51$), reaching a median KGE of $0.93$ at high A/P
 ($\geq200$~m) against $0.48$ at low A/P ($<100$~m), with $82\%$ of that global set clearing
-KGE $\geq0.5$. The simpler per-scene VV threshold used here matches its dual-polarisation SVM
-alternative at a lower computational cost in the same comparison, so we apply it directly
-rather than re-validating it (Section~\ref{sec:inputvalid}).
+KGE $\geq0.5$. We take that reliability as given rather than re-validating it here.
 
 \label{sec:res_ladder}
 For the water level, Poma offers the clearest single case, showing the textbook signature of
@@ -19,23 +17,20 @@ Correcting it changes RMSE, which is sensitive to an absolute offset, but leaves
 mean-ratio term is small relative to these reservoirs' absolute elevations) essentially
 unaffected. Fig.~\ref{fig:wlsource} plots the cleaned SWOT against the gauge over the full
 SWOT era (2023-07 onward) for all nine reservoirs, and Table~\ref{tab:wlrmse} summarises the
-agreement as both an RMSE and a KGE, the same skill score used throughout \citet{PaperOne}, so
-the two studies' notions of ``agreement'' are directly comparable. We call a source
+agreement as both an RMSE and a KGE (Section~\ref{sec:inputvalid}). We call a source
 \emph{acceptable} when its error is small relative to the reconstruction's own elevation bias
-(Section~\ref{sec:res_unc}, a few metres in amplitude), requiring KGE $\geq0.8$ once cleaned.
+(a few metres in amplitude, Section~\ref{sec:res_garcia}), requiring KGE $\geq0.8$ once cleaned.
 Seven of nine reservoirs clear this bar: Arancio, Poma, Garcia, Rosamarina, Olivo, Castello
 and Ancipa, RMSE $0.14$--$0.63$~m, KGE $0.94$--$0.99$.
 
 \begin{table}[htbp]\centering\small
-\caption{Water level alone: SWOT versus in-situ gauge (cleaned, malfunction windows
-excluded), before any volume is computed (see Fig.~\ref{fig:wlsource} for the underlying
-series), ordered by A/P. Shift = constant offset removed from SWOT (Section~\ref{sec:inputvalid});
-$r$, $\alpha$, $\beta$ are KGE's three components (correlation, variability ratio, mean
-ratio); $\beta$ sits at $1.00$ throughout because both series are absolute elevations, so a
-mean-ratio term is a weak discriminator at this scale (main text). Tier ``truth'' = an
-independent survey/curve exists for the resulting band volume (Section~\ref{sec:res_curves});
-``consistency'' = gauge and SWOT are compared to each other only, with no independent volume
-reference.}
+\caption{SWOT versus in-situ gauge water level, cleaned and with malfunction windows
+excluded, before any volume is computed, ordered by A/P (Fig.~\ref{fig:wlsource} shows the
+underlying series). Shift is the constant offset removed from SWOT, and $r$, $\alpha$,
+$\beta$ are the KGE components (Section~\ref{sec:inputvalid}). Tier ``truth'' means an
+independent survey or curve exists for the resulting band volume
+(Section~\ref{sec:res_curves}); ``consistency'' means gauge and SWOT are compared only to
+each other.}
 \label{tab:wlrmse}
 \begin{tabular}{lrrrrrrrl}
 \toprule
@@ -76,12 +71,12 @@ showed a real, continuous drawdown toward the reservoir's minimum (SAR area fall
 $0.26$~ha by mid-November, essentially dry). This is not a gauge or offset problem: SWOT's Prior
 Lake detection evidently failed to track the water body once it shrank to a sliver, and the raw
 SWOT record has no observations at all for the following five months (2024-11-29 to
-2025-04-24) --- a genuine gap in the product itself, not one introduced by our cleaning.
+2025-04-24), a genuine gap in the product itself, not one introduced by our cleaning.
 Excluding these three dates, gauge and SWOT agree almost perfectly ($r=1.00$,
 Table~\ref{tab:wlrmse}): SWOT is reliable at Ancipa away from its most extreme drawdown, a
 materially different and more precise conclusion than a blanket claim that SWOT degrades at
-low A/P would suggest, though the underlying mechanism --- detection failure once the exposed
-water body becomes very small --- is itself an A/P-adjacent limitation, consistent with the
+low A/P would suggest, though the underlying mechanism, detection failure once the exposed
+water body becomes very small, is itself an A/P-adjacent limitation, consistent with the
 degradation \citet{PaperOne} documents for SAR retrieval in the same geometric regime. Olivo,
 Castello and Nicoletti also have usable SWOT records, once matched to each reservoir's own
 footprint rather than its granule's metadata, reported above. DAHITI is not evaluated
@@ -134,10 +129,10 @@ design curve would (Section~\ref{sec:res_voltime})?
 \subsubsection{Hypsometric curve: gauge+SWOT-fallback versus full remote sensing}
 \label{sec:res_hyps}
 For each reservoir we fit the same power-law hypsometric curve $A=a(h-h_0)^b$ two ways: (a) on
-the production calibration pairs (gauge, substituting SWOT only inside a documented
+the gauge+SWOT calibration pairs (gauge, substituting SWOT only inside a documented
 malfunction window, Section~\ref{sec:res_inputvalid}); and (b) on genuine SAR-area/SWOT-level
-coincident pairs alone, with no gauge value anywhere in the fit --- a full-remote-sensing
-(FRS) reconstruction. Both are compared, over the water-level range they share, against (c)
+coincident pairs alone, with no gauge value anywhere in the fit, which gives a
+full-remote-sensing (FRS) reconstruction. Both are compared, over the water-level range they share, against (c)
 the best available independent reference (an updated survey or curve, or the original design
 curve where none exists). Fig.~\ref{fig:hyps} plots all three curves against the real
 calibration pairs for all nine reservoirs; Table~\ref{tab:hyps} reports the resulting band
@@ -145,9 +140,9 @@ volumes.
 
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{hypsometry_comparison.png}
-  \caption{Hypsometric curve by water-level source: (a) gauge+SWOT-fallback (production),
+  \caption{Hypsometric curve by water-level source: (a) gauge+SWOT-fallback,
   (b) full remote sensing (SWOT-only, no gauge), and (c) the best available independent
-  reference, for all nine reservoirs, ordered by A/P. Grey points are the production
+  reference, for all nine reservoirs, ordered by A/P. Grey points are the gauge+SWOT
   calibration pairs.}
   \label{fig:hyps}
 \end{figure}
@@ -180,10 +175,10 @@ Pozzillo    & 240.5 & 342.9--354.9 & 25 & 44.57 & 45.91 & 46.49 & $+1.34$ \\
 \end{tabular}}
 \end{table}
 
-The FRS fit draws on far more genuine coincident pairs than the fixed 10-date production
+The FRS fit draws on far more genuine coincident pairs than the fixed 10-date gauge+SWOT
 calibration set ($n_b=12$--$98$), since it is not tied to the specific dates exported for the
-reconstruction. Its band volume differs from the production curve's by only
-$0.03$--$1.34$~\si{Mm^3} at every reservoir (Table~\ref{tab:hyps}) --- consistently smaller
+reconstruction. Its band volume differs from the gauge+SWOT curve's by only
+$0.03$--$1.34$~\si{Mm^3} at every reservoir (Table~\ref{tab:hyps}), consistently smaller
 than either curve's own gap to the independent reference, which reaches $0.58$--$7.35$~\si{Mm^3}
 and does not track A/P as cleanly here as the capacity-change comparison in
 Section~\ref{sec:res_dem} does. Garcia is the one reservoir where both curves sit
@@ -196,15 +191,15 @@ reconstruction's own disagreement with independent ground truth, at all nine res
 \label{sec:res_dem}
 The waterline-stacked DEMs reconstruct the exposed basin of all nine reservoirs over the
 2022--2026 window, yielding 2D/3D bathymetry and a capacity-change estimate against each
-reservoir's design curve, for both the production (gauge+SWOT-fallback) and FRS water-level
-sources (Table~\ref{tab:capacity}, Fig.~\ref{fig:change}). Pozzillo's production DEM is built
+reservoir's design curve, for both the gauge+SWOT-fallback and the FRS water-level
+sources (Table~\ref{tab:capacity}, Fig.~\ref{fig:change}). Pozzillo's gauge+SWOT DEM is built
 from SWOT rather than the gauge, per Section~\ref{sec:res_inputvalid}; every other reservoir's
-production DEM uses the gauge (substituting SWOT or the design curve only inside a documented
-malfunction window). Relative to the design curve, the production SAR-observable (band)
+gauge+SWOT DEM uses the gauge (substituting SWOT or the design curve only inside a documented
+malfunction window). Relative to the design curve, the gauge+SWOT SAR-observable (band)
 capacity change ranges from a modest $-0.4\%$ (Pozzillo) to $-45.3\%$ (Olivo). The exposed
 band itself represents a widely varying share of each reservoir's total design-curve volume,
 $39.3\%$--$92.0\%$ (mean $70.6\%$ across the eight reservoirs for which this ratio is well
-posed) --- so for most reservoirs the majority of storage is directly observed, but the
+posed), so for most reservoirs the majority of storage is directly observed, but the
 fraction is far from uniform and is smallest exactly where A/P is lowest. Ancipa is excluded
 from this ratio: its design curve's lowest tabulated quota sits above the corrected DEM's true
 floor, so the raw ratio exceeds 100\% (a design-curve extrapolation artifact, not a real deep
@@ -212,12 +207,12 @@ zone); we report it as $100\%$ with this caveat rather than force a spurious num
 
 \begin{table}[htbp]\centering\small
 \caption{Reconstructed capacity change by reservoir, ordered by A/P. Values given as (a)
-production (gauge+SWOT-fallback) / (b) FRS (SWOT-only, no gauge). Band-observable = share of
+gauge+SWOT-fallback / (b) FRS (SWOT-only, no gauge). Band-observable = share of
 design-curve volume the exposed band represents; SAR band change = relative to the DEM floor;
-independent band/total = versus an updated survey/curve (production only, see
+independent band/total = versus an updated survey/curve (variant (a) only, see
 Section~\ref{sec:res_curves}), with total including the unobserved deep zone where available.
 $^a$Ancipa's band-observable share is capped at 100\% for both variants (design-curve
-extrapolation artifact, see text). $^b$Pozzillo's production DEM uses SWOT as its primary water
+extrapolation artifact, see text). $^b$Pozzillo's gauge+SWOT DEM uses SWOT as its primary water
 level (Section~\ref{sec:res_inputvalid}).}
 \label{tab:capacity}
 \resizebox{\linewidth}{!}{%
@@ -240,7 +235,7 @@ Pozzillo$^b$ & 240.5 & 92.0/93.4\%    & $-0.4/-2.5\%$   & --- \\
 
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{bathymetry_change_summary.png}
-  \caption{SAR-detected (production) capacity change versus the design curve for all nine
+  \caption{SAR-detected (gauge+SWOT) capacity change versus the design curve for all nine
   reservoirs (band-relative), with independent survey/curve change and, where available, the
   total loss including the deep zone. Ordered by A/P.}
   \label{fig:change}
@@ -248,9 +243,9 @@ Pozzillo$^b$ & 240.5 & 92.0/93.4\%    & $-0.4/-2.5\%$   & --- \\
 
 Beyond the capacity-change estimate, the spatial reconstruction itself is comparably robust
 to removing the gauge: rebuilding each reservoir's DEM entirely from SWOT reproduces the
-production DEM to below $1$~m RMSE at six of the nine (Arancio $0.29$~m, Poma $0.31$~m, Garcia
+gauge+SWOT DEM to below $1$~m RMSE at six of the nine (Arancio $0.29$~m, Poma $0.31$~m, Garcia
 $0.50$~m, Castello $0.60$~m, Pozzillo $0.62$~m, Rosamarina $0.71$~m) and to $2.0$--$3.8$~m at
-the remaining three (Ancipa $1.97$~m, Nicoletti $2.09$~m, Olivo $3.82$~m) --- precisely the
+the remaining three (Ancipa $1.97$~m, Nicoletti $2.09$~m, Olivo $3.82$~m), precisely the
 three lowest-A/P reservoirs in the set, with Olivo the clear outlier. Ancipa's agreement is
 nonetheless better than Nicoletti's despite its lower A/P: its reconstruction combines two
 Sentinel-1 orbits rather than the single orbit used at every other reservoir, which resolves a
@@ -268,11 +263,11 @@ real capacity loss would leave the updated curve near the design curve while onl
 curve shifts, whereas here the SAR curve alone is displaced from both. At medium/high A/P
 (Garcia, Arancio, Rosamarina, Poma, Pozzillo) the SAR curve instead tracks the updated
 curve closely across most of the range. Section~\ref{sec:res_curves} quantifies this pattern
-directly; Section~\ref{sec:res_unc} asks how much of it is a transferable bias.
+directly.
 
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{aev_grid.png}
-  \caption{Reconstructed volume--elevation curve (production, SAR) against the design curve
+  \caption{Reconstructed volume--elevation curve (gauge+SWOT, SAR) against the design curve
   and, where available, the updated official curve or echo-sounder survey, for all nine
   reservoirs, ordered by A/P.}
   \label{fig:aevgrid}
@@ -281,9 +276,9 @@ directly; Section~\ref{sec:res_unc} asks how much of it is a transferable bias.
 \subsubsection{Volume time series against official monitoring records}
 \label{sec:res_voltime}
 Beyond validating the reconstruction itself, we test whether it improves day-to-day reservoir
-management, applying two curves --- the FRS hypsometric curve (Section~\ref{sec:res_hyps}) and
+management, applying two curves, the FRS hypsometric curve (Section~\ref{sec:res_hyps}) and
 the best available independent reference (updated survey or curve, else design,
-Section~\ref{sec:res_curves}) --- to each reservoir's full, multi-year Sentinel-1 area time
+Section~\ref{sec:res_curves}), to each reservoir's full, multi-year Sentinel-1 area time
 series, and comparing the resulting volume time series against the water authority's own
 officially registered volume record (monthly, 2007--2026; daily, 2023--2026 where available),
 independent of any curve used in this study. This covers all nine reservoirs: five have a full
@@ -294,59 +289,74 @@ full Sentinel-1 era for this comparison.
 Each curve only covers the area range it was itself fitted or tabulated over, so applying it
 outside that range is extrapolation, not a genuine estimate; comparisons are restricted to
 dates within each curve's own range, tracked separately since the FRS curve's own coverage
-($39$--$99\%$ of each reservoir's record) can differ from the reference curve's
-(Table~\ref{tab:opvol}).
+($39$--$98\%$ of each reservoir's record) can differ from the reference curve's
+(Table~\ref{tab:opvol}). All nine area series enter this comparison as the same product,
+carrying the outlier rejection and LOWESS smoothing of \citet{PaperOne}'s published
+post-processing: this suppresses per-scene classification noise, which is not real volume
+change, and scoring a smoothed series against an unsmoothed one would otherwise favour the
+former. The hypsometric fits of Section~\ref{sec:res_hyps} instead use the raw
+per-acquisition areas, since they pair individual SAR acquisitions with individual SWOT
+passes, and smoothing would blend neighbouring dates into pairs never actually observed.
 
 \begin{table}[htbp]\centering\small
 \caption{FRS (SWOT-only) versus the best available independent reference curve, converting
 each reservoir's own SAR area record to volume and comparing to the officially registered
-volume, restricted to dates within each curve's own observed area range (coverage). $r$ is
-comparable between the two curves at most reservoirs, so RMSE is generally where they differ;
-the exceptions are Olivo and Nicoletti, where the reference curve also correlates better.}
+volume, restricted to dates within each curve's own observed area range (coverage). Skill is
+scored with KGE (Section~\ref{sec:inputvalid}), with RMSE alongside it. Unlike the
+water-level comparison of Table~\ref{tab:wlrmse}, these are volumes rather than absolute
+elevations, so the mean-ratio component is informative here.}
 \label{tab:opvol}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{llrrrrr}
 \toprule
-Reservoir & Record & Coverage & FRS RMSE (Mm$^3$) & Reference RMSE (Mm$^3$) & FRS $r$ & Reference $r$ \\
+& & & \multicolumn{2}{c}{FRS (SWOT-only)} & \multicolumn{2}{c}{Reference curve} \\
+\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+Reservoir & Record & Coverage & RMSE (Mm$^3$) & KGE & RMSE (Mm$^3$) & KGE \\
 \midrule
-Olivo      & monthly & 48\% & 0.68 & 2.04  & 0.42 & 0.74 \\
-Ancipa     & monthly & 39\% & 1.93 & 7.26  & 0.75 & 0.88 \\
-Ancipa     & daily   & 39\% & ---  & 10.30 & ---  & 0.73 \\
-Nicoletti  & monthly & 41\% & 2.50 & 2.13  & 0.79 & 0.99 \\
-Castello   & monthly & 99\% & 3.94 & 3.14  & 0.97 & 0.97 \\
-Castello   & daily   & 99\% & 4.19 & 3.14  & 0.82 & 0.81 \\
-Garcia     & monthly & 93\% & 4.78 & 13.69 & 0.99 & 0.99 \\
-Garcia     & daily   & 93\% & 4.08 & 8.54  & 0.70 & 0.65 \\
-Arancio    & monthly & 79\% & 2.43 & 5.91  & 0.92 & 0.94 \\
-Rosamarina & monthly & 81\% & 5.71 & 9.18  & 0.95 & 0.97 \\
-Rosamarina & daily   & 81\% & 2.53 & 7.02  & 0.96 & 0.96 \\
-Poma       & monthly & 95\% & 6.88 & 9.06  & 0.94 & 0.92 \\
-Poma       & daily   & 95\% & 5.87 & 6.60  & 0.51 & 0.33 \\
-Pozzillo   & monthly & 73\% & 5.97 & 6.95  & 0.94 & 0.97 \\
+Olivo      & monthly & 53\% & 0.63 & \textbf{0.47} & 2.05  & 0.17 \\
+Ancipa     & monthly & 39\% & 1.93 & \textbf{0.74} & 7.26  & 0.27 \\
+Ancipa     & daily   & 39\% & ---  & ---           & 10.30 & $-0.01$ \\
+Nicoletti  & monthly & 42\% & 2.46 & 0.49          & 2.12  & \textbf{0.64} \\
+Castello   & monthly & 98\% & 3.95 & 0.70          & 3.04  & \textbf{0.72} \\
+Castello   & daily   & 98\% & 4.00 & 0.43          & 2.26  & \textbf{0.65} \\
+Garcia     & monthly & 93\% & 4.78 & \textbf{0.81} & 13.69 & 0.53 \\
+Garcia     & daily   & 93\% & 4.08 & \textbf{0.70} & 8.54  & 0.32 \\
+Arancio    & monthly & 78\% & 1.95 & \textbf{0.73} & 5.84  & 0.59 \\
+Rosamarina & monthly & 81\% & 5.71 & \textbf{0.89} & 9.18  & 0.78 \\
+Rosamarina & daily   & 81\% & 2.53 & \textbf{0.71} & 7.02  & 0.53 \\
+Poma       & monthly & 95\% & 6.88 & \textbf{0.78} & 9.06  & 0.75 \\
+Poma       & daily   & 95\% & 5.87 & \textbf{0.47} & 6.60  & 0.30 \\
+Pozzillo   & monthly & 73\% & 5.97 & 0.80          & 6.95  & \textbf{0.87} \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
-The FRS curve tracks the officially registered volume more accurately (lower RMSE) than the
-independent reference at seven of the nine reservoirs: Olivo ($0.68$ vs.\ $2.04$~\si{Mm^3}
-monthly), Ancipa ($1.93$ vs.\ $7.26$), Garcia ($4.78$/$4.08$ vs.\ $13.69$/$8.54$,
-monthly/daily), Arancio ($2.43$ vs.\ $5.91$), Rosamarina ($5.71$/$2.53$ vs.\ $9.18$/$7.02$),
-Poma ($6.88$/$5.87$ vs.\ $9.06$/$6.60$) and Pozzillo ($5.97$ vs.\ $6.95$). Correlation is
-comparable between the two curves almost everywhere, so both track seasonal timing about as
-well; the difference is in absolute level, not dynamics.
+The FRS curve tracks the officially registered volume better than the independent reference
+at six of the nine reservoirs, by KGE: Rosamarina ($0.89$ vs.\ $0.78$), Garcia ($0.81$ vs.\
+$0.53$), Poma ($0.78$ vs.\ $0.75$), Ancipa ($0.74$ vs.\ $0.27$), Arancio ($0.73$ vs.\ $0.59$)
+and Olivo ($0.47$ vs.\ $0.17$). The ranking is largely insensitive to the metric, since RMSE
+favours the FRS curve at the same six reservoirs and at Pozzillo besides. What the KGE
+decomposition adds is the reason. The reference curves fail mainly through their mean ratio,
+which runs from $0.43$ to $0.86$ at every reservoir except Pozzillo, meaning they
+systematically place storage below the registered record, as an outdated curve would. The FRS
+curve's own mean ratio sits near unity ($0.85$--$1.16$) everywhere except Nicoletti ($1.39$)
+and Castello ($1.29$).
 
-The two exceptions, Nicoletti ($2.50$ vs.\ $2.13$~\si{Mm^3}) and Castello ($3.94$ vs.\ $3.14$),
-follow the same A/P-driven pattern as the reconstruction itself (Section~\ref{sec:res_dem}):
-they are the reservoirs whose FRS curve is calibrated over the narrowest slice of their true
-water-level range, because a SAR area must coincide with a SWOT pass within $\pm3$ days to
-enter the fit. Nicoletti's calibration band spans only the upper $29\%$ of the range SWOT
-actually observed there and Castello's $70\%$, against $85\%$ at Arancio; a curve fitted near
-full pool and then extrapolated down through the drawdown range over-estimates volume at low
-levels, which is exactly the sign of the residual we observe (FRS bias $+2.4$ and
-$+3.7$~\si{Mm^3} respectively). At Castello the officially registered volume in fact falls
-\emph{between} the two curves --- FRS above it, the reference $-2.8$~\si{Mm^3} below --- so
+Nicoletti (KGE $0.49$ vs.\ $0.64$) and Castello ($0.70$ vs.\ $0.72$, effectively tied) are the
+two reservoirs where the reference curve is not beaten, and both follow the same A/P-driven
+pattern as the reconstruction itself (Section~\ref{sec:res_dem}). They are the reservoirs
+whose FRS curve is calibrated over the narrowest slice of their true water-level range,
+because a SAR area must coincide with a SWOT pass within $\pm3$ days to enter the fit.
+Nicoletti's calibration band spans only the upper $29\%$ of the range SWOT actually observed
+there and Castello's $70\%$, against $85\%$ at Arancio. A curve fitted near full pool and then
+extrapolated down through the drawdown range over-estimates volume at low levels, which is
+exactly what their mean ratios show ($1.39$ and $1.29$). At Castello the officially registered
+volume in fact falls between the two curves, with FRS above it and the reference below, so
 neither is uniformly closer to the record across the range. This is a coverage limitation that
-a longer SWOT record will relax, not a defect of the gauge-free chain itself.
+a longer SWOT record will relax, not a defect of the gauge-free chain itself. Pozzillo is a
+third case of a different kind: the two curves are close on RMSE ($5.97$ vs.\ $6.95$), but the
+reference reproduces the mean level almost exactly (mean ratio $1.00$ against the FRS curve's
+$1.16$), which KGE rewards and RMSE alone does not expose.
 
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{area_volume_timeseries.png}
@@ -372,9 +382,13 @@ and RMSE $2.67$~m in the SAR-observable range ($\mathrm{R}^2=0.61$). A residual
 elevation dependence remains, from $-1.58$~m near the floor ($175$--$176$~m) to
 $-2.39$~m near the top ($189$--$190$~m) (Fig.~\ref{fig:garcia}). Band-relative to
 design, the curated curve shows a true loss of $-22.1\%$ (Table~\ref{tab:capacity}),
-of which the SAR DEM detects $-20.8\%$ --- capturing $93.7\%$ of the true band
-loss, a $0.74$~\si{Mm^3} shortfall, consistent with the DEM's own small residual
-negative bias above.
+of which the SAR DEM detects $-20.8\%$, capturing $93.7\%$ of the true band loss.
+The remaining $0.74$~\si{Mm^3}\ shortfall is consistent with the DEM's own small
+residual negative bias above. Across the two other reservoirs carrying an independent
+volume reference at comparable A/P, Rosamarina and Poma, the reconstruction's band
+capacity change differs from that reference by a mean absolute $10.1\%$, which is the
+uncertainty to budget for at Garcia's A/P and above. We report the raw, uncorrected
+estimate throughout rather than propagating a correction fitted at a single reservoir.
 
 \begin{figure}[htbp]\centering
   \includegraphics[width=\linewidth]{garcia_validation_deep.png}
@@ -390,8 +404,8 @@ Six reservoirs have a recent official area--volume curve as a secondary referenc
 informative less for the raw size of any single gap than for its pattern across A/P. At high
 A/P, SAR and the official curve agree closely: Poma's official curve shows essentially no net
 loss ($-0.5\%$ band, $+2.9\%$ total), while the SAR DEM shows a modest $-12.8\%$ band deficit
-attributable to the low-elevation reconstruction bias characterised in Section~\ref{sec:res_unc}
-rather than real sedimentation --- a useful negative-control case. Rosamarina and Arancio show
+attributable to the reconstruction's own low-elevation bias (Section~\ref{sec:res_garcia})
+rather than real sedimentation, a useful negative-control case. Rosamarina and Arancio show
 a similar pattern at a smaller offset (SAR $-15.1\%$/$-15.5\%$ versus survey/curve
 $-7.3\%$/$-3.7\%$ band). At low A/P the gap widens sharply: Castello ($-30.0\%$ vs.\
 $-23.5\%$), Olivo ($-45.3\%$ vs.\ $-3.6\%$) and Nicoletti ($-40.2\%$ vs.\ $-6.1\%$) all show
@@ -404,18 +418,18 @@ reconstruction reliability, not just apparent capacity change, degrades as A/P f
 Reconstructing the bathymetry from PlanetScope 3~m optical masks (Section~\ref{sec:xsensor};
 7--58 masks per reservoir) and comparing to the Sentinel-1 DEM, the two independent sensors
 agree closely across the observable band at medium/high A/P: the per-pixel elevation RMSE is
-$1.25$~m (Pozzillo, A/P~240), $1.65$~m (Poma, A/P~190) and $1.61$~m (Rosamarina, A/P~187) ---
+$1.25$~m (Pozzillo, A/P~240), $1.65$~m (Poma, A/P~190) and $1.72$~m (Rosamarina, A/P~187),
 of the same order as the Garcia \emph{field} RMSE ($2.67$~m) (Fig.~\ref{fig:planet}). At
 Pozzillo, the optical masks are paired with SWOT rather than the gauge
 (Section~\ref{sec:res_inputvalid}), for consistency with its primary reconstruction and, with
 both series offset-corrected and cleaned of the same confirmed bad dates
 (Section~\ref{sec:res_inputvalid}), a further, independent corroboration on top of the
 SAR-area evidence that already motivated the SWOT-over-gauge choice there. Expressed as total
-band volume, the optical and SAR reconstructions differ by $2.9$~\si{Mm^3} at
-\emph{Pozzillo} ($23.5$ vs $20.6$) and $3.1$~\si{Mm^3} at \emph{Rosamarina} ($35.4$ vs $38.6$)
---- consistent with, not larger than, the per-pixel RMSE integrated over each reservoir's
-observable area --- giving these two reservoirs, which lack a modern field survey, an
-independent near-truth on the same footing as Garcia's echo-sounder.
+band volume, the optical and SAR reconstructions differ by $2.7$~\si{Mm^3} at
+\emph{Pozzillo} ($23.5$ vs $20.8$) and $2.5$~\si{Mm^3} at \emph{Rosamarina} ($35.4$ vs $38.0$)
+These gaps are consistent with, not larger than, the per-pixel RMSE integrated over each
+reservoir's observable area, and they give these two reservoirs, which lack a modern field
+survey, an independent near-truth on the same footing as Garcia's echo-sounder.
 
 Rosamarina's and Pozzillo's comparison bands are each narrower than their full
 SAR-reconstructed range, but no longer for the same reason. New PlanetScope acquisitions from
@@ -428,13 +442,13 @@ SAR-observed drawdown. Pozzillo received no new acquisitions in this round: its 
 (once paired to SWOT) still reach only $350.3$~m, a real $\sim$$4.6$~m gap against the SAR
 reconstruction's own $354.9$~m ceiling. Rosamarina also illustrates why the water-level source
 matters within its shared window: its in-situ gauge was stuck for $\sim$19 months across the
-2024--2026 window (Section~\ref{sec:res_inputvalid}); substituting SWOT --- which, like the
-optical masks, records the real drawdown --- restores a physical bathymetry and the reported
-cross-sensor agreement. The two reconstructions diverge sharply (RMSE $8.50$~m) only at
+2024--2026 window (Section~\ref{sec:res_inputvalid}); substituting SWOT, which like the
+optical masks records the real drawdown, restores a physical bathymetry and the reported
+cross-sensor agreement. The two reconstructions diverge sharply (RMSE $8.05$~m) only at
 \emph{Ancipa} (A/P~90); tellingly, this divergence \emph{grew}, rather than shrank, once two
 new PlanetScope acquisitions (2024-11-14, 2024-11-25) were added specifically to close a
 gap in its archive that fell inside the SAR reconstruction's own drawdown window
-(2024-05-24 to 2024-12-19) --- the RMSE was $6.06$~m with 5 masks, before these two dates were
+(2024-05-24 to 2024-12-19). The RMSE was $6.06$~m with 5 masks, before these two dates were
 available. Extending the optical record deeper into Ancipa's low-A/P, narrow basin did not
 resolve the mismatch; it sharpened it, indicating the divergence is a genuine, geometry-driven
 reconstruction limit at low A/P rather than an artifact of a temporal sampling gap that more
@@ -448,50 +462,4 @@ is not dominated by sensor-specific error.
   3~m) and Sentinel-1 (SAR) bathymetric reconstructions, over the common observable
   band, for the four reservoirs with PlanetScope coverage.}
   \label{fig:planet}
-\end{figure}
-
-
-\subsection{Uncertainty}
-\label{sec:res_unc}
-One question drives this section: when the SAR band capacity change (Table~\ref{tab:capacity})
-disagrees with an independent reference, how much of that gap is a systematic bias that
-transfers across reservoirs, and how much is not? Garcia is the only reservoir with a genuine
-field survey, so it is the only place the reconstruction's own error can be measured directly
-rather than inferred: its per-band error runs from $-1.58$~m near the floor to $-2.39$~m near
-the top (Section~\ref{sec:res_garcia}), which we fit as a normalised
-bias$(f) = -0.45 - 0.59f$~m, $f$ the fractional height in the exposed band, though the fit is
-weak relative to the scatter around it (residual $s(f) \approx 2.1$--$2.9$~m,
-Fig.~\ref{fig:uncertainty} panel~1). Applying this Garcia-derived correction to Rosamarina and
-Poma --- the two other reservoirs with an independent volume reference, excluding Garcia
-itself --- does not improve their band-capacity-change error: mean absolute error \emph{rises}
-from $10.1\%$ (uncorrected) to $14.1\%$ (corrected). Fig.~\ref{fig:uncertainty} panel~2 shows
-why directly: the corrected bars move uniformly \emph{away} from the independent truth at
-every one of the seven reservoirs with a reference curve, not only these two. The
-elevation-dependent bias measured at Garcia is therefore not a universal artifact of the
-level-slicing method that a single-reservoir calibration can correct elsewhere; it is at least
-partly reservoir-specific, and we do not apply it beyond Garcia itself. We separately checked
-whether the fitted trend is at least well constrained in its own right --- resampling its two
-coefficients from their covariance moves the corrected estimate by a median $\pm3.7\%$
-(panel~3) --- so the failure to transfer is not fitting noise superimposed on a real signal;
-the trend itself is simply too weak, and too specific to Garcia, to generalise.
-
-Consequently the raw, uncorrected SAR estimate is what we report throughout
-(Table~\ref{tab:capacity}), and its own disagreement with independent truth --- a mean absolute
-$10.1\%$ of band capacity at Rosamarina and Poma --- is the uncertainty budget for reservoirs in
-Garcia's A/P range and above. This does not, by itself, explain the much larger low-A/P
-discrepancies in Section~\ref{sec:res_curves} (Olivo $-45.3\%$ vs.\ $-3.6\%$; Nicoletti
-$-40.2\%$ vs.\ $-6.1\%$): those gaps are several times larger than $10\%$. We read them instead
-as a genuine A/P-driven reconstruction-reliability ceiling, the same mechanism already
-established for SAR area retrieval itself \citep{PaperOne}, rather than a version of the same
-bias measured at Garcia. In short: a few metres of elevation bias exists in the reconstruction
-and is directly measurable at Garcia, but it does not transfer cleanly enough to correct other
-reservoirs; roughly $10\%$ of band capacity, uncorrected, is the uncertainty to budget for at
-Garcia's A/P and above; below it, the dominant error is not this bias but the A/P ceiling
-itself.
-
-\begin{figure}[htbp]\centering
-  \includegraphics[width=\linewidth]{bathymetry_uncertainty.png}
-  \caption{(1) Normalised elevation-dependent bias model from Garcia; (2) its
-  transfer to other reservoirs; (3) Monte-Carlo uncertainty budget.}
-  \label{fig:uncertainty}
 \end{figure}

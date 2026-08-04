@@ -1,9 +1,19 @@
 """Study-area map (Paper 2): the nine validated Sicilian reservoirs.
 
-Coloured by shoreline area-to-perimeter class (the reliability axis); star marker =
-independent survey ground truth (Garcia echo-sounder; Poma/Rosamarina/Arancio survey
-curves), circle = cross-sensor / scalar only. Basemap = FAO GAUL 'Sicilia'
-(analysis/geo/sicily_gaul.geojson, reused from Paper 1). Output → manuscript_paper2/figures/.
+Coloured by shoreline area-to-perimeter class (the reliability axis). Marker encodes
+the KIND of independent reference available, matching Table~tab:coverage and the
+distinction Section 2.4 draws:
+  star    = field-survey ground truth (Garcia echo-sounder only)
+  diamond = updated official area-volume curve, secondary reference
+            (Poma, Rosamarina, Arancio, Castello, Olivo, Nicoletti)
+  circle  = no modern survey or curve; cross-sensor check only (Ancipa, Pozzillo)
+Previously this used a single star for "survey ground truth" covering only
+Poma/Rosamarina/Garcia/Arancio, which both under-counted the reservoirs holding an
+updated curve (Castello/Olivo/Nicoletti had since gained one) and blurred the
+ground-truth-vs-curve distinction the text is careful to make.
+
+Basemap = FAO GAUL 'Sicilia' (analysis/geo/sicily_gaul.geojson, reused from Paper 1).
+Output → manuscript_paper2/figures/.
 """
 import json, os
 import numpy as np
@@ -24,19 +34,21 @@ CLASS_COLOR = {"Low": "#f88f4d", "Medium": "#d64a02", "High": "#8a2d04"}
 LAND = "#e7e6e1"; LAND_EDGE = "#ffffff"; SURFACE = "#ffffff"; INK = "#1b1b1b"; MUTED = "#6b6b6b"
 def ap_class(ap): return "Low" if ap < LOW_MAX else ("Medium" if ap < HIGH_MIN else "High")
 
-# name, lat, lon (dam coords, sicilia_dighe_anagrafica.csv), A/P (m), survey ground truth?
+# name, lat, lon (dam coords, sicilia_dighe_anagrafica.csv), A/P (m), reference kind
+# ref: "survey" = field echo-sounder, "curve" = updated official AEV curve, "none"
 R = pd.DataFrame([
-    ("Poma",       38.011037, 13.056135, 190, True),
-    ("Rosamarina", 37.960336, 13.654665, 187, True),
-    ("Garcia",     37.793124, 13.098185, 168, True),
-    ("Arancio",    37.634491, 13.065184, 182, True),
-    ("Castello",   37.582494, 13.420304, 127, False),
-    ("Ancipa",     37.836222, 14.562873,  90, False),
-    ("Pozzillo",   37.674037, 14.610613, 240, False),
-    ("Nicoletti",  37.604822, 14.346314, 120, False),
-    ("Olivo",      37.405048, 14.286604,  51, False),
-], columns=["name", "lat", "lon", "ap_m", "survey"])
+    ("Poma",       38.011037, 13.056135, 190, "curve"),
+    ("Rosamarina", 37.960336, 13.654665, 187, "curve"),
+    ("Garcia",     37.793124, 13.098185, 168, "survey"),
+    ("Arancio",    37.634491, 13.065184, 182, "curve"),
+    ("Castello",   37.582494, 13.420304, 127, "curve"),
+    ("Ancipa",     37.836222, 14.562873,  90, "none"),
+    ("Pozzillo",   37.674037, 14.610613, 240, "none"),
+    ("Nicoletti",  37.604822, 14.346314, 120, "curve"),
+    ("Olivo",      37.405048, 14.286604,  51, "curve"),
+], columns=["name", "lat", "lon", "ap_m", "ref"])
 R["cls"] = R.ap_m.map(ap_class)
+MARKER = {"survey": ("*", 380), "curve": ("D", 105), "none": ("o", 135)}
 
 mpl.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10})
 fig, ax = plt.subplots(figsize=(10, 6.4), dpi=300)
@@ -63,8 +75,7 @@ OFF = {"Poma": (0.03, 0.05, "left"), "Rosamarina": (0.05, 0.02, "left"),
        "Pozzillo": (0.05, -0.02, "left"), "Nicoletti": (-0.05, 0.03, "right"),
        "Olivo": (0.05, -0.04, "left")}
 for _, r in R.iterrows():
-    mk = "*" if r.survey else "o"
-    sz = 340 if r.survey else 130
+    mk, sz = MARKER[r.ref]
     ax.scatter(r.lon, r.lat, marker=mk, s=sz, c=CLASS_COLOR[r.cls],
                edgecolors="white", linewidths=1.0, zorder=5)
     dx, dy, ha = OFF[r["name"]]
@@ -82,8 +93,12 @@ ax.set_title("Study area: nine validated Sicilian reservoirs", color=INK, fontsi
 
 handles = [Line2D([0], [0], marker="o", ls="", mfc=CLASS_COLOR[c], mec="white", ms=10,
                   label=f"{c} A/P") for c in ["Low", "Medium", "High"]]
-handles += [Line2D([0], [0], marker="*", ls="", mfc="#888", mec="white", ms=15, label="Survey ground truth"),
-            Line2D([0], [0], marker="o", ls="", mfc="#888", mec="white", ms=9, label="Cross-sensor / scalar")]
+handles += [Line2D([0], [0], marker="*", ls="", mfc="#888", mec="white", ms=15,
+                   label="Field survey (ground truth)"),
+            Line2D([0], [0], marker="D", ls="", mfc="#888", mec="white", ms=7,
+                   label="Updated official curve"),
+            Line2D([0], [0], marker="o", ls="", mfc="#888", mec="white", ms=9,
+                   label="Cross-sensor check only")]
 ax.legend(handles=handles, loc="lower left", fontsize=8, framealpha=0.9, ncol=1)
 ax.text(0.005, -0.13, "A/P classes: Low < %d m · Medium %d–%d m · High ≥ %d m. "
         "Basemap: FAO GAUL." % (LOW_MAX, LOW_MAX, HIGH_MIN, HIGH_MIN),

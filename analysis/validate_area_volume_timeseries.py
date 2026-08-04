@@ -18,11 +18,17 @@ to test how well a fully remote reconstruction, with no in-situ input at all,
 tracks real reservoir management, against the best independent reference
 rather than only the (often outdated) original design curve.
 
-Covers the 5 reservoirs with a full multi-year SAR area series already
-available (Ancipa, Poma, Pozzillo, Rosamarina: 2014-2025; Garcia: 2022-2026).
-The other 4 (Arancio, Castello, Olivo, Nicoletti) only have the ~10-24 mask
-dates used to calibrate the reconstruction itself, not a standalone area
-time series -- out of scope here (a future export, not attempted).
+Covers all 9 reservoirs. Five have a full multi-year SAR area series from
+their original export (Ancipa, Poma, Pozzillo, Rosamarina: 2014-2025; Garcia:
+2022-2026). The other 4 (Arancio, Castello, Olivo, Nicoletti) originally only
+had the ~10-24 mask dates used to calibrate the reconstruction itself, not a
+standalone area time series -- their continuous export
+(exportSicilyExtended.js) stopped at 2025-12-31, ~200 days short of the
+others' currency, which was also why their build_frs_dem.py fit had so few
+genuine SAR/SWOT pairs and hypsometry_comparison.py showed such a narrow
+common WL band for them. Extended through 2026-07-31 on 2026-08-03 (same
+VV-Otsu method, same fixed orbit per reservoir, Python port of the original
+GEE Code Editor script) once that gap was traced -- now included here too.
 
 Two independent official-record comparisons per reservoir:
   - monthly (sicilia_dighe_volumi.csv, 2007-2025, all 5, tolerance 15 days)
@@ -61,6 +67,10 @@ AREA_SERIES = {
     'Pozzillo':   ('validation_data/morphometric_analysis/shoreline_compactness/area_pozzillo_2014-25.csv', 'date', 'value', 'dig-19'),
     'Rosamarina': ('validation_data/morphometric_analysis/shoreline_compactness/area_rosamarina_2014-25.csv', 'date', 'value', 'dig-22'),
     'Garcia':     ('validation_data/statistics/area_statistics/ee-chart_garcia2022-26.csv', 'data', 'areaLago_smoothed', 'dig-09'),
+    'Olivo':      ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Olivo.csv', 'date', 'area_ha', 'dig-15'),
+    'Nicoletti':  ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Nicoletti.csv', 'date', 'area_ha', 'dig-13'),
+    'Castello':   ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Castello.csv', 'date', 'area_ha', 'dig-03'),
+    'Arancio':    ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Arancio.csv', 'date', 'area_ha', 'dig-02'),
 }
 
 MONTHLY_FP = REPO / 'raw_data' / 'opendatasicilia' / 'sicilia_dighe_volumi.csv'

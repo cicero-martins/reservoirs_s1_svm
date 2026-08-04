@@ -63,9 +63,11 @@ def std_of(frac):   return np.clip(np.polyval(std_coef, np.clip(frac, 0, 1)), 0.
 
 # ── Independent truth (band-relative capacity change vs design) ────────────────
 def truth_band_pct(name):
-    if name == 'Garcia':
-        g = pd.read_csv(OUT / 'garcia_survey' / 'garcia_volume_change.csv').iloc[-1]
-        return -float(g['loss_true_pct'])
+    # Garcia no longer needs a special case: tool/bathymetry.py's updated_curve()
+    # now reads the curated official AEV table (validation_data/updated_curves/
+    # garcia_2026.csv) rather than garcia_volume_change.csv (itself derived from
+    # our own distance-filtered survey raster, found 2026-08-03 to under-represent
+    # area/volume above the survey's own waterline -- see tool/bathymetry.py).
     cap = bt.capacity_change(name)
     return cap.get('truth_band_pct') if cap else None
 

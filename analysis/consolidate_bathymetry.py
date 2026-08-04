@@ -40,7 +40,7 @@ PIXEL_HA = 0.01
 # updated = independent full survey curve source (None if unavailable).
 RES = {
     'Ancipa':     dict(design=(2, 3, 4, 'km2'), ap=90.5,  updated=None),
-    'Garcia':     dict(design=(2, 3, 4, 'km2'), ap=167.7, updated='garcia_echo'),
+    'Garcia':     dict(design=(2, 3, 4, 'km2'), ap=167.7, updated='garcia_2026'),
     'Rosamarina': dict(design=(2, 3, 5, 'ha'),  ap=187.4, updated='rosamarina_2025'),
     'Poma':       dict(design=(2, 4, 5, 'ha'),  ap=190.1, updated='poma_new'),
     'Pozzillo':   dict(design=(2, 4, 5, 'ha'),  ap=240.5, updated=None),
@@ -115,6 +115,13 @@ def load_updated_vol(kind):
     if kind == 'rosamarina_2025':
         u = pd.read_csv(REPO / 'validation_data' / 'updated_curves' / 'rosamarina_2025.csv')
         return interp1d(u.quota_m, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate')
+    if kind == 'garcia_2026':
+        # Curated official quota-area-volume table, NOT our own re-gridded
+        # echosounder raster -- see tool/bathymetry.py's updated_curve() for why
+        # (the raster's shore/terrain interpolation undercounts area/volume above
+        # the survey's own waterline, worse at higher elevations).
+        u = pd.read_csv(REPO / 'validation_data' / 'updated_curves' / 'garcia_2026.csv')
+        return interp1d(u.quota_m, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate')
     if kind in EXT_CURVE_SPEC:
         pat, sheet, blocks = EXT_CURVE_SPEC[kind]
         f = [h for h in glob.glob(NEW_CURVES + pat) if h.lower().endswith(('.xls', '.xlsx'))][0]
@@ -167,24 +174,22 @@ def dem_capacity_metrics(dem_path, name, cfg):
     sar_band = (vdem_rel_max - vdes_rel_max) / vdes_rel_max * 100 if vdes_rel_max else np.nan
 
     truth_band = np.nan; truth_total = np.nan; ref_lbl = '—'; field_rmse = np.nan
-    if cfg['updated'] == 'garcia_echo':
-        ref_lbl = 'echosounder'
-        fp = OUT / 'garcia_survey' / 'garcia_volume_change.csv'
-        if fp.exists():
-            g = pd.read_csv(fp).iloc[-1]
-            truth_band = -float(g['loss_true_pct'])            # band-relative (rel. floor_B)
-        st = OUT / 'garcia_survey' / 'garcia_comparison_stats.csv'
-        if st.exists():
-            s2 = pd.read_csv(st)
-            r = s2.loc[s2['analysis'] == 'shallow_pixel', 'rmse_m']
-            if len(r): field_rmse = float(r.iloc[0])
-    elif cfg['updated'] in ('poma_new', 'rosamarina_2025') or cfg['updated'] in EXT_CURVE_SPEC:
-        ref_lbl = '2025 survey' if cfg['updated'] == 'rosamarina_2025' else 'updated curve'
+    if cfg['updated'] in ('poma_new', 'rosamarina_2025', 'garcia_2026') or cfg['updated'] in EXT_CURVE_SPEC:
+        ref_lbl = {'rosamarina_2025': '2025 survey', 'garcia_2026': 'echosounder'}.get(cfg['updated'], 'updated curve')
         upd_vol = load_updated_vol(cfg['updated'])
         vupd_rel_max = float(upd_vol(top) - upd_vol(floor))
         vupd_abs_max = float(upd_vol(top))
         truth_band  = (vupd_rel_max - vdes_rel_max) / vdes_rel_max * 100 if vdes_rel_max else np.nan
         truth_total = (vupd_abs_max - vdes_abs_max) / vdes_abs_max * 100 if vdes_abs_max else np.nan
+    # Garcia's field RMSE (pixel-level DEM-vs-survey-raster comparison, a
+    # genuinely 2D need the 1D curated curve above can't replace) is independent
+    # of which curve is used as the AEV truth reference.
+    if name == 'Garcia':
+        st = OUT / 'garcia_survey' / 'garcia_comparison_stats.csv'
+        if st.exists():
+            s2 = pd.read_csv(st)
+            r = s2.loc[s2['analysis'] == 'shallow_pixel', 'rmse_m']
+            if len(r): field_rmse = float(r.iloc[0])
 
     return {
         'floor_m': round(floor, 2), 'max_m': round(top, 2), 'obs_range_m': round(top - floor, 1),

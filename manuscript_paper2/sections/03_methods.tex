@@ -131,18 +131,18 @@ floor, so this estimate is read directly from data already in use rather than re
 a new terrain source.
 
 The one field-validated reservoir (Garcia) yields a normalised, elevation-dependent
-bias model $\mathrm{bias}(f)$, $f=(z-\text{floor})/(\text{max}-\text{floor})$, applied
-to the other reservoirs. Two distinct uncertainties follow from it. The first is
-calibration uncertainty in the bias model itself. We draw 500 samples of its two
-regression coefficients from their joint covariance and propagate each through the
-band-capacity-change calculation, giving a 5th--95th-percentile confidence interval
-that reflects only the fitted line's own uncertainty, not independent per-pixel noise.
-The second is whether the bias model \emph{transfers} to other reservoirs at all. We
-test this against independent truth at Rosamarina and Poma, excluding the
-self-calibrated Garcia, as the RMS of the bias-corrected error, consistent with the
-shoreline-geometry dependence already established for the SAR area input itself. Both
-uncertainties, and what they mean for operational use of the reconstruction, are
-reported in Section~\ref{sec:res_unc}.
+bias model $\mathrm{bias}(f)$, $f=(z-\text{floor})/(\text{max}-\text{floor})$, which
+we test for transfer to the other reservoirs rather than assume it applies there. Two
+distinct questions follow from it. The first is calibration uncertainty in the bias
+model itself. We draw 500 samples of its two regression coefficients from their joint
+covariance and propagate each through the band-capacity-change calculation, giving a
+5th--95th-percentile confidence interval that reflects only the fitted line's own
+uncertainty, not independent per-pixel noise. The second is whether the bias model
+\emph{transfers} to other reservoirs at all: we compare the mean absolute
+band-capacity-change error against independent truth at Rosamarina and Poma, with and
+without the Garcia-derived correction applied, excluding the self-calibrated Garcia
+itself. Both questions, and what the answers mean for operational use of the
+reconstruction, are reported in Section~\ref{sec:res_unc}.
 
 \subsection{Application: updating the monitoring tool}
 \label{sec:tool}

@@ -276,18 +276,27 @@ def updated_curve(name):
         return (interp1d(u.quota_m, u.area_m2 / 1e4, bounds_error=False, fill_value='extrapolate'),
                 interp1d(u.quota_m, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate'))
     if kind == 'garcia_survey':
-        # AEV straight from the gridded echosounder survey raster (full sonar+terrain).
-        fp = DEM_DIR / 'garcia_survey' / 'survey_dem_Garcia.tif'
+        # Curated official quota-area-volume table (validation_data/updated_curves/
+        # garcia_2026.csv, from raw_data/Garcia_updated_GC.xlsx, outlier-curated by
+        # the water authority), NOT our own re-gridded echosounder raster. Found
+        # 2026-08-03: the raster (survey_dem_Garcia.tif) grids sonar points below the
+        # survey's own waterline (~175.8 m) and separately-measured shore/terrain
+        # points above it, with a 50 m distance filter from the nearest survey point;
+        # the terrain points are far sparser than the sonar transects, so area/volume
+        # above 175.8 m are increasingly under-represented as elevation rises away
+        # from the shoreline (up to 16% area / 6.5% volume low at full pool, 190 m,
+        # versus this curated table) -- an artifact of our own filtering, not the
+        # reconstruction. The raster is still used for the pixel-level bias/RMSE
+        # comparison in Section~sec:res_garcia (a genuinely 2D need this 1D table
+        # can't replace), but this curated table is the correct AEV reference
+        # everywhere else (Table tab:capacity, the hypsometry comparison, the
+        # volume-timeseries validation).
+        fp = UPDATED / 'garcia_2026.csv'
         if not fp.exists():
             return None
-        with rasterio.open(fp) as s:
-            g = s.read(1).astype(np.float64)
-        m = np.isfinite(g)
-        lv = np.arange(g[m].min(), g[m].max() + 1e-6, 0.5)
-        ar, vo = aev(g, m, lv)
-        # volume here is relative to the survey's own floor; caller aligns by floor.
-        return (interp1d(lv, ar, bounds_error=False, fill_value='extrapolate'),
-                interp1d(lv, vo, bounds_error=False, fill_value=np.nan))
+        u = pd.read_csv(fp)
+        return (interp1d(u.quota_m, u.area_m2 / 1e4, bounds_error=False, fill_value='extrapolate'),
+                interp1d(u.quota_m, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate'))
     if kind in EXT_CURVE_SPEC:
         pat, sheet, blocks = EXT_CURVE_SPEC[kind]
         hits = [h for h in glob.glob(str(NEWCURVE_EXT / pat))
@@ -341,7 +350,7 @@ def capacity_change(name, period='B'):
     out['sar_band_pct'] = (out['vol_dem_rel'] - vdes_rel) / vdes_rel * 100 if vdes_rel else np.nan
     uc = updated_curve(name)
     if uc is not None and RESERVOIRS[name]['updated'] in (
-            'poma_new', 'rosamarina_2025', *EXT_CURVE_SPEC.keys()):
+            'poma_new', 'rosamarina_2025', 'garcia_survey', *EXT_CURVE_SPEC.keys()):
         _, upd_vol = uc
         vupd_rel = float(upd_vol(B['top']) - upd_vol(B['floor']))
         out['truth_band_pct']  = (vupd_rel - vdes_rel) / vdes_rel * 100 if vdes_rel else np.nan

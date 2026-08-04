@@ -82,13 +82,12 @@ for ax, name in zip(axes.flat, RESERVOIRS):
 
     area_c, vol_c, c_label = reference_curve(name)
     v_c = float(vol_c(hi) - vol_c(lo))
-    # Poma's official curve has no direct area column (POMA_new.XLS is
-    # quota+volume only), so bt.updated_curve derives area via np.gradient on
-    # coarsely-rounded volume values -- genuinely spiky/stair-stepped, not a
-    # smooth reference; suppressed from the plot, matching the precedent
-    # already established in fullrs_wl_ladder.py's own figure for this reason.
-    if name == 'Poma':
-        area_c = None
+    # Poma's official curve used to be suppressed here: POMA_new.XLS has no
+    # direct area column, so bt.updated_curve derives area via np.gradient on
+    # its tabulated volume, which was a genuinely spiky staircase until a real
+    # data-entry glitch (177-178 m frozen-then-jump) and an over-narrow
+    # smoothing window were both fixed in tool/bathymetry.py (2026-08-03) --
+    # the derived curve is smooth now, so no longer suppressed.
 
     rows.append(dict(
         reservoir=name, ap_m=ap, n_a=len(pairs_a), n_b=len(pairs_b),

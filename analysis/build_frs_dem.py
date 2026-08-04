@@ -73,6 +73,26 @@ EXTRA_BAD_DATES = {
     'Ancipa':     {'2025-01-24'},
 }
 
+# Bad dates in the CONTINUOUS SAR AREA SERIES (cfg['sar_csv']), which is a
+# different data product from the mask pool above: EXTRA_BAD_DATES drops bad
+# *masks* (SVM-derived, mask_{name}_{date}.tif), this drops bad *area rows*
+# feeding fit_swot_curve's power-law. Kept separate so neither list is ever
+# applied to the wrong product.
+#
+# Both entries are single-scene classification failures where the cleaning step
+# kept a fragment instead of the reservoir -- diagnosed geometrically, not by
+# eye: each one's own kept-polygon A/P (ap_m_dynamic) collapses to roughly a
+# quarter of its neighbours' while the Otsu threshold jumps 4-5 dB.
+#   Castello 2026-02-19: 48.0 ha, ap_dyn 31.9 m vs ~110-127 m on 02-13/02-25
+#   Arancio  2026-06-07: 21.0 ha, ap_dyn 41.2 m vs ~155 m, between 232 ha
+#                        neighbours 5 days either side
+# Only these two of the 11 gross outliers across the 4 rebuilt series fall
+# within +-3 d of a SWOT overpass, so only these two can reach the fit.
+BAD_CONTINUOUS_DATES = {
+    'Castello': {'2026-02-19'},
+    'Arancio':  {'2026-06-07'},
+}
+
 
 def mask_pool(name):
     dens_fp = OUT_DIR / f'{name.lower()}_densify_prototype_pairs.csv'
@@ -100,6 +120,9 @@ def fit_swot_curve(name):
     cfg = m.CONFIGS[name]
     swot = m.load_swot_corrected(cfg, SWOT_DIR / f'{name}_swot.csv', name)
     cont_area = pd.read_csv(cfg['sar_csv'], parse_dates=['date']).sort_values('date')
+    bad = BAD_CONTINUOUS_DATES.get(name, set())
+    if bad:
+        cont_area = cont_area[~cont_area['date'].dt.strftime('%Y-%m-%d').isin(bad)]
     cont_area = cont_area.groupby('date')['area_ha'].mean()
 
     pairs = []

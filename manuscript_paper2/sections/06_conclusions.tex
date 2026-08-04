@@ -1,16 +1,23 @@
 \section{Conclusions}
 \label{sec:conclusions}
 
-We presented a fully remote-sensing method that reconstructs updated reservoir
-bathymetry and storage by stacking Sentinel-1 SAR waterlines by water level, with the
-level supplied remotely. On nine Sicilian reservoirs the method was validated against
-a December-2025 echo-sounder survey (RMSE $2.7$~m) and recent official bathymetric
-curves. Replacing the in-situ gauge with SWOT swath altimetry changed reconstructed
-storage by a mean of $2.1$~\si{Mm^3} (${\approx}6\%$) relative to field truth,
-demonstrating gauge-free and, because SWOT observes by swath, track-free volume.
-Reconstruction reliability scales with the shoreline area-to-perimeter ratio and with
-drawdown amplitude; the SAR estimate of capacity loss is a validated lower bound,
-since deep-zone sedimentation is not exposed. The pipeline is released as an
-interactive tool. The approach opens gauge-free, survey-free storage monitoring for
-the large population of small, ungauged reservoirs that SWOT has, for the first time,
-made observable.
+Reservoir bathymetry and storage over the drawdown-exposed band can be reconstructed
+from remote sensing alone, by stacking Sentinel-1 waterlines ordered by a remotely
+supplied water level. Across nine Sicilian reservoirs the reconstruction reproduced a
+December-2025 echo-sounder survey to $2.7$~m RMSE and recovered $94\%$ of the surveyed
+band storage loss at that site.
+
+Removing the in-situ gauge costs little. Rebuilding the hypsometric curve from SWOT
+alone changed band storage by $0.56$~\si{Mm^3} on average, $6\%$ of band volume with a
+median of $2.4\%$, and reproduced the gauge-based DEM to below $1$~m at six of the nine
+reservoirs. Applied to each reservoir's full Sentinel-1 area record and scored against
+officially registered volumes, the gauge-free curve outperformed the best available
+independent reference at six of the nine. Because SWOT observes by swath rather than
+along a nadir track, this lifts both the gauge and the ground-track constraint.
+
+Two bounds are quantitative and should travel with any such estimate. The exposed band
+holds $39$--$92\%$ of design-curve volume, so the SAR capacity-change figure is a lower
+bound on total loss, deep-zone sedimentation being unobserved. Reliability scales with
+the shoreline area-to-perimeter ratio, the three lowest-A/P reservoirs being the three
+that reproduce the gauge-based DEM worst ($1.97$--$3.82$~m) and, at Ancipa, the one
+where an independent optical reconstruction disagrees most.

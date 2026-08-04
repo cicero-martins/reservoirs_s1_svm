@@ -21,7 +21,7 @@ warnings.filterwarnings('ignore')
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, FancyArrowPatch
+from matplotlib.patches import Rectangle, FancyArrowPatch, FancyBboxPatch
 import numpy as np
 import pandas as pd
 import rasterio
@@ -256,6 +256,26 @@ def arrow(fig, xy_from, xy_to):
     fig.patches.append(a)
 
 
+def step_box(fig, x, y, w, h, label, sub):
+    """One flowchart step: a rounded box carrying the step label and its one-line
+    description. The illustrating panel sits directly above or below it."""
+    box = FancyBboxPatch((x, y), w, h, transform=fig.transFigure,
+                         boxstyle='round,pad=0.006,rounding_size=0.012',
+                         linewidth=1.4, edgecolor=DARK, facecolor='#eef3f8',
+                         zorder=3, clip_on=False)
+    fig.add_artist(box)
+    fig.text(x + w / 2, y + h * 0.63, label, ha='center', va='center',
+             fontsize=12.5, weight='bold', color=DARK, zorder=4)
+    fig.text(x + w / 2, y + h * 0.25, sub, ha='center', va='center',
+             fontsize=9.5, color='#54677a', linespacing=1.25, zorder=4)
+
+
+def stem(fig, x, y0, y1):
+    """Thin connector tying a step box to its illustration above or below."""
+    fig.add_artist(plt.Line2D([x, x], [y0, y1], transform=fig.transFigure,
+                              color='#9fb3c6', lw=1.0, ls=(0, (3, 3)), zorder=2))
+
+
 def main():
     arrs0 = pad_to_square(crop_to_content(load_masks()))
     dates_sorted, arrs = order_by_area(DATES, arrs0)
@@ -266,51 +286,45 @@ def main():
     area_curve, _ = bt.aev(dem['arr'], dem['mask'], aev_levels, dem['pixel_ha'])
     levels_m = {d_: float(np.interp(areas[d_], area_curve, aev_levels)) for d_ in DATES}
 
-    # 2x2 grid, laid out as a Z: A(top-left) -> B(top-right) -> C(bottom-right)
-    # -> D(bottom-left), so every connecting arrow is a plain horizontal/vertical
-    # segment (no diagonal routing across the title/subtitle text band).
-    fig = plt.figure(figsize=(11.6, 12.6))
-    x0, colw, gapx = 0.05, 0.44, 0.055
-    x1 = x0 + colw + gapx
-    rowh, gapy = 0.32, 0.22
-    y_bot = 0.055
-    y_top = y_bot + rowh + gapy
+    # Single-row flowchart: the four steps read left to right as boxes on one line,
+    # with each step's illustration alternating above and below the line. The former
+    # 2x2 "Z" layout put step D bottom-left and C bottom-right, so the last arrow ran
+    # right-to-left against the reading order, and the tall format left large gaps.
+    fig = plt.figure(figsize=(16.5, 8.6))
+    colw, gap, x0 = 0.22, 0.02, 0.03
+    xs = [x0 + i * (colw + gap) for i in range(4)]
 
-    rectA = [x0, y_top, colw, rowh]
-    rectB = [x1, y_top, colw, rowh]
-    rectC = [x1, y_bot, colw, rowh]
-    rectD = [x0, y_bot, colw, rowh]
+    box_y, box_h = 0.455, 0.105
+    up_y, dn_y, ill_h = 0.605, 0.075, 0.295
 
-    panel_a(fig, rectA, dates_sorted, arrs, areas)
-    panel_b(fig, rectB, dates_sorted, arrs, levels_m)
-    panel_c(fig, rectC, RES)
-    panel_d(fig, rectD, RES, dem)
-
-    panels = [
-        (rectA, 'A · SAR water masks', 'stacked, one per\nacquisition date'),
-        (rectB, 'B · Waterlines + remote level', 'level source: gauge\nor SWOT altimetry'),
-        (rectC, 'C · Reconstructed DEM', 'level-slice stack,\nexposed band only'),
-        (rectD, 'D · Updated AEV curve', 'observed band + design\ncurve deep zone'),
+    steps = [
+        ('A · SAR water masks',   'stacked, one per\nacquisition date',    'up'),
+        ('B · Waterlines + level', 'gauge or SWOT\naltimetry',             'dn'),
+        ('C · Reconstructed DEM',  'level-slice stack,\nexposed band only', 'up'),
+        ('D · Updated AEV curve',  'observed band +\ndesign deep zone',     'dn'),
     ]
-    for rect, title, sub in panels:
-        fig.text(rect[0] + rect[2] / 2, rect[1] + rect[3] + 0.055, title, ha='center',
-                 va='bottom', fontsize=13, color=DARK, weight='bold')
-        fig.text(rect[0] + rect[2] / 2, rect[1] - 0.055, sub, ha='center', va='top',
-                 fontsize=10.5, color='#5a6b7b', linespacing=1.3)
+    panels = [panel_a, panel_b, panel_c, panel_d]
+    args = [(dates_sorted, arrs, areas), (dates_sorted, arrs, levels_m), (RES,), (RES, dem)]
 
-    ymid_top = y_top + rowh / 2
-    ymid_bot = y_bot + rowh / 2
-    xvert = x1 + colw - 0.03           # near column 2's right edge, clear of the
-                                        # centred title/subtitle text below it
-    arrow(fig, (rectA[0] + rectA[2] + 0.008, ymid_top), (rectB[0] - 0.008, ymid_top))
-    arrow(fig, (xvert, rectB[1] - 0.008), (xvert, rectC[1] + rectC[3] + 0.008))
-    arrow(fig, (rectC[0] - 0.008, ymid_bot), (rectD[0] + rectD[2] + 0.008, ymid_bot))
+    for x, (label, sub, side), fn, extra in zip(xs, steps, panels, args):
+        rect = [x, up_y if side == 'up' else dn_y, colw, ill_h]
+        fn(fig, rect, *extra)
+        step_box(fig, x, box_y, colw, box_h, label, sub)
+        if side == 'up':
+            stem(fig, x + colw / 2, box_y + box_h, up_y)
+        else:
+            stem(fig, x + colw / 2, dn_y + ill_h, box_y)
 
-    fig.text(0.5, y_top + rowh + 0.16, f'{RES}: Sentinel-1 waterline stacking to updated bathymetry and AEV curve',
-             ha='center', va='bottom', fontsize=15, weight='bold', color=DARK)
+    ymid = box_y + box_h / 2
+    for i in range(3):
+        arrow(fig, (xs[i] + colw + 0.004, ymid), (xs[i + 1] - 0.004, ymid))
+
+    fig.text(0.5, 0.965, f'{RES}: Sentinel-1 waterline stacking to updated bathymetry '
+             f'and AEV curve', ha='center', va='center', fontsize=15, weight='bold',
+             color=DARK)
 
     OUT_FIG.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT_FIG, dpi=220, facecolor='white', bbox_inches='tight', pad_inches=0.15)
+    fig.savefig(OUT_FIG, dpi=220, facecolor='white', bbox_inches='tight', pad_inches=0.12)
     print(f'Saved {OUT_FIG}')
 
 

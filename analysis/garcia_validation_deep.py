@@ -132,7 +132,19 @@ def compute_aev(elev_grid, mask, levels, pixel_ha=PIXEL_HA):
     return areas, vols
 
 a_dem, v_dem = compute_aev(dem_b,    lake_mask, levels)
-a_srv, v_srv = compute_aev(srv_full, lake_mask, levels)
+
+# The VOLUME comparison uses the curated official quota-area-volume table derived from
+# the same December-2025 survey, not the gridded raster. The raster interpolates sparse
+# separately-surveyed shore points and applies a 50 m distance filter, so it increasingly
+# under-represents area with height above the survey's own waterline (found 2026-08-03),
+# which biased its volume curve low. Tables tab:hyps and tab:capacity already use the
+# curated table, and this keeps the figure on the same reference as the text.
+# The pixel-wise bias/RMSE above deliberately still use the raster: a per-pixel
+# comparison needs a grid, and there is no curated equivalent.
+_cur = pd.read_csv(pathlib.Path('validation_data/updated_curves/garcia_2026.csv'))
+a_srv = np.interp(levels, _cur.quota_m, _cur.area_m2) / 1e4
+v_srv = (np.interp(levels, _cur.quota_m, _cur.vol_m3)
+         - float(np.interp(floor_B, _cur.quota_m, _cur.vol_m3))) / 1e6
 a_des = h2a_design(levels)
 v_des_abs = h2v_design(levels)
 v_des = v_des_abs - float(h2v_design(floor_B))   # relative to floor_B like dem/srv
@@ -196,36 +208,30 @@ print(f"\nAt {top.level_m:.1f} m: survey reveals {top.loss_true_Mm3:.2f} Mm3 los
 # ═══════════════════════════════════════════════════════════════════════════════
 # FIGURE
 # ═══════════════════════════════════════════════════════════════════════════════
-fig = plt.figure(figsize=(16, 5.5))
-gs = gridspec.GridSpec(1, 3, figure=fig, wspace=0.3)
-fig.suptitle('Garcia — deepened validation: satellite DEM_B vs Dec-2025 echo-sounder survey',
+# Two panels, not three. The former "error stratified by elevation" panel restated
+# in a plot what the text already gives as two numbers (the near-floor and near-top
+# bias), and reviewers read it as complicating rather than explaining the result.
+# The per-band errors remain in garcia_error_by_band.csv.
+fig = plt.figure(figsize=(11.5, 5.2))
+gs = gridspec.GridSpec(1, 2, figure=fig, wspace=0.28)
+fig.suptitle('Garcia: SAR reconstruction versus the December-2025 echo-sounder survey',
              fontsize=12, fontweight='bold')
 
-# Panel A: error by elevation band
-axA = fig.add_subplot(gs[0])
-axA.axvline(0, color='gray', lw=0.8, ls=':')
-axA.errorbar(band_df.bias_m, (band_df.band_lo + band_df.band_hi) / 2,
-             xerr=band_df.rmse_m, fmt='o-', color='C3', capsize=3, lw=1.5, label='bias ± RMSE')
-axA.set_xlabel('DEM − survey (m)   (negative = satellite lower)')
-axA.set_ylabel('Elevation band (m ASL)')
-axA.set_title('Error stratified by elevation')
-axA.grid(True, alpha=0.3); axA.legend(fontsize=8)
-
-# Panel B: AEV volume curves
-axB = fig.add_subplot(gs[1])
+# Panel A: AEV volume curves
+axB = fig.add_subplot(gs[0])
 axB.plot(v_des, levels, 'k--', lw=1.5, label='Design (1960s)')
 axB.plot(v_srv, levels, 'C2-', lw=2.0, label='Survey Dec-2025')
-axB.plot(v_dem, levels, 'C0-', lw=2.0, label='Satellite DEM_B')
+axB.plot(v_dem, levels, 'C0-', lw=2.0, label='SAR reconstruction')
 axB.set_xlabel('Volume above floor (Mm³)')
 axB.set_ylabel('Water level (m ASL)')
 axB.set_title('Volume–elevation (AEV)')
 axB.grid(True, alpha=0.3); axB.legend(fontsize=8); axB.set_xlim(left=0)
 
-# Panel C: storage-loss capture bars
-axC = fig.add_subplot(gs[2])
+# Panel B: storage-loss capture bars
+axC = fig.add_subplot(gs[1])
 xs = np.arange(len(chg)); w = 0.38
 axC.bar(xs - w/2, chg.loss_true_Mm3, w, color='C2', label='True loss (design−survey)')
-axC.bar(xs + w/2, chg.loss_sar_Mm3,  w, color='C0', label='SAR loss (design−DEM)')
+axC.bar(xs + w/2, chg.loss_sar_Mm3,  w, color='C0', label='SAR loss (design − SAR)')
 for i, r in chg.iterrows():
     axC.text(i, max(r.loss_true_Mm3, r.loss_sar_Mm3) + 0.1,
              f"{r.capture_ratio*100:.0f}%", ha='center', fontsize=8)

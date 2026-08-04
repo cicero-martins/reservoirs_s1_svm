@@ -244,14 +244,17 @@ if panels:
                  fontsize=12, fontweight='bold')
     for i, (site, P) in enumerate(panels.items()):
         ax = fig.add_subplot(gs[i])
-        ax.plot(P['a_sar'], P['levels'], color='#6a1b9a', lw=2.2, label='SAR DEM')
-        ax.plot(P['a_pl'], P['levels'], color='#2e7d32', lw=2.2, ls='--', label='PlanetScope DEM')
+        # Area against volume, not area against level: the storage curve is what the
+        # reconstruction is actually used for, and plotting the two sensors' AEV in
+        # that space shows directly whether they would deliver the same volume.
+        ax.plot(P['a_sar'], P['v_sar'], color='#6a1b9a', lw=2.2, label='SAR DEM')
+        ax.plot(P['a_pl'], P['v_pl'], color='#2e7d32', lw=2.2, ls='--', label='PlanetScope DEM')
         r = df[df.reservoir == site].iloc[0]
         sub = f"vol {r.get('planet_vol_Mm3','?')}/{r.get('sar_vol_Mm3','?')} Mm³"
         if pd.notna(r.get('planet_vs_sar_rmse_m')):
             sub += f" · RMSE {r.planet_vs_sar_rmse_m} m"
         ax.set_title(f"{site} (A/P {P['ap']:.0f})\n{sub}", fontsize=9)
-        ax.set_xlabel('Area (ha)'); ax.set_ylabel('Water level (m ASL)')
+        ax.set_xlabel('Area (ha)'); ax.set_ylabel('Volume above floor (Mm$^3$)')
         ax.legend(fontsize=7); ax.grid(True, alpha=0.3); ax.set_xlim(left=0)
     fig.subplots_adjust(top=0.85)
     fig.savefig(OUT / 'planet_vs_sar.png', dpi=150, bbox_inches='tight')

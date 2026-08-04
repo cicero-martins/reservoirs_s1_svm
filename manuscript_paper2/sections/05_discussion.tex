@@ -2,9 +2,10 @@
 \label{sec:discussion}
 
 \subsection{Gauge-free, track-free storage}
-The water-level-substitution result (Section~\ref{sec:res_ladder}) shows that
-replacing the in-situ gauge with SWOT altimetry changes reconstructed storage by
-$\sim$6\% relative to field truth. Because SWOT observes by swath rather than along a
+The water-level-substitution result (Section~\ref{sec:res_hyps}) shows that
+replacing the in-situ gauge with SWOT altimetry changes reconstructed band storage by
+$6\%$ on average across the nine reservoirs, with a median of $2.4\%$; the mean is
+carried by Olivo ($28\%$), the lowest-A/P case in the set. Because SWOT observes by swath rather than along a
 nadir track, it removes the two constraints that keep small reservoirs off nadir
 altimetry's map: the need for a gauge, and the need for a satellite ground track to
 actually cross the water body. Notably, DAHITI could add these small reservoirs only
@@ -53,8 +54,8 @@ low-A/P reservoirs (Olivo, Ancipa, Nicoletti) show the largest apparent capacity
 losses in Section~\ref{sec:res_change} and, where an independent curve exists
 (Nicoletti), the widest gap between SAR and truth (Section~\ref{sec:res_curves}). The
 same signature appears in the cross-sensor comparison (Section~\ref{sec:res_xsensor}).
-The PlanetScope and SAR reconstructions agree to $1.3$--$1.7$~m at Pozzillo, Poma and
-Rosamarina but diverge ($8.5$~m, widening rather than narrowing once new PlanetScope
+The PlanetScope and SAR reconstructions agree to $1.25$--$1.72$~m at Pozzillo, Poma and
+Rosamarina but diverge ($8.05$~m, widening rather than narrowing once new PlanetScope
 acquisitions filled an archive gap there, see Section~\ref{sec:res_xsensor}) at the
 low-A/P Ancipa. Ancipa's SWOT water level is \emph{not} a further example of this degradation.
 Once three geometry-linked bad dates are excluded (Section~\ref{sec:res_ladder}), it
@@ -69,6 +70,26 @@ gap, and PlanetScope cross-sensor divergence) therefore converge on the same
 low-A/P reservoirs, so A/P offers an a-priori screen for where the fully remote
 pipeline can be trusted, though which \emph{specific} input degrades there is not
 automatic and must be checked reservoir by reservoir.
+
+Two of those signatures are worth reading together, because they say the same thing
+about the low-A/P reservoirs from opposite directions. Where the reconstructed
+volume--elevation curve sits left of \emph{both} the design and the updated curve at
+every level while those two stay close to each other (Section~\ref{sec:res_dem}), the
+displacement is more readily explained by an under-reconstructed DEM than by a basin
+that has genuinely lost that much storage, since a real loss would move the updated
+curve away from the design curve rather than leaving both behind. Ancipa makes the
+same point against a second sensor rather than against a curve, its optical
+reconstruction recovering $23.05$~\si{Mm^3} over essentially the band in which the SAR
+reconstruction finds $13.42$~\si{Mm^3} (Section~\ref{sec:res_xsensor}).
+
+The two reservoirs where the gauge-free curve does not beat the independent reference
+in the operational comparison, Nicoletti and Castello, are also those calibrated over
+the narrowest slice of their observed water-level range, and both over-estimate storage
+at low levels. A curve fitted mostly near full pool and then applied through a full
+drawdown would behave that way, and the requirement that a SAR acquisition coincide
+with a SWOT overpass within $\pm3$ days is what narrows the calibration range in the
+first place. That is a coverage limitation which a longer SWOT record should relax,
+rather than a defect of the gauge-free chain.
 
 \subsection{Systematic bias, and why we do not correct for it}
 The elevation-dependent bias (Section~\ref{sec:res_garcia}) is intrinsic to the

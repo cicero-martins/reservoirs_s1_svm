@@ -63,7 +63,10 @@ def band_vol(popt, hs):
 
 
 rows = []
-fig, axes = plt.subplots(3, 3, figsize=(14, 12))
+# 5x2 rather than 3x3: at 3x3 each panel was too small to read in print. The tenth
+# slot carries the legend shared by all nine panels, so no panel loses plot area to
+# an in-panel legend box repeating the same entries nine times.
+fig, axes = plt.subplots(5, 2, figsize=(13, 18))
 for ax, name in zip(axes.flat, RESERVOIRS):
     ap = bt.RESERVOIRS[name]['ap']
     fit_a, pairs_a = fit_production_curve(name)
@@ -102,13 +105,20 @@ for ax, name in zip(axes.flat, RESERVOIRS):
     ax.plot(m.power_law(hs, *fit_a), hs, color='#1565c0', lw=2.2, label='(a) gauge+SWOT-fallback')
     ax.plot(m.power_law(hs, *fit_b), hs, color='#8e24aa', lw=2.2, label='(b) SWOT-only (FRS)')
     if area_c is not None:
-        ax.plot(area_c(hs), hs, color='#2e7d32', lw=1.8, ls='--', label=f'(c) {c_label}')
-    ax.set_title(f'{name} (A/P {ap:.0f} m)', fontsize=9.5)
-    ax.set_xlabel('Area (ha)', fontsize=8); ax.set_ylabel('Water level (m ASL)', fontsize=8)
-    ax.tick_params(labelsize=7); ax.legend(fontsize=6.5); ax.grid(alpha=0.25)
+        # Generic label: the shared legend is built from one panel's handles, and (c) is an
+        # updated survey curve at seven reservoirs but the design curve at Ancipa and
+        # Pozzillo, so a per-panel label would mislabel two of the nine.
+        ax.plot(area_c(hs), hs, color='#2e7d32', lw=1.8, ls='--',
+                label='(c) best available reference')
+    ax.set_title(f'{name} (A/P {ap:.0f} m)', fontsize=12)
+    ax.set_xlabel('Area (ha)', fontsize=10); ax.set_ylabel('Water level (m ASL)', fontsize=10)
+    ax.tick_params(labelsize=9); ax.grid(alpha=0.25)
 
 fig.suptitle('Hypsometric curve: gauge+SWOT-fallback vs. SWOT-only (FRS) vs. best available reference',
              fontsize=12.5, fontweight='bold')
+_h, _l = axes.flat[0].get_legend_handles_labels()
+axes.flat[9].axis('off')
+axes.flat[9].legend(_h, _l, loc='center', fontsize=13, frameon=False)
 fig.tight_layout(rect=[0, 0, 1, 0.96])
 fig.savefig(OUT / 'hypsometry_comparison.png', dpi=160)
 plt.close(fig)

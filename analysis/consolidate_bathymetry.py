@@ -247,9 +247,12 @@ ax.plot([], [], 'D', color='#8a2d04', ms=8, label='Total loss incl. deep zone (f
 ax.set_xticks(x)
 ax.set_xticklabels([f'{r.reservoir}\nA/P {r.ap_m:.0f}' for _, r in df.iterrows()], fontsize=9)
 ax.set_ylabel('Capacity change vs design (%)   (negative = loss)')
-ax.set_title('Paper 2 — SAR-detected reservoir capacity loss and independent validation\n'
-             'Nine Sicilian reservoirs, Period B (2022–2026), ordered by A/P')
-ax.legend(loc='upper right', fontsize=8)
+ax.set_title('SAR-detected reservoir capacity loss and independent validation\n'
+             'Nine Sicilian reservoirs (2022–2026), ordered by A/P')
+# Legend below the axes: at 'upper right' it overlapped the bars for the low-A/P
+# reservoirs, which are exactly the ones the figure is about.
+ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), ncol=3, fontsize=9,
+          frameon=False)
 ax.grid(True, alpha=0.3, axis='y')
 fig.tight_layout()
 fig.savefig(OUT / 'bathymetry_change_summary.png', dpi=150, bbox_inches='tight')

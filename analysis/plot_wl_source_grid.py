@@ -54,7 +54,10 @@ def load_swot_series(res):
     return (swot + corr).rename('wl_swot') if corr and len(swot) else swot
 
 
-fig, axes = plt.subplots(3, 3, figsize=(14, 11), sharex=False)
+# 5x2 rather than 3x3: at 3x3 each panel was too small to read in print. The tenth
+# slot carries the legend shared by all nine panels, so no panel loses plot area to
+# an in-panel legend box repeating the same entries nine times.
+fig, axes = plt.subplots(5, 2, figsize=(13, 17), sharex=False)
 for ax, (name, ap) in zip(axes.flat, ORDER):
     cfg = m.CONFIGS[name]
     try:
@@ -118,12 +121,15 @@ for ax, (name, ap) in zip(axes.flat, ORDER):
     ax.tick_params(axis='x', labelrotation=30, labelsize=7)
     ax.tick_params(axis='y', labelsize=8)
     ax.grid(True, alpha=0.25)
-    ax.legend(fontsize=6.5, loc='best')
+    ax.tick_params(labelsize=9)
     if corr:
         ax.text(0.02, 0.02, f'datum corr. {corr:+.2f} m', transform=ax.transAxes,
                 fontsize=6.5, color='0.4', ha='left', va='bottom')
 
 fig.suptitle('Gauge vs SWOT water level, SWOT era (2023-07 onward) — cleaned', fontsize=13)
+_h, _l = axes.flat[0].get_legend_handles_labels()
+axes.flat[9].axis('off')
+axes.flat[9].legend(_h, _l, loc='center', fontsize=13, frameon=False)
 fig.tight_layout(rect=[0, 0, 1, 0.97])
 out = pathlib.Path('manuscript_paper2/figures/wl_source_grid.png')
 out.parent.mkdir(parents=True, exist_ok=True)

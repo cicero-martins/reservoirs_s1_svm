@@ -37,7 +37,10 @@ def sar_vol_curve(dem, mask, floor, top, n=60):
     return hs, vols
 
 
-fig, axes = plt.subplots(3, 3, figsize=(14, 11))
+# 5x2 rather than 3x3: at 3x3 each panel was too small to read in print. The tenth
+# slot carries the legend shared by all nine panels, so no panel loses plot area to
+# an in-panel legend box repeating the same entries nine times.
+fig, axes = plt.subplots(5, 2, figsize=(13, 17))
 for ax, (name, ap) in zip(axes.flat, ORDER):
     cfg = cb.RES[name]
     dem_path = OUT_DIR / f'dem_{name}_B.tif'
@@ -75,9 +78,12 @@ for ax, (name, ap) in zip(axes.flat, ORDER):
     ax.set_ylabel('Elevation (m)', fontsize=8)
     ax.tick_params(labelsize=7)
     ax.grid(True, alpha=0.25)
-    ax.legend(fontsize=7, loc='lower right')
+    ax.tick_params(labelsize=9)
 
 fig.suptitle('Reconstructed volume-elevation curves vs design and updated references', fontsize=13)
+_h, _l = axes.flat[0].get_legend_handles_labels()
+axes.flat[9].axis('off')
+axes.flat[9].legend(_h, _l, loc='center', fontsize=13, frameon=False)
 fig.tight_layout(rect=[0, 0, 1, 0.97])
 out = pathlib.Path('manuscript_paper2/figures/aev_grid.png')
 out.parent.mkdir(parents=True, exist_ok=True)

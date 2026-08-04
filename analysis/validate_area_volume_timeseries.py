@@ -78,7 +78,12 @@ AREA_SERIES = {
     'Poma':       ('validation_data/morphometric_analysis/shoreline_compactness/area_poma_2014-25.csv', 'date', 'value', 'dig-18', False),
     'Pozzillo':   ('validation_data/morphometric_analysis/shoreline_compactness/area_pozzillo_2014-25.csv', 'date', 'value', 'dig-19', False),
     'Rosamarina': ('validation_data/morphometric_analysis/shoreline_compactness/area_rosamarina_2014-25.csv', 'date', 'value', 'dig-22', False),
-    'Garcia':     ('validation_data/statistics/area_statistics/ee-chart_garcia2022-26.csv', 'data', 'areaLago_smoothed', 'dig-09', False),
+    # Garcia was the odd one out here, pointed at a 2022-2026 export (273 rows) while
+    # its full 2014-2026 series (569 rows) already existed in GEE_GlobalPilotV2a, the
+    # same source build_frs_dem.fit_swot_curve reads. That truncation was why its two
+    # curves appeared only from 2022 in Fig. opvol while every other reservoir ran from
+    # 2014. The full series is raw, so it takes the same smoothing as the rebuilt four.
+    'Garcia':     ('raw_data/GEE_GlobalPilotV2a/SAR_area_Garcia.csv', 'date', 'area_ha', 'dig-09', True),
     'Olivo':      ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Olivo.csv', 'date', 'area_ha', 'dig-15', True),
     'Nicoletti':  ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Nicoletti.csv', 'date', 'area_ha', 'dig-13', True),
     'Castello':   ('raw_data/exportSicilyExtended/GEE_SicilyExtended_VVotsu/SAR_area_Castello.csv', 'date', 'area_ha', 'dig-03', True),
@@ -237,7 +242,7 @@ merged_monthly = {}
 # the text width, so at \linewidth it overflowed the page and LaTeX clipped it from
 # Olivo down. Ordered by A/P, matching Figs. hyps/aevgrid.
 AP_ORDER = sorted(AREA_SERIES, key=lambda n: bt.RESERVOIRS[n]['ap'])
-fig, axes = plt.subplots(3, 3, figsize=(17, 10.5), sharex=False)
+fig, axes = plt.subplots(5, 2, figsize=(13, 18), sharex=False)
 
 for ax, name in zip(axes.flat, AP_ORDER):
     cod = AREA_SERIES[name][3]
@@ -295,16 +300,20 @@ for ax, name in zip(axes.flat, AP_ORDER):
     off_m = off_m[off_m.date >= '2014-01-01']
     ax.scatter(off_m.date, off_m.vol_official, s=4, color='#333333', zorder=5, label='Official record (monthly)')
     ax.set_xlim(left=pd.Timestamp('2014-01-01'))
-    ax.set_title(f'{name}  (FRS-curve coverage {coverage_pct:.0f}% of dates)', fontsize=10, loc='left')
-    ax.set_ylabel('Volume (Mm$^3$)', fontsize=8)
-    ax.tick_params(labelsize=7)
-    # 'best' (rather than a fixed corner) lets matplotlib place the legend where it
-    # overlaps the plotted lines least, panel by panel -- a fixed corner clipped
-    # through the curves on at least one reservoir every time this was regenerated.
-    ax.legend(fontsize=6.5, loc='best', framealpha=0.85)
+    ax.set_title(f"{name}   (A/P {bt.RESERVOIRS[name]['ap']:.0f} m, "
+                 f"FRS coverage {coverage_pct:.0f}%)", fontsize=12, loc='left')
+    ax.set_ylabel('Volume (Mm$^3$)', fontsize=10)
+    ax.tick_params(labelsize=9)
+    ax.grid(alpha=0.25)
 
+# One shared legend under the whole figure rather than nine per-panel legends: at
+# 3x3 the in-panel boxes ate a large share of each already-small axes and repeated
+# the same three entries nine times.
+_h, _l = axes.flat[0].get_legend_handles_labels()
+axes.flat[9].axis('off')
+axes.flat[9].legend(_h, _l, loc='center', fontsize=13, frameon=False)
 fig.tight_layout()
-fig.savefig(OUT / 'area_volume_timeseries.png', dpi=180)
+fig.savefig(OUT / 'area_volume_timeseries.png', dpi=180, bbox_inches='tight')
 plt.close(fig)
 
 summary = pd.DataFrame(rows)

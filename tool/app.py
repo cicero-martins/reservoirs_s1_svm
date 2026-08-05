@@ -286,16 +286,26 @@ with tab3d:
         # Continuous topo-bathymetry grid (bathymetry below the shoreline, real GLO-30
         # terrain above); gap-free, so no ragged edge / sawtooth in either mode.
         a, tbounds, nmax = tb['arr'], tb['bounds'], tb['maxwl']
+        ca = tb['carr']          # colour field: land never shaded as water (see topobathy)
         x3 = np.linspace(tbounds.left, tbounds.right, a.shape[1])
         y3 = np.linspace(tbounds.top, tbounds.bottom, a.shape[0])
     else:
         a, x3, y3, nmax = _closed_surface(dem['arr']), xs, ys, dem['top']
+        ca = a
     # one common elevation window across both water-level modes, so they are comparable
     vr = get_vrange(name)
     zlo, basin_hi, terr_hi = vr if vr else (float(np.nanmin(a)), nmax, float(np.nanmax(a)))
-    zhi = terr_hi if (show_terrain and tb is not None) else basin_hi   # basin view clips terrain
+    zhi = terr_hi if (show_terrain and tb is not None) else basin_hi
+    if tb is not None and not show_terrain:
+        # Basin-only view keeps the flat collar at the max shoreline. topobathy now lets
+        # the terrain run below that level so the terrain view can show the valley
+        # descending past the dam, but here the surface is cut at the shoreline anyway,
+        # and lifting the outside back onto it keeps this view's clean gap-free collar
+        # instead of a ragged, heavily aliased outline.
+        a = np.where(tb['mask'], a, np.maximum(a, tb['maxwl']))
     H2, W2 = (a.shape[0] // f) * f, (a.shape[1] // f) * f
     z = a[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))   # plain block-mean (no NaN)
+    zc = ca[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))
     xd = x3[:W2].reshape(W2 // f, f).mean(1); yd = y3[:H2].reshape(H2 // f, f).mean(1)
     # plotly drops surface vertices that fall outside zaxis.range, and anything sitting
     # exactly ON the bound goes with them, rendering as a transparent hole rather than a
@@ -309,11 +319,17 @@ with tab3d:
     # is, since clipping the terrain away is the point of that view. Colour bounds remain
     # (zlo, zhi) so the two modes stay directly comparable.
     span = max(zhi - zlo, 1e-6)
-    zax_lo = min(zlo, float(np.nanmin(z))) - 0.005 * span
-    zax_hi = max(zhi, float(np.nanmax(z))) + 0.005 * span if (show_terrain and tb is not None) else zhi
+    if show_terrain and tb is not None:
+        # follow the real terrain, which now descends past the dam instead of being
+        # flattened onto the reservoir's own water level
+        zax_lo = min(zlo, float(np.nanmin(z))) - 0.005 * span
+        zax_hi = max(zhi, float(np.nanmax(z))) + 0.005 * span
+    else:
+        zax_lo, zax_hi = zlo - 0.005 * span, zhi   # basin only, nothing above the shoreline
     fig = go.Figure(go.Surface(
-        z=z, x=xd, y=yd, colorscale=_topo_colorscale(zlo, zhi, nmax),
+        z=z, x=xd, y=yd, surfacecolor=zc, colorscale=_topo_colorscale(zlo, zhi, nmax),
         cmin=zlo, cmax=zhi, colorbar=dict(title='m ASL'),
+        hovertemplate='%{z:.1f} m<extra></extra>',
         lighting=_FLAT_LIGHTING, lightposition=_FLAT_LIGHTPOS))
     fig.update_layout(height=620, margin=dict(l=0, r=0, t=10, b=0),
                       scene=_scene3d(xd, yd, zax_lo, zax_hi, z_exag))

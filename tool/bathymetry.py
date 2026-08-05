@@ -125,9 +125,20 @@ def topobathy(name, period):
     maxwl = float(np.nanmax(Dg))
     rim = finD & ~binary_erosion(finD)
     offset = float(np.nanmedian(T[rim])) - maxwl       # align terrain to the shoreline
-    Ta = np.maximum(T - offset, maxwl)                 # terrain sits at/above the max shoreline
+    Ta = T - offset
+    # Geometry keeps the real terrain, including where it runs BELOW the max shoreline.
+    # It previously did np.maximum(Ta, maxwl), which flattened the whole valley
+    # downstream of the dam onto the reservoir's own top water level, an obviously
+    # unphysical plateau. The clamp was there only because colour is a function of
+    # elevation, so unclamped land under maxwl would be shaded with the water ramp. That
+    # is what 'carr' now handles: colour comes from a separate field in which land is
+    # floored just above the shoreline pin, so it always reads as land however low it
+    # actually sits, while 'arr' stays true to the terrain.
+    eps = 2e-3 * max(float(np.nanmax(Ta)) - float(np.nanmin(Dg)), 1e-6)
     merged = np.where(finD, Dg, Ta)
-    return dict(arr=merged, bounds=Tbounds, maxwl=maxwl, floor=float(np.nanmin(Dg)))
+    colour = np.where(finD, Dg, np.maximum(Ta, maxwl + eps))
+    return dict(arr=merged, carr=colour, mask=finD, bounds=Tbounds, maxwl=maxwl,
+                floor=float(np.nanmin(Dg)))
 
 
 def vertical_range(name):

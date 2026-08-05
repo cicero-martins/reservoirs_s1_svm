@@ -2,47 +2,62 @@
 \label{sec:intro}
 
 Reservoirs regulate water supply, irrigation, hydropower and flood risk
-\citep{Pokhrel2021}, and their operation depends on knowing how much water is stored as a
-function of level, i.e.\ the area--elevation--volume (AEV) relationship. That relationship
-is not static. Sediment delivered by the contributing basin accumulates on the reservoir
-floor, progressively reducing capacity, at a rate that has already cut global storage in
-large reservoirs by several per cent and is projected to outpace new construction
-\citep{Wisser2013}. Italy is a well-documented case, where half of fifty surveyed
-reservoirs are expected to reach half their design capacity by 2050 \citep{Patro2022}.
-Yet updating the AEV relationship requires a bathymetric survey, and in-situ lake and
-reservoir records worldwide are sparse, have if anything decreased in recent years, and,
-even where they exist, are often not freely available for strategic or commercial
-reasons \citep{BuskerEtAl2019, Zhang2026}. Between one survey and the next, a reservoir is
-managed with a stage record and whatever curve was last available, and any resulting
-over-estimation of storage typically goes unquantified.
+\citep{Pokhrel2021}, and their operation rests on knowing how much water is stored at a
+given level, the area--elevation--volume (AEV) relationship. That relationship decays as
+sediment delivered by the contributing basin settles on the reservoir floor and
+progressively consumes capacity, at rates that have already cut global storage in large
+reservoirs by several per cent and are projected to outpace new construction
+\citep{Wisser2013}; in Italy, half of fifty surveyed reservoirs are expected to have lost
+half their design capacity by 2050 \citep{Patro2022}. Recovering the true relationship
+means resurveying the bed, an operation costly enough that most reservoirs are surveyed
+once in a generation, if at all, and the in-situ records that might otherwise track the
+change are themselves sparse, declining, and frequently withheld for strategic or
+commercial reasons \citep{BuskerEtAl2019, Zhang2026}. Between surveys, a reservoir is
+therefore operated on a curve known to be wrong by an unknown amount.
 
-Satellite remote sensing offers a way to update this information without field
-campaigns, because two complementary and freely available signals together contain
-everything the AEV relationship requires. Satellite altimetry measures water-surface
-\emph{elevation}, from nadir radar missions, harmonised in databases such as DAHITI
-\citep{Schwatke2015}, to, since 2022, the wide-swath mission SWOT
-\citep{Biancamaria2016}. Synthetic Aperture Radar (SAR) measures water-surface
-\emph{area} directly and, unlike optical sensors, is not affected by cloud cover or
-solar illumination \citep{Torres2012, Mullissa2021}, a critical advantage in
-Mediterranean and tropical contexts where cloud contamination can severely reduce the
-temporal availability of optical observations \citep{Pekel2016}. SAR water detection is
-correspondingly well established, from operational flood mapping \citep{Martinis2015} to
-systematic surface-water monitoring \citep{Bioresita2018, PenaLuque2021}. The free,
-twice-weekly Sentinel-1 archive \citep{Torres2012}, processed at scale on platforms such
-as Google Earth Engine \citep{Gorelick2017}, delivers this signal with a reliability that
-a companion study shows can be predicted \emph{a priori} from shoreline geometry
-\citep{PaperOne}. Reservoir extent and storage have accordingly been mapped globally from
-space \citep{Lehner2011, Hao2024}, and combined satellite approaches are an active line of
-work \citep{BhatpuriaEtAl2024, ValerioEtAl2024, PengEtAl2025, McQuillan2025}. Optical imagery remains just as fundamental, though, since its failure
-modes (sun glint, turbidity, algae) are different from SAR's, giving an independent
-perspective on the same water surface. \citet{Schwatke2020} combined optical water masks
-with altimetry to reconstruct lake hypsometry, an approach made viable through
-cloud-free optical imagery and nadir altimetry. This
-raises a specific question. Can the same waterline-stacking principle be adapted to
-SAR-derived water masks and wide-swath altimetry, and with what accuracy?
+Satellite remote sensing can supply both ingredients the AEV relationship requires, and two
+recent developments make it possible to supply them continuously and without cost.
+Water-surface \emph{elevation} comes from satellite altimetry, from the nadir radar missions
+harmonised in databases such as DAHITI \citep{Schwatke2015} to, since 2022, the wide-swath
+mission SWOT \citep{Biancamaria2016}, which measures elevation across a swath rather than
+along a single ground track. Water-surface \emph{area} is mapped routinely from both optical
+and radar imagery, and the trade-off between them is documented. Optical sensors discriminate
+water through its distinctive spectral response and underpin the longest global surface-water
+records \citep{Pekel2016}, and they are the more accurate of the two per observation, but they
+observe only under cloud-free daylight and therefore less often \citep{PenaLuque2021}. SAR
+measures backscatter instead, which is largely unaffected by cloud cover and solar
+illumination \citep{Torres2012, Mullissa2021} though sensitive to wind-driven surface
+roughness \citep{McQuillan2025}, trading some per-scene accuracy for an acquisition that is
+essentially guaranteed. Reconstructing a curve favours that trade, because the method needs
+waterlines distributed across a drawdown rather than any single accurate outline, and in
+Mediterranean and tropical settings cloud cover decides whether the drawdown is sampled at
+all. SAR water detection is correspondingly well established, from operational flood mapping
+\citep{Martinis2015} to systematic surface-water monitoring \citep{Bioresita2018,
+PenaLuque2021}, and combining the two sensors is an active line of work
+\citep{ValerioEtAl2024, PengEtAl2025}. The free, twice-weekly Sentinel-1 archive
+\citep{Torres2012}, processed at scale on platforms such as Google Earth Engine
+\citep{Gorelick2017}, delivers this signal with a reliability that a companion study shows
+can be predicted \emph{a priori} from shoreline geometry \citep{PaperOne}.
 
-The idea we pursue, adapting \citet{Schwatke2020} to Sentinel-1 waterlines and SWOT, is
-that the shoreline exposed as a reservoir draws down forms a
+What remains unresolved is the curve itself. Global databases report a capacity for every
+large reservoir \citep{Lehner2011}, but it is the design figure carried from the dam's
+records, the very number sedimentation invalidates. Observation-based storage products
+largely track \emph{variations}, converting observed area into volume through a fitted or
+pre-existing hypsometry \citep{BuskerEtAl2019}, so a stale curve propagates into the storage
+estimate instead of being corrected by it. Where the curve is itself reconstructed, it is
+typically inferred from terrain rather than measured on the reservoir, globally from a model
+trained on the surrounding topography, to a mean absolute depth error near eight metres
+\citep{Hao2024}, or at basin scale by interpolating a digital elevation model beneath the
+observed extent \citep{BhatpuriaEtAl2024}. The alternative
+is to measure the basin from the reservoir's own shorelines. \citet{Schwatke2020} did this by
+stacking optical waterlines against nadir altimetry, which recovers the individual basin but
+requires cloud-free imagery and a ground track that happens to cross the reservoir. Those two
+requirements exclude the small, cloud-affected and off-track reservoirs where design curves
+are oldest and gauges scarcest. It is not known whether substituting SAR for optical and
+wide-swath for nadir altimetry lifts both requirements while still recovering a curve
+accurate enough to operate on, nor how such a curve stands against a field survey.
+
+The idea we pursue is that the shoreline exposed as a reservoir draws down forms a
 sequence of contour lines at known water levels. Stacking Sentinel-1 waterlines ordered
 by level reconstructs a digital elevation model (DEM) of the emerged basin, from which an
 updated AEV curve and a storage time series follow by integration. The water level needed
@@ -64,17 +79,13 @@ short, temporally consistent image window in which each reservoir traversed an
 unusually wide fraction of its observable elevation range, which we exploit with a
 water-level-targeted sampling strategy (Section~\ref{sec:methods}).
 
-This paper's main contribution is a SAR-based adaptation of \citet{Schwatke2020}'s
-waterline-stacking principle. It replaces optical imagery with Sentinel-1 water masks
-and a nadir ground track with SWOT altimetry, reconstructing updated bathymetry and
-storage for the SAR-observable, drawdown-exposed band of a reservoir without an in-situ
-gauge or altimetry track. We validate it at nine Sicilian reservoirs against a
+We validate the reconstruction at nine Sicilian reservoirs against a
 December-2025 echo-sounder survey, recent official bathymetric curves, a
 water-level-substitution experiment testing whether SWOT reproduces gauge-based and
-field-truth storage, and the water authority's own registered volume records. We further quantify what
-the method can and cannot see. This means how much of each reservoir's total storage the
-drawdown-exposed band represents, and how reconstruction reliability depends on
-shoreline geometry and drawdown amplitude. The full pipeline is released as open-source
+field-truth storage, and the water authority's own registered volume records. We further
+quantify what the method can and cannot see. This means how much of each reservoir's total
+storage the drawdown-exposed band represents, and how reconstruction reliability depends
+on shoreline geometry and drawdown amplitude. The full pipeline is released as open-source
 code, making both the method and its documented limits usable in practice.
 
 The remainder of the paper is organised as follows. Section~\ref{sec:data} describes the

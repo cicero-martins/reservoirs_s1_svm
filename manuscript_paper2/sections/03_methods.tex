@@ -49,8 +49,7 @@ is fixed to the highest observed shoreline, so the reconstruction is a closed,
 bathtub-shaped basin. Remaining gaps inside the footprint are filled by interpolation,
 and the whole DEM is smoothed with a Gaussian filter ($\sigma=2$~px, $=20$~m). The
 procedure is agnostic to the mask source. Any sequence of binary water masks with
-associated water levels stacks identically, which we exploit to cross-validate the
-reconstruction with an independent optical sensor (Section~\ref{sec:xsensor}). The DEM
+associated water levels stacks identically. The DEM
 reconstructs only the drawdown-\emph{exposed} band $[\,\text{floor},\text{max}\,]$; the
 permanently wet deep zone is not observed.
 
@@ -98,7 +97,7 @@ curves.
 \end{figure}
 
 \subsection{Validation of the reconstructed curves and bathymetry}
-\label{sec:xsensor}
+\label{sec:curvevalid}
 The reconstruction itself is then checked against two further independent references,
 both restricted to the SAR-observable band, the only part either reference and the
 reconstruction can be compared over. The DEM is compared to Garcia's echo-sounder
@@ -108,23 +107,6 @@ area--volume curve, the DEM's own band capacity change is compared to that curve
 band and total capacity change relative to the original design curve, so both figures
 are on the same footing (\% of design capacity) rather than one in area and one in
 volume.
-
-Because the reconstruction (Section~\ref{sec:dem}) is agnostic to the mask source, we
-additionally rebuild the bathymetry from PlanetScope 3~m optical water masks and
-compare it, pixel-wise and in AEV, to the Sentinel-1 reconstruction over four of the
-nine reservoirs (2022--2026). Water is delineated per scene by a
-normalised difference water index,
-$\mathrm{NDWI}=(\rho_\text{green}-\rho_\text{NIR})/(\rho_\text{green}+\rho_\text{NIR})$,
-thresholded per scene. As with the water-level substitution above, each site is
-labelled from one of two deliberately independent tiers, the in-situ gauge by default,
-or SWOT where the gauge is degenerate over the optical window (chosen automatically
-from the gauge's interquartile range over the mask dates, $<0.5$~m indicating a stuck
-sensor), to avoid mixing reference levels within a single reconstruction. This provides an
-independent, higher-resolution optical check and, for \emph{Ancipa} and
-\emph{Pozzillo} (which lack a modern bathymetric survey), an independent near-truth.
-Because optical detection carries error modes orthogonal to SAR (surface algae and
-macrophytes, turbidity, sun glint), agreement between the two reconstructions is
-strong evidence that neither is dominated by sensor-specific error.
 
 Capacity change relative to the design curve is quantified two ways. The \emph{band}
 change is measured relative to the DEM floor, that is over the SAR-observable exposed

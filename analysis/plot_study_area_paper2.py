@@ -98,7 +98,7 @@ handles += [Line2D([0], [0], marker="*", ls="", mfc="#888", mec="white", ms=15,
             Line2D([0], [0], marker="D", ls="", mfc="#888", mec="white", ms=7,
                    label="Updated official curve"),
             Line2D([0], [0], marker="o", ls="", mfc="#888", mec="white", ms=9,
-                   label="Cross-sensor check only")]
+                   label="Design curve only")]
 ax.legend(handles=handles, loc="lower left", fontsize=8, framealpha=0.9, ncol=1)
 ax.text(0.005, -0.13, "A/P classes: Low < %d m · Medium %d–%d m · High ≥ %d m. "
         "Basemap: FAO GAUL." % (LOW_MAX, LOW_MAX, HIGH_MIN, HIGH_MIN),

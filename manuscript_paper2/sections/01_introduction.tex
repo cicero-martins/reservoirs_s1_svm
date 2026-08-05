@@ -1,15 +1,19 @@
 \section{Introduction}
 \label{sec:intro}
 
-Reservoirs regulate water supply, irrigation, hydropower and flood risk, and their
-operation depends on knowing how much water is stored as a function of level, i.e.\ the
-area--elevation--volume (AEV) relationship. That relationship is not static. Sediment
-delivered by the contributing basin accumulates on the reservoir floor, progressively
-reducing capacity. Yet updating it requires a bathymetric survey, and in-situ lake and
+Reservoirs regulate water supply, irrigation, hydropower and flood risk
+\citep{Pokhrel2021}, and their operation depends on knowing how much water is stored as a
+function of level, i.e.\ the area--elevation--volume (AEV) relationship. That relationship
+is not static. Sediment delivered by the contributing basin accumulates on the reservoir
+floor, progressively reducing capacity, at a rate that has already cut global storage in
+large reservoirs by several per cent and is projected to outpace new construction
+\citep{Wisser2013}. Italy is a well-documented case, where half of fifty surveyed
+reservoirs are expected to reach half their design capacity by 2050 \citep{Patro2022}.
+Yet updating the AEV relationship requires a bathymetric survey, and in-situ lake and
 reservoir records worldwide are sparse, have if anything decreased in recent years, and,
 even where they exist, are often not freely available for strategic or commercial
-reasons \citep{BuskerEtAl2019}. Between one survey and the next, a reservoir is managed
-with a stage record and whatever curve was last available, and any resulting
+reasons \citep{BuskerEtAl2019, Zhang2026}. Between one survey and the next, a reservoir is
+managed with a stage record and whatever curve was last available, and any resulting
 over-estimation of storage typically goes unquantified.
 
 Satellite remote sensing offers a way to update this information without field
@@ -21,10 +25,15 @@ everything the AEV relationship requires. Satellite altimetry measures water-sur
 \emph{area} directly and, unlike optical sensors, is not affected by cloud cover or
 solar illumination \citep{Torres2012, Mullissa2021}, a critical advantage in
 Mediterranean and tropical contexts where cloud contamination can severely reduce the
-temporal availability of optical observations \citep{Pekel2016}. The free, twice-weekly
-Sentinel-1 archive \citep{Torres2012} delivers this signal with a reliability that a
-companion study shows can be predicted \emph{a priori} from shoreline geometry
-\citep{PaperOne}. Optical imagery remains just as fundamental, though, since its failure
+temporal availability of optical observations \citep{Pekel2016}. SAR water detection is
+correspondingly well established, from operational flood mapping \citep{Martinis2015} to
+systematic surface-water monitoring \citep{Bioresita2018, PenaLuque2021}. The free,
+twice-weekly Sentinel-1 archive \citep{Torres2012}, processed at scale on platforms such
+as Google Earth Engine \citep{Gorelick2017}, delivers this signal with a reliability that
+a companion study shows can be predicted \emph{a priori} from shoreline geometry
+\citep{PaperOne}. Reservoir extent and storage have accordingly been mapped globally from
+space \citep{Lehner2011, Hao2024}, and combined satellite approaches are an active line of
+work \citep{BhatpuriaEtAl2024, ValerioEtAl2024, PengEtAl2025, McQuillan2025}. Optical imagery remains just as fundamental, though, since its failure
 modes (sun glint, turbidity, algae) are different from SAR's, giving an independent
 perspective on the same water surface. \citet{Schwatke2020} combined optical water masks
 with altimetry to reconstruct lake hypsometry, an approach made viable through
@@ -46,9 +55,11 @@ track happens to cross; SWOT's wide swath observes a reservoir regardless of tra
 addressing precisely the ungauged, track-missed case that orbit geometry alone excludes
 from nadir altimetry.
 
-As one of the regions potentially most affected by drought in recent years, we use a
-shared regional drought-to-refill event across Sicily in 2025--2026, in which most of
-our study reservoirs drew down sharply and refilled within a few months. This produced a
+The Mediterranean is among the regions where drought is projected to intensify most
+\citep{IPCC2023, Cammalleri2022, Bevacqua2023}, and Italian water resources are already
+under documented pressure \citep{ISPRA2023}. We exploit a shared regional
+drought-to-refill event across Sicily in 2025--2026, in which most of our study
+reservoirs drew down sharply and refilled within a few months. This produced a
 short, temporally consistent image window in which each reservoir traversed an
 unusually wide fraction of its observable elevation range, which we exploit with a
 water-level-targeted sampling strategy (Section~\ref{sec:methods}).
@@ -60,21 +71,20 @@ storage for the SAR-observable, drawdown-exposed band of a reservoir without an 
 gauge or altimetry track. We validate it at nine Sicilian reservoirs against a
 December-2025 echo-sounder survey, recent official bathymetric curves, a
 water-level-substitution experiment testing whether SWOT reproduces gauge-based and
-field-truth storage, and an independent PlanetScope optical reconstruction. We further quantify what
+field-truth storage, and the water authority's own registered volume records. We further quantify what
 the method can and cannot see. This means how much of each reservoir's total storage the
 drawdown-exposed band represents, and how reconstruction reliability depends on
 shoreline geometry and drawdown amplitude. The full pipeline is released as open-source
 code, making both the method and its documented limits usable in practice.
 
-The remainder of the paper is organised as follows. Section~\ref{sec:data} describes
-the nine Sicilian reservoirs and the SAR, water-level, ground-truth and optical data
-used. Section~\ref{sec:methods} defines the reconstruction method. It covers how the SAR
-area and water-level inputs are validated, the waterline-stacking DEM and scalar
-hypsometry, the approach used to validate the resulting curves and bathymetry, the
-capacity-change and uncertainty metrics, and how the method is applied in the released
-code. Section~\ref{sec:results} reports
-the reconstructed bathymetry and capacity change, the field and reference-curve
-validation, the water-level-substitution and cross-sensor results, and the uncertainty
-budget. Section~\ref{sec:discussion} discusses the gauge-free, track-free implications,
-the observability envelope, the role of shoreline geometry, and current limitations.
+The remainder of the paper is organised as follows. Section~\ref{sec:data} describes the
+nine Sicilian reservoirs and the SAR, water-level and ground-truth data used.
+Section~\ref{sec:methods} defines the reconstruction method, covering how the SAR area and
+water-level inputs are validated, the waterline-stacking DEM and scalar hypsometry, the
+approach used to validate the resulting curves and bathymetry, the capacity-change metrics,
+and how the method is applied in the released code. Section~\ref{sec:results} reports the
+validated inputs, the reconstructed bathymetry and capacity change, and the validation
+against the echo-sounder survey, the official curves and the registered volume records.
+Section~\ref{sec:discussion} discusses the gauge-free, track-free implications, the
+observability envelope, the role of shoreline geometry, and current limitations.
 Section~\ref{sec:conclusions} summarises the main conclusions.

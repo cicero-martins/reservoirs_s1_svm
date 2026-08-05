@@ -12,9 +12,7 @@ this explicit rather than leaving it implicit. \emph{Garcia} has a genuine field
 (\emph{Poma}, \emph{Rosamarina}, \emph{Arancio}, \emph{Castello}, \emph{Olivo} and
 \emph{Nicoletti}) have a recent official area--volume curve from the regional water
 authority, our secondary reference. \emph{Ancipa} and \emph{Pozzillo} lack any modern
-survey or curve and rely solely on the PlanetScope cross-sensor check
-(Section~\ref{sec:xsensor}), which also covers Poma and Rosamarina as a second,
-independent line of evidence.
+survey or curve, so for them the original design curve is the only reference available.
 
 \begin{table}[htbp]\centering\small
 \caption{Validation coverage by reservoir, ordered by shoreline area-to-perimeter
@@ -23,19 +21,19 @@ has a 2022--2026 SAR-reconstructed DEM; ``ground truth'' distinguishes a control
 field survey from an official curve of undocumented survey methodology
 (Section~\ref{sec:data} below).}
 \label{tab:coverage}
-\begin{tabular}{lrll}
+\begin{tabular}{lrl}
 \toprule
-Reservoir & A/P (m) & Independent reference & PlanetScope \\
+Reservoir & A/P (m) & Independent reference \\
 \midrule
-Olivo       &  50.7 & Updated curve            & --- \\
-Ancipa      &  90.5 & ---                       & \checkmark \\
-Nicoletti   & 119.7 & Updated curve             & --- \\
-Castello    & 126.7 & Updated curve            & --- \\
-Garcia      & 167.7 & Echo-sounder survey (ground truth) & --- \\
-Arancio     & 182.2 & Updated curve            & --- \\
-Rosamarina  & 187.4 & Updated curve (2025 survey) & \checkmark \\
-Poma        & 190.1 & Updated curve            & \checkmark \\
-Pozzillo    & 240.5 & ---                       & \checkmark \\
+Olivo       &  50.7 & Updated curve \\
+Ancipa      &  90.5 & Design curve only \\
+Nicoletti   & 119.7 & Updated curve \\
+Castello    & 126.7 & Updated curve \\
+Garcia      & 167.7 & Echo-sounder survey (ground truth) \\
+Arancio     & 182.2 & Updated curve \\
+Rosamarina  & 187.4 & Updated curve (2025 survey) \\
+Poma        & 190.1 & Updated curve \\
+Pozzillo    & 240.5 & Design curve only \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -47,7 +45,7 @@ Pozzillo    & 240.5 & ---                       & \checkmark \\
   reference available: star = field-survey ground truth (Garcia echo-sounder);
   diamond = updated official area--volume curve, our secondary reference (Poma,
   Rosamarina, Arancio, Castello, Olivo, Nicoletti); circle = no modern survey or curve,
-  cross-sensor check only (Ancipa, Pozzillo).}
+  compared against the original design curve only (Ancipa, Pozzillo).}
   \label{fig:studyarea}
 \end{figure}
 
@@ -56,8 +54,14 @@ Water-surface area time series (2014--2026) are derived from the Sentinel-1 C-ba
 collection in Google Earth Engine using the scene-adaptive classification of
 \citet{PaperOne}, one area value per acquisition on a single automatically selected
 orbit, with partial swath coverage filled by mosaicking scenes within $\pm6$~days.
-For the spatial DEM the same pipeline exports binary water masks (10~m,
-EPSG:32633).
+Two products follow from this, used for different purposes. The \emph{time series} carries
+\citet{PaperOne}'s published post-processing, outlier rejection followed by LOWESS
+smoothing \citep{Cleveland1979}, which suppresses per-scene classification noise rather
+than real volume change.
+The \emph{calibration pairs} that fit the hypsometric curves instead use raw
+per-acquisition areas, since each is matched to an individual SWOT overpass and smoothing
+would blend neighbouring dates into pairs never actually observed. For the spatial DEM the
+same pipeline exports binary water masks (10~m, EPSG:32633).
 
 \subsection{Water level: gauge and SWOT}
 Two water-level sources are used. \emph{In-situ gauges} from the regional
@@ -81,12 +85,3 @@ The design AEV curves, which predate each reservoir's operational history and ar
 uniformly from the 1960s, serve as the pre-existing baseline against which the
 SAR-observable \emph{band} capacity change is compared. The corresponding \emph{total}
 change is not directly measured (Section~\ref{sec:capmetrics}).
-
-\subsection{PlanetScope optical imagery}
-For an independent cross-sensor check we use PlanetScope surface-reflectance imagery
-(3~m, four-band) over four of the nine reservoirs (Poma, Rosamarina, Pozzillo and
-Ancipa), 2022--2026. Water is classified per scene by an NDWI threshold selected per
-image, giving $132$ optical water masks, of which the $115$ falling within $\pm7$~days
-of a water-level observation feed the same reconstruction as the SAR masks
-(Section~\ref{sec:xsensor}). PlanetScope is the only modern independent reference
-available for Pozzillo and Ancipa.

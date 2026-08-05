@@ -12,9 +12,9 @@ actually cross the water body. Notably, DAHITI could add these small reservoirs 
 once SWOT existed, so wide-swath altimetry is what makes them observable at all.
 Rosamarina makes the case concretely. Its gauge suffered two separate stuck episodes
 at two different flat readings, spanning ${\sim}19$ months combined across
-2024--2026, and only the SWOT level, corroborated by the optical masks, recovered the
-true drawdown; without it, the optical reconstruction collapsed to a flat, unphysical
-surface (Section~\ref{sec:res_xsensor}). Pozzillo makes a related but distinct case.
+2024--2026, and only the SWOT level recovered the true drawdown; without it, the
+reconstruction over that window collapsed to a flat, unphysical surface
+(Section~\ref{sec:res_inputvalid}). Pozzillo makes a related but distinct case.
 Its gauge combines a 13-month frozen episode of its own with a persistent
 range-compression across the rest of the record, and independently-measured SAR area
 corroborates SWOT's wider water-level range over the gauge's narrower one throughout
@@ -53,23 +53,15 @@ The area-to-perimeter ratio that predicts SAR water-area reliability
 low-A/P reservoirs (Olivo, Ancipa, Nicoletti) show the largest apparent capacity
 losses in Section~\ref{sec:res_change} and, where an independent curve exists
 (Nicoletti), the widest gap between SAR and truth (Section~\ref{sec:res_curves}). The
-same signature appears in the cross-sensor comparison (Section~\ref{sec:res_xsensor}).
-The PlanetScope and SAR reconstructions agree to $1.25$--$1.72$~m at Pozzillo, Poma and
-Rosamarina but diverge ($8.05$~m, widening rather than narrowing once new PlanetScope
-acquisitions filled an archive gap there, see Section~\ref{sec:res_xsensor}) at the
-low-A/P Ancipa. Ancipa's SWOT water level is \emph{not} a further example of this degradation.
+Ancipa's SWOT water level is \emph{not} a further example of this degradation.
 Once three geometry-linked bad dates are excluded (Section~\ref{sec:res_ladder}), it
 agrees with the gauge as well as anywhere in the study, a reminder that low A/P
 degrades some remote-sensing signals at a given reservoir but not necessarily all of
-them, and each source needs its own check rather than a blanket presumption. The
-cross-sensor divergence itself is unlikely to be a classifier artifact, since every
-reservoir here is masked with the same classifier (Section~\ref{sec:data}), though we
-have not tested an alternative classifier specifically at Ancipa.
-Multiple independent lines of evidence (apparent capacity loss, curve validation
-gap, and PlanetScope cross-sensor divergence) therefore converge on the same
-low-A/P reservoirs, so A/P offers an a-priori screen for where the fully remote
-pipeline can be trusted, though which \emph{specific} input degrades there is not
-automatic and must be checked reservoir by reservoir.
+them, and each source needs its own check rather than a blanket presumption.
+Independent lines of evidence, the apparent capacity loss and the curve-validation gap,
+therefore converge on the same low-A/P reservoirs, so A/P offers an a-priori screen for
+where the fully remote pipeline can be trusted, though which \emph{specific} input
+degrades there is not automatic and must be checked reservoir by reservoir.
 
 Two of those signatures are worth reading together, because they say the same thing
 about the low-A/P reservoirs from opposite directions. Where the reconstructed
@@ -77,19 +69,14 @@ volume--elevation curve sits left of \emph{both} the design and the updated curv
 every level while those two stay close to each other (Section~\ref{sec:res_dem}), the
 displacement is more readily explained by an under-reconstructed DEM than by a basin
 that has genuinely lost that much storage, since a real loss would move the updated
-curve away from the design curve rather than leaving both behind. Ancipa makes the
-same point against a second sensor rather than against a curve, its optical
-reconstruction recovering $23.05$~\si{Mm^3} over essentially the band in which the SAR
-reconstruction finds $13.42$~\si{Mm^3} (Section~\ref{sec:res_xsensor}).
+curve away from the design curve rather than leaving both behind.
 
-The two reservoirs where the gauge-free curve does not beat the independent reference
-in the operational comparison, Nicoletti and Castello, are also those calibrated over
-the narrowest slice of their observed water-level range, and both over-estimate storage
-at low levels. A curve fitted mostly near full pool and then applied through a full
-drawdown would behave that way, and the requirement that a SAR acquisition coincide
-with a SWOT overpass within $\pm3$ days is what narrows the calibration range in the
-first place. That is a coverage limitation which a longer SWOT record should relax,
-rather than a defect of the gauge-free chain.
+Nicoletti and Castello are the reservoirs whose hypsometric curve is calibrated over the
+narrowest slice of their observed water-level range, and the requirement that a SAR
+acquisition coincide with a SWOT overpass within $\pm3$ days is what narrows it. A curve
+fitted mostly near full pool and then applied through a full drawdown will misstate
+storage at low levels, so this is a coverage limitation that a longer SWOT record should
+relax rather than a defect of the gauge-free chain.
 
 \subsection{Systematic bias, and why we do not correct for it}
 The elevation-dependent bias (Section~\ref{sec:res_garcia}) is intrinsic to the
@@ -101,14 +88,26 @@ rather than one more confirmatory case, would be needed before any part of this 
 could be treated as reservoir-general.
 
 \subsection{Limitations and future work}
-Three limitations bound the present results. First, the SWOT record begins only in mid
+Four limitations bound the present results. First, the SWOT record begins only in mid
 2023, so the fully-remote storage series is still short; this will lengthen with the
 mission. Second, the validation sample is small (nine reservoirs, one echo-sounder
-survey), although the cross-sensor and water-level-substitution experiments partly
-compensate by adding independent evidence on the same reservoirs. Third, and most
-fundamental, the deep permanently-wet zone is never exposed and so is invisible to any
-waterline method; where a modern survey exists it can be added to close the AEV curve,
-but in general the SAR estimate remains a lower bound on total capacity loss.
+survey), although the water-level-substitution experiment partly compensates by adding
+independent evidence on the same reservoirs. Third, and most fundamental, the deep
+permanently-wet zone is never exposed and so is invisible to any waterline method; where a
+modern survey exists it can be added to close the AEV curve, but in general the SAR
+estimate remains a lower bound on total capacity loss.
+
+Fourth, the operational comparison of Section~\ref{sec:res_voltime} is a test of internal
+consistency rather than of absolute accuracy. Inverting the independent reference curves at
+the registered volumes shows the SAR area falling $10$--$25\%$ short of the area those
+curves require, at four of the five reservoirs where the check is possible. Some of that
+gap is footprint rather than classification, since Ancipa's reconstruction ceiling
+($69.5$~ha) sits below the maximum its own SAR record reaches ($89.3$~ha). Because the
+hypsometric curve is fitted on these same areas, it absorbs whatever bias they carry.
+Agreement with the operational record therefore shows the gauge-free chain is self-consistent
+end to end, but cannot by itself separate an error in the curve from an error in the area
+driving it. Disentangling the two needs an area reference independent of our own
+classification, which the echo-sounder survey supplies at one reservoir only.
 
 Three avenues would strengthen the validation directly. A field campaign combining an
 uncrewed surface vehicle (echo-sounding the deep zone) with drone photogrammetry (the

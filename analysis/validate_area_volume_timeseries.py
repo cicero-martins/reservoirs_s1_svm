@@ -187,6 +187,14 @@ def current_curve_area_to_vol(name):
     return f, float(areas.min()), float(areas.max())
 
 
+# The hypsometric curve is calibrated on SWOT-era pairs (2023-07 onward) and the
+# reconstruction covers 2022-2026, so scoring it against the pre-2022 record would apply
+# one static curve across a period in which, by this paper's own premise, capacity was
+# changing through sedimentation. Scoring is therefore restricted to the reconstruction
+# window; earlier years remain plotted, faded, as context only.
+SCORE_FROM = pd.Timestamp('2022-01-01')
+
+
 def load_area_series(name):
     fp, dcol, acol, _, needs_smoothing = AREA_SERIES[name]
     df = pd.read_csv(REPO / fp)
@@ -248,17 +256,10 @@ for ax, name in zip(axes.flat, AP_ORDER):
     cod = AREA_SERIES[name][3]
     area_df = load_area_series(name)
     f_frs, area_min, area_max = frs_curve(name)
-    f_cur, cur_area_min, cur_area_max = current_curve_area_to_vol(name)
     area_df['vol_frs'] = f_frs(area_df.area_ha)
-    area_df['vol_current'] = f_cur(area_df.area_ha) if f_cur is not None else np.nan
     area_df['in_domain'] = area_df.area_ha.between(area_min, area_max)
-    # Scored separately from the FRS domain: the independent reference curve's
-    # own observed range can be materially narrower (Garcia's echosounder survey
-    # tops out at 327 ha vs 381 ha in the full SAR record) -- extrapolating past
-    # it blows up rather than giving a genuine estimate.
-    area_df['in_domain_current'] = area_df.area_ha.between(cur_area_min, cur_area_max) \
-        if f_cur is not None else False
-    coverage_pct = round(100 * area_df.in_domain.mean(), 1)
+    area_df['in_window'] = area_df.date >= SCORE_FROM
+    coverage_pct = round(100 * area_df.in_domain[area_df.in_window].mean(), 1)
 
     for kind, tol_days in (('monthly', 15), ('daily', 2)):
         off = load_official(cod, kind)
@@ -267,32 +268,25 @@ for ax, name in zip(axes.flat, AP_ORDER):
         merged = pd.merge_asof(area_df.sort_values('date'), off, on='date',
                                 tolerance=pd.Timedelta(days=tol_days),
                                 direction='nearest').dropna(subset=['vol_official'])
-        in_dom = merged[merged.in_domain]
-        s_frs = score(in_dom.vol_frs.values, in_dom.vol_official.values)
-        in_dom_cur = merged[merged.in_domain_current]
-        s_cur = score(in_dom_cur.vol_current.values, in_dom_cur.vol_official.values) if f_cur is not None \
-            else dict(n=0, rmse=np.nan, bias=np.nan, r=np.nan)
+        in_dom = merged[merged.in_domain & merged.in_window]
         rows.append(dict(reservoir=name, record=kind, coverage_pct=coverage_pct,
-                          **{f'frs_{k}': v for k, v in s_frs.items()},
-                          **{f'current_{k}': v for k, v in s_cur.items()}))
+                          **score(in_dom.vol_frs.values, in_dom.vol_official.values)))
         if kind == 'monthly':
             merged_monthly[name] = merged
 
     area_df.to_csv(OUT / f'area_volume_{name}.csv', index=False)
 
-    # In-domain (observed band) plotted solid; out-of-domain (extrapolated
-    # beyond what the reconstruction ever saw) plotted faint/dotted, same
-    # convention as the unobserved-deep-zone lines elsewhere in the paper.
-    in_seg = area_df.where(area_df.in_domain)
-    out_seg = area_df.where(~area_df.in_domain)
-    ax.plot(area_df.date, out_seg.vol_frs, color='#8e24aa', lw=1.0, ls=':', alpha=0.5)
-    ax.plot(area_df.date, in_seg.vol_frs, color='#8e24aa', lw=1.6, label='Volume via FRS (SWOT-only) curve')
-    if f_cur is not None:
-        cur_in_seg = area_df.where(area_df.in_domain_current)
-        cur_out_seg = area_df.where(~area_df.in_domain_current)
-        ax.plot(area_df.date, cur_out_seg.vol_current, color='#2e7d32', lw=0.8, ls=':', alpha=0.5)
-        ax.plot(area_df.date, cur_in_seg.vol_current, color='#2e7d32', lw=1.2, ls='--',
-                 label='Volume via current-best curve')
+    # Solid where the curve is both inside its observed area band and inside the
+    # reconstruction window, which is what gets scored. Everything else is faded: the
+    # pre-2022 years are shown for context only, since applying one static curve there
+    # would contradict the sedimentation premise the paper is testing.
+    scored_seg = area_df.where(area_df.in_domain & area_df.in_window)
+    context_seg = area_df.where(~(area_df.in_domain & area_df.in_window))
+    ax.plot(area_df.date, context_seg.vol_frs, color='#8e24aa', lw=1.0, ls=':', alpha=0.45)
+    ax.plot(area_df.date, scored_seg.vol_frs, color='#8e24aa', lw=1.8,
+            label='Reconstructed volume (scored window)')
+    ax.axvspan(pd.Timestamp('2014-01-01'), SCORE_FROM, color='0.90', zorder=0,
+               label='Outside reconstruction window')
     # Pre-2014 official monthly records predate every curve/area series plotted here
     # (SAR area starts 2014-2015 at the earliest) and only add empty-looking years of
     # dots the plotted lines never reach -- drop them rather than pad the x-axis.
@@ -301,7 +295,7 @@ for ax, name in zip(axes.flat, AP_ORDER):
     ax.scatter(off_m.date, off_m.vol_official, s=4, color='#333333', zorder=5, label='Official record (monthly)')
     ax.set_xlim(left=pd.Timestamp('2014-01-01'))
     ax.set_title(f"{name}   (A/P {bt.RESERVOIRS[name]['ap']:.0f} m, "
-                 f"FRS coverage {coverage_pct:.0f}%)", fontsize=12, loc='left')
+                 f"coverage {coverage_pct:.0f}%)", fontsize=12, loc='left')
     ax.set_ylabel('Volume (Mm$^3$)', fontsize=10)
     ax.tick_params(labelsize=9)
     ax.grid(alpha=0.25)

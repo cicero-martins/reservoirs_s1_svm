@@ -89,8 +89,14 @@ def get_dem(name, period):
 def get_capacity(name, period='B'):
     return bt.capacity_change(name, period)
 
+# Bump whenever bt.topobathy's return shape changes. @st.cache_data keys on the decorated
+# function's own code and its arguments, never on the code it calls, so a dict cached by an
+# earlier build outlives a redeploy and comes back missing whatever keys were added since
+# (this shipped a KeyError on 'carr'). Passing the version as an argument moves the cache.
+_TOPOBATHY_SCHEMA = 2
+
 @st.cache_data(show_spinner=False)
-def get_topobathy(name, period):
+def get_topobathy(name, period, schema):
     return bt.topobathy(name, period)
 
 @st.cache_data(show_spinner=False)
@@ -281,12 +287,14 @@ with tab2d:
 
 with tab3d:
     f = downsample
-    tb = get_topobathy(name, dem_period) if bt.has_terrain(name) else None
+    tb = get_topobathy(name, dem_period, _TOPOBATHY_SCHEMA) if bt.has_terrain(name) else None
     if tb is not None:
         # Continuous topo-bathymetry grid (bathymetry below the shoreline, real GLO-30
         # terrain above); gap-free, so no ragged edge / sawtooth in either mode.
         a, tbounds, nmax = tb['arr'], tb['bounds'], tb['maxwl']
-        ca = tb['carr']          # colour field: land never shaded as water (see topobathy)
+        # .get so a dict cached by an older build degrades to the previous look instead
+        # of raising; in that build the terrain was already clamped inside 'arr'.
+        ca = tb.get('carr', a)   # colour field: land never shaded as water (see topobathy)
         x3 = np.linspace(tbounds.left, tbounds.right, a.shape[1])
         y3 = np.linspace(tbounds.top, tbounds.bottom, a.shape[0])
     else:
@@ -302,7 +310,8 @@ with tab3d:
         # descending past the dam, but here the surface is cut at the shoreline anyway,
         # and lifting the outside back onto it keeps this view's clean gap-free collar
         # instead of a ragged, heavily aliased outline.
-        a = np.where(tb['mask'], a, np.maximum(a, tb['maxwl']))
+        if tb.get('mask') is not None:
+            a = np.where(tb['mask'], a, np.maximum(a, tb['maxwl']))
     H2, W2 = (a.shape[0] // f) * f, (a.shape[1] // f) * f
     z = a[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))   # plain block-mean (no NaN)
     zc = ca[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))

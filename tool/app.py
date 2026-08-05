@@ -297,12 +297,26 @@ with tab3d:
     H2, W2 = (a.shape[0] // f) * f, (a.shape[1] // f) * f
     z = a[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))   # plain block-mean (no NaN)
     xd = x3[:W2].reshape(W2 // f, f).mean(1); yd = y3[:H2].reshape(H2 // f, f).mean(1)
+    # plotly drops surface vertices that fall outside zaxis.range, and anything sitting
+    # exactly ON the bound goes with them, rendering as a transparent hole rather than a
+    # clipped edge. zlo is the floor shared by both water-level modes, so in whichever
+    # mode owns the lower floor the deepest pixels land exactly on it (measured delta is
+    # 0.0 for one mode of every one of the nine reservoirs) and the lake bottom drops
+    # out. That is why it struck some 3D views and not others. Pad the floor to keep the
+    # deepest water drawn. The ceiling is lifted only when terrain is shown, because
+    # terr_hi is read off the raw tile before the shoreline offset is applied and
+    # Ancipa's peaks end up above it; in the basin-only view the ceiling stays where it
+    # is, since clipping the terrain away is the point of that view. Colour bounds remain
+    # (zlo, zhi) so the two modes stay directly comparable.
+    span = max(zhi - zlo, 1e-6)
+    zax_lo = min(zlo, float(np.nanmin(z))) - 0.005 * span
+    zax_hi = max(zhi, float(np.nanmax(z))) + 0.005 * span if (show_terrain and tb is not None) else zhi
     fig = go.Figure(go.Surface(
         z=z, x=xd, y=yd, colorscale=_topo_colorscale(zlo, zhi, nmax),
         cmin=zlo, cmax=zhi, colorbar=dict(title='m ASL'),
         lighting=_FLAT_LIGHTING, lightposition=_FLAT_LIGHTPOS))
     fig.update_layout(height=620, margin=dict(l=0, r=0, t=10, b=0),
-                      scene=_scene3d(xd, yd, zlo, zhi, z_exag))
+                      scene=_scene3d(xd, yd, zax_lo, zax_hi, z_exag))
     st.plotly_chart(fig, width='stretch')
 
 with tabaev:

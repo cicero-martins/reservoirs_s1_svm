@@ -1,11 +1,11 @@
 """
 tool/bathymetry.py — data layer for the Paper-2 bathymetry explorer (Streamlit MVP).
 
-Loads the already-reconstructed Period-A/B satellite DEMs and the reference curves
-(design + updated survey) for all 9 Sicilian reservoirs, and derives AEV
-curves, capacity-change numbers and A-vs-B change maps. Pure functions, no UI —
-imported by tool/app.py. Reuses the same logic as analysis/consolidate_bathymetry.py
-so the tool and the paper report identical numbers.
+Loads the already-reconstructed 2022--2026 satellite DEMs and the reference curves
+(design + updated survey) for all 9 Sicilian reservoirs, and derives AEV curves and
+capacity-change numbers. Pure functions, no UI — imported by tool/app.py. Reuses the
+same logic as analysis/consolidate_bathymetry.py so the tool and the paper report
+identical numbers.
 """
 
 import pathlib, glob
@@ -19,7 +19,6 @@ from scipy.signal import savgol_filter
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 DEM_DIR      = REPO / 'analysis' / 'schwatke_output'
-PLANET_DIR   = DEM_DIR / 'planet'
 TERRAIN_DIR  = DEM_DIR / 'terrain'
 CURVE_BUNDLE = REPO / 'tool' / 'data' / 'curves'                                    # bundled (deploy)
 CURVE_EXT    = pathlib.Path('C:/Users/Unipa/Documents/GEE/Data/Curve aree-volumi')  # local fallback
@@ -70,8 +69,6 @@ RESERVOIRS = {
 
 # ── DEM ────────────────────────────────────────────────────────────────────────
 def dem_file(name, period):
-    if period == 'Planet':
-        return PLANET_DIR / f'dem_{name}_Planet.tif'
     return DEM_DIR / f'dem_{name}_{period}.tif'
 
 def has_period(name, period):
@@ -104,9 +101,8 @@ def topobathy(name, period):
     the 3D view: our bathymetry below the max shoreline, real terrain above it. The two
     are joined at the shoreline by a single vertical offset (terrain median at the rim
     aligned to the reconstructed max water level), so no geoid/datum conversion is
-    needed. The period DEM is reprojected onto the terrain grid, so it works for the
-    10 m SAR periods and the 3 m PlanetScope one alike. Returns dict(arr, bounds, maxwl,
-    floor) on the buffered terrain grid, or None if the terrain tile is missing.
+    needed. The DEM is reprojected onto the terrain grid. Returns dict(arr, bounds,
+    maxwl, floor) on the buffered terrain grid, or None if the terrain tile is missing.
     Display-only — never used for AEV or the download."""
     d = load_dem(name, period)
     tfp = TERRAIN_DIR / f'terrain_{name}.tif'
@@ -118,7 +114,7 @@ def topobathy(name, period):
     if not np.isfinite(T).all():                       # gap-free terrain (no ragged edge)
         fin = np.isfinite(T); _, idx = distance_transform_edt(~fin, return_indices=True)
         T = T[tuple(idx)]
-    # reproject the DEM onto the terrain grid (handles SAR 10 m and Planet 3 m)
+    # reproject the 10 m SAR DEM onto the terrain grid
     Dg = np.full(T.shape, np.nan)
     reproject(d['arr'], Dg, src_transform=d['transform'], src_crs='EPSG:32633',
               dst_transform=Ttf, dst_crs='EPSG:32633',
@@ -135,11 +131,11 @@ def topobathy(name, period):
 
 
 def vertical_range(name):
-    """Common elevation window across the reconstructions (A/B/Planet) so the 3D views
-    share one z-scale and are directly comparable, plus the terrain top. Returns
-    (basin_lo, basin_hi, terrain_hi) or None."""
+    """Common elevation window across both water-level modes (gauge+SWOT-fallback and
+    SWOT-only) so the 3D views share one z-scale and are directly comparable, plus the
+    terrain top. Returns (basin_lo, basin_hi, terrain_hi) or None."""
     los, his = [], []
-    for p in ('A', 'B', 'Planet'):
+    for p in ('B', 'B_swotonly'):
         d = load_dem(name, p)
         if d is not None:
             los.append(d['floor']); his.append(d['top'])
@@ -207,9 +203,15 @@ def deepzone_split(name, period='B'):
     v_top = float(vol_i(d['top']))
     if v_top <= 0:
         return None
-    band_pct = 100 * (v_top - v_floor) / v_top
+    raw_pct = 100 * (v_top - v_floor) / v_top
+    # Where the design curve's lowest tabulated quota sits ABOVE the DEM floor, v_floor is
+    # reached only by extrapolation and the raw share exceeds 100% (Ancipa). That is a
+    # design-curve artifact rather than a real deep zone, so cap it and flag it, matching
+    # how Table tab:capacity reports the same number in the paper.
+    capped = raw_pct > 100
     return dict(floor=d['floor'], deep_min=float(vol_i.x.min()),
-                band_pct=band_pct, deepzone_pct=100 - band_pct)
+                band_pct=min(raw_pct, 100.0),
+                deepzone_pct=max(100 - raw_pct, 0.0), capped=capped)
 
 
 def updated_curve(name):
@@ -298,6 +300,14 @@ def updated_curve(name):
         return (interp1d(u.quota_m, u.area_m2 / 1e4, bounds_error=False, fill_value='extrapolate'),
                 interp1d(u.quota_m, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate'))
     if kind in EXT_CURVE_SPEC:
+        # Bundled CSV first (tool/bundle_curves.py extracts it from the workbook below
+        # with this same spec) -- NEWCURVE_EXT is a local path that does not exist on the
+        # deployed app, which previously left these four reservoirs with no curve at all.
+        b = CURVE_BUNDLE / f'updated_{kind}.csv'
+        if b.exists():
+            u = pd.read_csv(b)
+            return (interp1d(u.quota_m, u.area_m2 / 1e4, bounds_error=False, fill_value='extrapolate'),
+                    interp1d(u.quota_m, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate'))
         pat, sheet, blocks = EXT_CURVE_SPEC[kind]
         hits = [h for h in glob.glob(str(NEWCURVE_EXT / pat))
                 if h.lower().endswith(('.xls', '.xlsx'))]
@@ -314,20 +324,6 @@ def updated_curve(name):
         return (interp1d(u.quota, u.area_m2 / 1e4, bounds_error=False, fill_value='extrapolate'),
                 interp1d(u.quota, u.vol_m3 / 1e6, bounds_error=False, fill_value='extrapolate'))
     return None
-
-
-# ── Change map (A vs B = sedimentation proxy) ──────────────────────────────────
-def change_map(name):
-    """DEM_B - DEM_A over the co-observed range, or None if Period A absent."""
-    A = load_dem(name, 'A')
-    B = load_dem(name, 'B')
-    if A is None or B is None or A['arr'].shape != B['arr'].shape:
-        return None
-    both = A['mask'] & B['mask']
-    lo = max(A['floor'], B['floor'])
-    zone = both & (A['arr'] >= lo) & (B['arr'] >= lo)   # restrict to co-observed elevations
-    diff = np.where(zone, B['arr'] - A['arr'], np.nan)
-    return dict(diff=diff, zone=zone, lo=lo, bounds=B['bounds'])
 
 
 # ── Consolidated capacity-change numbers (band-relative + total) ───────────────

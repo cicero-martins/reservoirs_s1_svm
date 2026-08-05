@@ -2,9 +2,9 @@
 Reservoir SAR Bathymetry Explorer — Paper-2 tool (Streamlit MVP)
 
 Interactive explorer over the SAR-waterline reconstructed bathymetry of all 9
-validated Sicilian reservoirs: pick a reservoir + period, view the 2D depth map,
-3D surface, area-elevation-volume (AEV) curves against the design & updated-survey
-references, the A-vs-B sedimentation change map, and download the DEM GeoTIFF.
+validated Sicilian reservoirs: pick a reservoir, view the 2D depth map, 3D surface,
+area-elevation-volume (AEV) curves against the design & updated-survey references,
+and download the DEM GeoTIFF.
 
 Run:  streamlit run tool/app.py
 Scope (MVP): explorer over the already-reconstructed DEMs. Live Earth-Engine
@@ -55,8 +55,8 @@ def _topo_colorscale(zmin, zmax, nmax):
 
 def _scene3d(x, y, zlo, zhi, z_exag):
     """A plotly 3D scene with a true horizontal aspect and the z-axis fixed to the common
-    [zlo, zhi] window (so A/B/Planet share one scale). The vertical relief is the real
-    terrain scale multiplied by z_exag — no hidden per-view exaggeration."""
+    [zlo, zhi] window (so both water-level modes share one scale). The vertical relief is
+    the real terrain scale multiplied by z_exag — no hidden per-view exaggeration."""
     x_m = float(abs(x[-1] - x[0])); y_m = float(abs(y[-1] - y[0])); D = max(x_m, y_m, 1e-6)
     az = (max(zhi - zlo, 1e-6) / D) * z_exag
     return dict(aspectmode='manual', aspectratio=dict(x=x_m / D, y=y_m / D, z=az),
@@ -84,10 +84,6 @@ def ap_band(ap):
 @st.cache_data(show_spinner=False)
 def get_dem(name, period):
     return bt.load_dem(name, period)
-
-@st.cache_data(show_spinner=False)
-def get_change(name):
-    return bt.change_map(name)
 
 @st.cache_data(show_spinner=False)
 def get_capacity(name, period='B'):
@@ -140,12 +136,12 @@ INTRO_SLIDES = [
         title='Results',
         image=INTRO_DIR / 'dem_result.gif',
         body=[
-            "Across 9 Sicilian reservoirs, reconstructed capacity change is consistent with "
-            "independent references — echo-sounder survey, updated design curves, "
-            "PlanetScope optical imagery, and SWOT altimetry — within a few percent bias.",
+            "Across 9 Sicilian reservoirs, the reconstruction reproduces a December-2025 "
+            "echo-sounder survey to **2.7 m RMSE**, and recovers **94%** of the storage loss "
+            "measured by that survey.",
             "Because the satellite record only ever observes the drawdown-exposed band, each "
-            "reconstruction covers a **fraction of total design volume**: 39–87% across the "
-            "9 reservoirs (mean ≈ 70%), depending on drawdown amplitude and basin slope.",
+            "reconstruction covers a **fraction of total design volume**: 39–92% across the "
+            "9 reservoirs (mean ≈ 71%), depending on drawdown amplitude and basin slope.",
             "The residual deep pool below the lowest observed waterline is extrapolated from "
             "the design curve's low-elevation branch and displayed as a distinct, dashed "
             "**estimate** — not a measurement.",
@@ -205,21 +201,16 @@ st.sidebar.title('SAR Bathymetry Explorer')
 st.sidebar.caption('SAR-waterline reservoir bathymetry · Sicily')
 name = st.sidebar.selectbox('Reservoir', list(bt.RESERVOIRS.keys()), index=3)
 cfg = bt.RESERVOIRS[name]
-PLABEL = {'B': 'B — 2022–2026', 'A': 'A — 2014–2016', 'Planet': 'PlanetScope (optical, 3 m)'}
-periods = ['B', 'A']  # PlanetScope reconstruction hidden for now (confusing in demos)
-period = st.sidebar.radio('Reconstruction', periods,
-                          format_func=lambda p: PLABEL[p], horizontal=True)
 
-# Gauge+SWOT-fallback (production) vs full-remote-sensing (FRS, SWOT-only, no gauge
-# anywhere in the chain) -- only meaningful for Period B, and only where build_frs_dem.py
-# has produced a dem_{name}_B_swotonly.tif for this reservoir.
-dem_period = period
-if period == 'B' and bt.has_period(name, 'B_swotonly'):
+# Gauge+SWOT-fallback vs full-remote-sensing (FRS, SWOT-only, no gauge anywhere in the
+# chain), available wherever build_frs_dem.py has produced a dem_{name}_B_swotonly.tif.
+dem_period = 'B'
+if bt.has_period(name, 'B_swotonly'):
     method = st.sidebar.radio(
         'Water-level source', ['Gauge + SWOT-fallback', 'Full remote sensing (SWOT-only)'],
         horizontal=True,
-        help='Gauge + SWOT-fallback is the production reconstruction used elsewhere in the '
-             'paper (gauge primary, SWOT substituted only in documented malfunction windows). '
+        help='Gauge + SWOT-fallback is the reconstruction used elsewhere in the paper '
+             '(gauge primary, SWOT substituted only in documented malfunction windows). '
              'Full remote sensing uses SWOT altimetry alone, with no gauge anywhere in the '
              'chain, to test how much of the reconstruction survives without any in-situ input.')
     if method.startswith('Full'):
@@ -240,24 +231,21 @@ st.sidebar.markdown(f"**A/P** = {cfg['ap']:.0f} m &nbsp; "
 st.sidebar.caption(cfg['notes'])
 
 dem = get_dem(name, dem_period)
-dem_label = 'PlanetScope DEM' if period == 'Planet' else 'SAR DEM'
+dem_label = 'SAR DEM'
 title_suffix = ' (full remote sensing, SWOT-only)' if dem_period == 'B_swotonly' else ''
-st.title(f'{name} — {PLABEL[period]}{title_suffix}')
-if period == 'Planet':
-    st.caption('Optical reconstruction (PlanetScope 3 m NDWI waterlines) — an independent '
-               'cross-check of the SAR (Period B) reconstruction.')
-elif dem_period == 'B_swotonly':
+st.title(f'{name} — 2022–2026{title_suffix}')
+if dem_period == 'B_swotonly':
     st.caption('Full-remote-sensing reconstruction: water levels from SWOT altimetry alone, '
                'no gauge anywhere in the chain — an independent test of the gauge+SWOT-fallback '
                'reconstruction shown in the other mode.')
 
 if dem is None:
-    st.warning(f'No reconstructed DEM found for {name} (Period {period}). '
+    st.warning(f'No reconstructed DEM found for {name}. '
                f'Expected {bt.dem_file(name, dem_period)}.')
     st.stop()
 
 # ── Metrics row ─────────────────────────────────────────────────────────────────
-cap = get_capacity(name, dem_period) if period == 'B' else None
+cap = get_capacity(name, dem_period)
 c1, c2, c3, c4 = st.columns(4)
 c1.metric('Observable floor', f"{dem['floor']:.1f} m")
 c2.metric('Max reconstructed WL', f"{dem['top']:.1f} m")
@@ -281,7 +269,7 @@ b = dem['bounds']
 xs = np.linspace(b.left, b.right, dem['arr'].shape[1])
 ys = np.linspace(b.top, b.bottom, dem['arr'].shape[0])
 
-tab2d, tab3d, tabaev, tabchg = st.tabs(['2D depth map', '3D surface', 'AEV curves', 'A-vs-B change'])
+tab2d, tab3d, tabaev = st.tabs(['2D depth map', '3D surface', 'AEV curves'])
 
 with tab2d:
     fig = go.Figure(go.Heatmap(
@@ -296,14 +284,13 @@ with tab3d:
     tb = get_topobathy(name, dem_period) if bt.has_terrain(name) else None
     if tb is not None:
         # Continuous topo-bathymetry grid (bathymetry below the shoreline, real GLO-30
-        # terrain above); gap-free, so no ragged edge / sawtooth in either mode. Works
-        # for the 10 m SAR periods and the 3 m PlanetScope one (reprojected onto it).
+        # terrain above); gap-free, so no ragged edge / sawtooth in either mode.
         a, tbounds, nmax = tb['arr'], tb['bounds'], tb['maxwl']
         x3 = np.linspace(tbounds.left, tbounds.right, a.shape[1])
         y3 = np.linspace(tbounds.top, tbounds.bottom, a.shape[0])
     else:
         a, x3, y3, nmax = _closed_surface(dem['arr']), xs, ys, dem['top']
-    # one common elevation window across A/B/Planet, so the periods are comparable
+    # one common elevation window across both water-level modes, so they are comparable
     vr = get_vrange(name)
     zlo, basin_hi, terr_hi = vr if vr else (float(np.nanmin(a)), nmax, float(np.nanmax(a)))
     zhi = terr_hi if (show_terrain and tb is not None) else basin_hi   # basin view clips terrain
@@ -387,41 +374,16 @@ with tabaev:
     if dc is None:
         st.info('Design/updated curves are external files not found on this machine — '
                 'showing the SAR DEM only. (Bundle the curves for deployment.)')
+    elif dz and dz.get('capped'):
+        st.caption("Observable band ≈ **100%** of this reservoir's total design-curve "
+                   "volume. The design curve's lowest tabulated level sits above the "
+                   "reconstruction's floor, so the share cannot be resolved any further — "
+                   "a limitation of the design curve, not a measured deep zone.")
     elif dz:
         st.caption(f"Observable band ≈ **{dz['band_pct']:.0f}%** of this reservoir's total "
                    f"design-curve volume; the dotted extension below the DEM floor "
                    f"({dz['deepzone_pct']:.0f}%) is an estimate from the design curve's own "
                    f"low-elevation geometry, not a SAR observation.")
-
-with tabchg:
-    chg = get_change(name)
-    B = get_dem(name, 'B')
-    if chg is None or B is None:
-        st.info(f'A-vs-B change map needs both Period-A and Period-B DEMs for {name}.')
-    else:
-        # 3D of the most recent (Period-B) basin, coloured by the B−A elevation change.
-        surf = _closed_surface(B['arr'])
-        diff = np.where(np.isfinite(chg['diff']), chg['diff'], 0.0)   # neutral where unobserved
-        b = B['bounds']
-        xB = np.linspace(b.left, b.right, surf.shape[1]); yB = np.linspace(b.top, b.bottom, surf.shape[0])
-        f = downsample
-        H2, W2 = (surf.shape[0] // f) * f, (surf.shape[1] // f) * f
-        zc = surf[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))
-        dc = diff[:H2, :W2].reshape(H2 // f, f, W2 // f, f).mean(axis=(1, 3))
-        xd = xB[:W2].reshape(W2 // f, f).mean(1); yd = yB[:H2].reshape(H2 // f, f).mean(1)
-        vmax = float(np.nanpercentile(np.abs(chg['diff']), 95)) or 1.0
-        vr = get_vrange(name)
-        zlo, basin_hi = (vr[0], vr[1]) if vr else (B['floor'], B['top'])
-        fig = go.Figure(go.Surface(
-            z=zc, x=xd, y=yd, surfacecolor=dc, colorscale='RdBu_r', cmid=0, cmin=-vmax, cmax=vmax,
-            colorbar=dict(title='B−A (m)'), hovertemplate='%{surfacecolor:+.2f} m<extra></extra>',
-            lighting=_FLAT_LIGHTING, lightposition=_FLAT_LIGHTPOS))
-        fig.update_layout(height=620, margin=dict(l=0, r=0, t=10, b=0),
-                          scene=_scene3d(xd, yd, zlo, basin_hi, z_exag))
-        st.plotly_chart(fig, width='stretch')
-        st.caption('Period-B bathymetry in 3D, coloured by the B − A elevation change '
-                   f"over the co-observed band (≥ {chg['lo']:.1f} m). Red = higher lakebed "
-                   'in Period B = net deposition (sedimentation proxy); blue = deepening.')
 
 # ── Download ────────────────────────────────────────────────────────────────────
 with open(bt.dem_file(name, dem_period), 'rb') as fh:
